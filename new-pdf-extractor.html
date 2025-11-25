@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tax Data Extractor (GST & Income Tax)</title>
+    <title>Tax Data Extractor (GST, Income Tax & Bank)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load PDF.js library -->
     <script
@@ -72,6 +72,7 @@
         rawText: "", // Combined raw text for debugging
         isResultVisible: false,
         isDragging: false,
+        isTableVisible: true, // New state for toggle
       });
 
       // --- Logic & Helpers ---
@@ -123,6 +124,39 @@
 
       // --- PDF Processing ---
 
+      // Function to extract text from ALL pages of the PDF
+      async function extractAllPdfText(file) {
+        const fileReader = new FileReader();
+        return new Promise((resolve, reject) => {
+          fileReader.onload = async function () {
+            const typedarray = new Uint8Array(this.result);
+            try {
+              const pdf = await pdfjsLib.getDocument({
+                data: typedarray,
+              }).promise;
+              let fullText = "";
+
+              // Iterate through all pages
+              for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                // Join text content from this page, add a space to separate words across pages/lines
+                fullText += textContent.items.map((item) =>
+                  item.str
+                ).join(" ") + " ";
+              }
+
+              resolve(fullText);
+            } catch (error) {
+              reject(new Error(`Could not parse PDF ${file.name}.`));
+            }
+          };
+          fileReader.onerror = () =>
+            reject(new Error("Error reading file."));
+          fileReader.readAsArrayBuffer(file);
+        });
+      }
+
       async function processFiles(fileList) {
         if (!fileList || fileList.length === 0) {
           store.fileSummary = "";
@@ -140,6 +174,7 @@
         store.isResultVisible = false;
         store.rawText = "";
         store.allRows = [];
+        store.isTableVisible = true; // Show table by default when new files are processed
 
         let successCount = 0;
 
@@ -148,19 +183,25 @@
           for (let i = 0; i < count; i++) {
             const file = fileList[i];
             if (file.type !== "application/pdf") {
-              continue; // Skip non-pdfs
+              console.log(`Skipping file: ${file.name} (Not a PDF)`); // DEBUG: Skipping non-PDFs
+              continue;
             }
 
             setStatus(
               `Processing ${i + 1} of ${count}: ${file.name}...`,
               "info",
             );
+            console.log(`Starting processing for: ${file.name}`); // DEBUG: File start
 
-            let rawText = await getPdfText(file);
+            let rawText = await extractAllPdfText(file);
 
             // 1. GLOBAL PRE-PROCESSING: Replace triple spaces with single space
-            // Using regex with global flag to replace all occurrences
             rawText = rawText.replace(/   /g, " ");
+            console.log(
+              `Raw text extracted (first 200 chars): ${
+                rawText.substring(0, 200)
+              }...`,
+            ); // DEBUG: Raw text check
 
             // Detect Document Type and Parse
             let parsedData = { allRows: [] };
@@ -169,6 +210,7 @@
             // Clean text for detection (remove excessive whitespace for checking keywords)
             const cleanCheckText = rawText.replace(/\s+/g, " ");
 
+            // Check for document types in order of specificity/preference
             if (
               cleanCheckText.includes(
                 "GOODS AND SERVICES TAX PAYMENT RECEIPT",
@@ -199,17 +241,38 @@
             ) {
               docType = "PT Challan";
               parsedData = parsePTChallanText(rawText);
+            } else if (cleanCheckText.includes("RBL BANK LTD")) {
+              docType = "RBL Bank Statement";
+              parsedData = parseRBLBankStatementText(rawText);
             } else if (
-              cleanCheckText.includes("Union Bank of India")
+              cleanCheckText.includes("Canara Bank does not")
             ) {
-              docType = "Union Bank of India Statement of Account";
-              parsedData = parsePTChallanText(rawText);
+              // Canara Bank detection
+              docType = "Canara Bank Statement";
+              parsedData = parseCanaraBankStatementText(rawText);
+            } else if (
+              cleanCheckText.includes("Union Bank of India") &&
+              cleanCheckText.includes("Statement of Account")
+            ) {
+              docType = "Union Bank Statement";
+              parsedData = parseUnionBankStatementText(rawText);
+            } else if (
+              cleanCheckText.includes("IDBI Bank or other authorities")
+            ) {
+              docType = "IDBI Bank Statement";
+              parsedData = parseIDBIBankStatementText(rawText);
             } else {
               // Fallback or skip
               store.rawText +=
                 `\n--- SOURCE: ${file.name} (Unknown Type) ---\n${rawText}\n`;
+              console.log(`Document type unknown for: ${file.name}`); // DEBUG: Unknown type
               continue;
             }
+
+            console.log(`Detected document type: ${docType}`); // DEBUG: Detected type
+            console.log(
+              `Parsed ${parsedData.allRows.length} data rows.`,
+            ); // DEBUG: Row count
 
             store.rawText +=
               `\n--- SOURCE: ${file.name} (${docType}) ---\n${rawText}\n`;
@@ -243,44 +306,26 @@
 
           if (store.allRows.length === 0) {
             setStatus(
-              "Processed files but found no recognized data (GST or Income Tax).",
+              "Processed files but found no recognized data.",
               "info",
             );
+            console.log(
+              "No recognized data found in any processed files.",
+            ); // DEBUG: No data
           } else {
             setStatus(
               `Successfully processed ${successCount} files!`,
               "success",
             );
+            console.log(
+              `Finished processing. Total success count: ${successCount}`,
+            ); // DEBUG: Success
           }
         } catch (error) {
           console.error(error);
           setStatus(`Error: ${error.message}`, "error");
           store.isResultVisible = true;
         }
-      }
-
-      async function getPdfText(file) {
-        const fileReader = new FileReader();
-        return new Promise((resolve, reject) => {
-          fileReader.onload = async function () {
-            const typedarray = new Uint8Array(this.result);
-            try {
-              const pdf = await pdfjsLib.getDocument({
-                data: typedarray,
-              }).promise;
-              const page = await pdf.getPage(1);
-              const textContent = await page.getTextContent();
-              const fullText = textContent.items.map((item) => item.str)
-                .join(" ");
-              resolve(fullText);
-            } catch (error) {
-              reject(new Error(`Could not parse PDF ${file.name}.`));
-            }
-          };
-          fileReader.onerror = () =>
-            reject(new Error("Error reading file."));
-          fileReader.readAsArrayBuffer(file);
-        });
       }
 
       // --- Parser 1: GST Challan ---
@@ -448,8 +493,7 @@
 
       // --- Parser 3: Income Tax Challan ---
       function parseIncomeTaxChallanText(rawText) {
-        // Regex as requested
-        // Using slightly loose whitespace (\s+) in the middle to be robust after the replaceAll
+        // Regex for Income Tax Challan
         const regex =
           /Nature of Payment : (?<sectionNo>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<amt>\d[\d,.]*).*(?<depositDate>\d\d\-\s?\w{3}-\d{4})/g;
 
@@ -457,9 +501,9 @@
 
         // Column names from regex capture groups: sectionNo, amt, depositDate
         const headers = [
-          "sectionNo",
-          "amt",
-          "depositDate",
+          "Section No",
+          "Amount (Rs.)",
+          "Deposit Date",
           "",
           "",
           "",
@@ -471,7 +515,7 @@
           return [
             g.sectionNo,
             g.amt,
-            g.depositDate,
+            g.depositDate.replace(/\s/g, ""), // Remove potential spaces in date
             "",
             "",
             "",
@@ -569,72 +613,330 @@
         return { allRows };
       }
 
-      // --- Parser 5: Union Bank of India Statement of Account ---
-      function parseUBIStatementOfAccountText(rawText) {
-        // Metadata
-        const metadataSpecs = [
-          {
-            name: "GSTIN",
-            regex: /GSTIN\s+of\s+the\s+supplier\s+(\w+)/,
-          },
-          {
-            name: "Name",
-            regex:
-              /Legal\s+name\s+of\s+the\s+registered\s+person\s+(.*)\s+2\(b\)/,
-          },
-          {
-            name: "Year and Period",
-            regex: /Year\s+(.*)\s+Period\s+(\w+)/,
-          },
+      // --- Parser 6: Union Bank Statement ---
+      function parseUnionBankStatementText(rawText) {
+        // 1. Metadata Extraction
+        const nameMatch = rawText.match(
+          /Statement of Account\s+(?<name>.*?)\s+.* Account No/i,
+        );
+        const accountMatch = rawText.match(
+          /Account No\s+(?<accountNo>\d+)/i,
+        );
+
+        const metadataRows = [
+          [
+            "Account Holder Name",
+            nameMatch?.groups?.name?.trim() || "N/A",
+            "",
+            "",
+            "",
+            "",
+            "",
+          ],
+          [
+            "Account Number",
+            accountMatch?.groups?.accountNo || "N/A",
+            "",
+            "",
+            "",
+            "",
+            "",
+          ],
         ];
 
-        const getMetadataValue = (spec) => {
-          const m = rawText.match(spec.regex);
-          if (!m) return "";
-          if (spec.name === "Year and Period") {
-            return `Year: ${m[1]} Period: ${m[2]}`;
-          }
-          return m[1];
-        };
-
-        const metadataRows = metadataSpecs.map((spec) => {
-          return [
-            spec.name,
-            getMetadataValue(spec),
-            "",
-            "",
-            "",
-            "",
-            "",
-          ];
-        });
-
-        // Table Extraction
+        // 2. Transaction Table Extraction
+        // Regex: /(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d,]+\.\d\s?\d)\s+(?<bal>-?\s?[\d,]+\.\d\s?\d)/g
         const tableRegex =
-          /\([a-e]\s?\)\s+(.*?)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+/g;
+          /(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d,]+\.\d\s?\d)\s+(?<bal>-?\s?[\d,]+\.\d\s?\d)/g;
 
         const matches = [...rawText.matchAll(tableRegex)];
 
-        // Define Headers for GSTR-3B
+        // Define Headers for Union Bank Statement
         const headers = [
-          "Description",
-          "Taxable Value",
-          "IGST",
-          "CGST",
-          "SGST/UTGST",
-          "Cess",
+          "Date",
+          "Particulars/Description",
+          "Amount",
+          "Balance",
+          "",
+          "",
           "",
         ];
 
         const dataRows = matches.map((m) => {
+          const g = m.groups;
           return [
-            m[1].trim(), // Description
-            m[2], // Taxable
-            m[3], // IGST
-            m[4], // CGST
-            m[5], // SGST
-            m[6], // Cess
-            "", // Empty 7th column
+            g.date,
+            g.particulars.trim(),
+            // Clean the amounts by removing any spaces that might be captured due to the flexible regex
+            g.amt.replace(/\s/g, ""),
+            g.bal.replace(/\s/g, ""),
+            "",
+            "",
+            "", // Pad to 7 columns
+          ];
+        });
+
+        const allRows = [
+          ...metadataRows,
+          headers,
+          ...dataRows,
+        ];
+
+        return { allRows };
+      }
+
+      // --- Parser 7: Canara Bank Statement ---
+      function parseCanaraBankStatementText(rawText) {
+        // 1. Metadata Extraction
+        // Regex: /Account Number (?<accountNo>\d+).* Opening Balance Rs. (?<opBal>-?[\d,]+\.\d\d)  Closing Balance Rs. (?<closeBal>-?[\d,]+\.\d\d)/
+        const metadataRegex =
+          /Account Number (?<accountNo>\d+).* Opening Balance Rs\. (?<opBal>-?[\d,]+\.\d\d)\s+Closing Balance Rs\. (?<closeBal>-?[\d,]+\.\d\d)/s;
+        const metadataMatch = rawText.match(metadataRegex);
+
+        const metadataRows = [
+          [
+            "Account Number",
+            metadataMatch?.groups?.accountNo || "N/A",
+            "",
+            "",
+            "",
+            "",
+            "",
+          ],
+          [
+            "Opening Balance",
+            metadataMatch?.groups?.opBal || "N/A",
+            "",
+            "",
+            "",
+            "",
+            "",
+          ],
+          [
+            "Closing Balance",
+            metadataMatch?.groups?.closeBal || "N/A",
+            "",
+            "",
+            "",
+            "",
+            "",
+          ],
+        ];
+
+        // 2. Transaction Table Extraction
+        // Regex: \s\s(?<date>\d\d-\d\d-\d{4}) \d\d:\d\d:\d\d (.*?) (?<amt>[\d+,]+\.\d\d) (?<bal>-?[\d+,]+\.\d\d)
+        const tableRegex =
+          /\s\s(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d+,]+\.\d\d)\s+(?<bal>-?[\d+,]+\.\d\d)/g;
+
+        const matches = [...rawText.matchAll(tableRegex)];
+
+        // Define Headers for Canara Bank Statement
+        const headers = [
+          "Date",
+          "Particulars/Description",
+          "Amount",
+          "Balance",
+          "",
+          "",
+          "",
+        ];
+
+        const dataRows = matches.map((m) => {
+          const g = m.groups;
+          return [
+            g.date,
+            g.particulars.trim(),
+            g.amt.replace(/,/g, ""), // Clean commas from amount
+            g.bal.replace(/,/g, ""), // Clean commas from balance
+            "",
+            "",
+            "", // Pad to 7 columns
+          ];
+        });
+
+        const allRows = [
+          ...metadataRows,
+          headers,
+          ...dataRows,
+        ];
+
+        return { allRows };
+      }
+
+      // --- Parser 8: RBL Bank Statement ---
+      function parseRBLBankStatementText(rawText) {
+        // 1. Metadata Extraction (using dotAll flag 's')
+        const metadataRegex =
+          /Account Name: (?<AccName>.*?) Home Branch: .* in Account Number:\s+(?<AccountNo>\d+)\s+.* Opening Balance: ₹ (?<Opbal>[\d,]+\.\d{2})\s+Count Of Debit: \d+\s+Closing Balance: ₹ (?<ClBal>[\d,]+\.\d{2})/s;
+        const metadataMatch = rawText.match(metadataRegex);
+
+        const metadataRows = [
+          [
+            "Account Name",
+            metadataMatch?.groups?.AccName?.trim() || "N/A",
+            "",
+            "",
+            "",
+            "",
+            "",
+          ],
+          [
+            "Account Number",
+            metadataMatch?.groups?.AccountNo || "N/A",
+            "",
+            "",
+            "",
+            "",
+            "",
+          ],
+          [
+            "Opening Balance",
+            metadataMatch?.groups?.Opbal || "N/A",
+            "",
+            "",
+            "",
+            "",
+            "",
+          ],
+          [
+            "Closing Balance",
+            metadataMatch?.groups?.ClBal || "N/A",
+            "",
+            "",
+            "",
+            "",
+            "",
+          ],
+        ];
+
+        // 2. Preprocessing: Clear text before the transaction table header ("Value Date")
+        const tableHeaderStart = rawText.indexOf("Value Date");
+        let transactionText = rawText;
+
+        if (tableHeaderStart !== -1) {
+          // Find the start of the table block (usually begins with 'Date')
+          const dateHeaderIndex = rawText.indexOf("Date Value Date");
+          if (dateHeaderIndex !== -1) {
+            transactionText = rawText.substring(dateHeaderIndex);
+          } else {
+            // Fallback to searching from Value Date
+            transactionText = rawText.substring(tableHeaderStart);
+          }
+        }
+
+        // 3. Transaction Table Extraction
+        // Updated Regex: /(?<date>\d\d\/\d\d\/\d{4}) \d\d\/\d\d\/\d{4} (?<particular>.*?) (?<amt>[\d,]+\.\s?\d\s?\d) (?<bal>[\d,]+\s?\.\s?\d\s?\d)/g
+        const tableRegex = new RegExp(
+          /(?<date>\d\d\/\d\d\/\d{4})\s+\d\d\/\d\d\/\d{4}\s+(?<particular>.*?)\s+(?<amt>[\d,]+\.\s?\d\s?\d)\s+(?<bal>[\d,]+\s?\.\s?\d\s?\d)/g,
+        );
+
+        const matches = [...transactionText.matchAll(tableRegex)];
+
+        // Define Headers for RBL Bank Statement
+        const headers = [
+          "Date",
+          "Particulars/Description",
+          "Amount",
+          "Balance",
+          "",
+          "",
+          "",
+        ];
+
+        const dataRows = matches.map((m) => {
+          const g = m.groups;
+          return [
+            g.date,
+            g.particular.trim(),
+            // Clean the amounts (remove commas and spaces)
+            g.amt.replace(/,/g, "").replace(/\s/g, ""),
+            // Clean the balance (remove spaces)
+            g.bal.replace(/\s/g, ""),
+            "",
+            "",
+            "", // Pad to 7 columns
+          ];
+        });
+
+        const allRows = [
+          ...metadataRows,
+          headers,
+          ...dataRows,
+        ];
+
+        return { allRows };
+      }
+
+      // --- Parser 7: IDBI Bank Statement ---
+      function parseIDBIBankStatementText(rawText) {
+        console.log("Starting IDBI Bank parsing."); // DEBUG
+
+        // 1. Metadata Extraction (using dotAll flag 's')
+        // Regex: /^(?<Name>.*)  Address .* A\/C NO: (?<AccNo>\d+)/s
+        const metadataRegex =
+          /^(?<Name>.*?) Address .* A\/C NO: (?<AccNo>\d+)/s;
+        const metadataMatch = rawText.match(metadataRegex);
+
+        const metadataRows = [
+          [
+            "Account Name",
+            metadataMatch?.groups?.Name?.trim() || "N/A",
+            "",
+            "",
+            "",
+            "",
+            "",
+          ],
+          [
+            "Account Number",
+            metadataMatch?.groups?.AccNo || "N/A",
+            "",
+            "",
+            "",
+            "",
+            "",
+          ],
+        ];
+
+        console.log("IDBI Metadata:", metadataRows); // DEBUG
+
+        // 2. Transaction Table Extraction
+        // Regex: (?<date>\d\d\/\d\d\/\d{4}) (.*?) (Dr\.|Cr\.) \w{3} (?<Amt>[\d,]+\.\d{2}) \d\d\/\d\d\/\d{4} \d\d:\d\d:\d\d (?<serialNo>\d+) (?<Bal>-?[\d,]+\.\d{2})
+        // Note: The second capture group (.*?) holds the particulars/description.
+        const tableRegex = new RegExp(
+          /(?<date>\d\d\/\d\d\/\d{4})\s+(?<particular>.*?)\s+(?<type>Dr\.|Cr\.)\s+\w{3}\s+(?<Amt>[\d,]+\.\d{2})\s+\d\d\/\d\d\/\d{4}\s+\d\d:\d\d:\d\d\s+(?<serialNo>\d+)\s+(?<Bal>-?[\d,]+\.\d{2})/g,
+        );
+
+        // Run the regex over the raw text
+        const matches = [...rawText.matchAll(tableRegex)];
+
+        console.log(`IDBI found ${matches.length} transactions.`); // DEBUG
+
+        // Define Headers for IDBI Bank Statement
+        const headers = [
+          "Date",
+          "Particulars/Description",
+          "Type",
+          "Amount",
+          "Serial No",
+          "Balance",
+          "",
+        ];
+
+        const dataRows = matches.map((m) => {
+          const g = m.groups;
+
+          // Determine the actual amount based on Dr/Cr type
+          const amount = g.type === "Dr." ? `-${g.Amt}` : g.Amt;
+
+          return [
+            g.date,
+            g.particular.trim(),
+            g.type,
+            amount.replace(/,/g, ""), // Clean commas from amount
+            g.serialNo,
+            g.Bal.replace(/,/g, ""), // Clean commas from balance
+            "", // Pad to 7 columns
           ];
         });
 
@@ -705,7 +1007,10 @@
                     (firstCell === "Head" && row[1] === "Tax") ||
                     (firstCell === "Description" &&
                       row[1] === "Taxable Value") ||
-                    (firstCell === "sectionNo" && row[1] === "amt");
+                    (firstCell === "Section No" &&
+                      row[1] === "Amount (Rs.)") ||
+                    (firstCell === "Date" &&
+                      row[1] === "Particulars/Description");
 
                   let rowClass = "";
                   if (isSourceHeader) rowClass = "file-row";
@@ -742,15 +1047,39 @@
                   <span class="font-bold">Instructions:</span> Copy the table below
                   to paste into Excel.
                 </p>
-                <button
-                  @click="${copyTable}"
-                  class="w-full md:w-auto px-4 py-2 bg-green-500 text-white font-bold rounded-lg shadow hover:bg-green-600 transition duration-150"
-                >
-                  Copy All to Clipboard
-                </button>
+                <div class="flex space-x-4 w-full md:w-auto">
+                  <!-- Table Visibility Toggle -->
+                  <button
+                    @click="${() =>
+                      store.isTableVisible = !store.isTableVisible}"
+                    class="flex-shrink-0 w-full md:w-auto px-4 py-2 text-white font-bold rounded-lg shadow transition duration-150 ${() =>
+                      store.isTableVisible
+                        ? "bg-blue-500 hover:bg-blue-600"
+                        : "bg-gray-500 hover:bg-gray-600"}"
+                  >
+                    ${() =>
+                      store.isTableVisible
+                        ? "Hide Table"
+                        : "Show Table"}
+                  </button>
+                  <!-- Copy Button -->
+                  <button
+                    @click="${copyTable}"
+                    class="flex-shrink-0 w-full md:w-auto px-4 py-2 bg-green-500 text-white font-bold rounded-lg shadow hover:bg-green-600 transition duration-150"
+                  >
+                    Copy All to Clipboard
+                  </button>
+                </div>
               </div>
 
-              ${tableTemplate}
+              <!-- Conditional Table Rendering -->
+              ${() =>
+                store.isTableVisible ? tableTemplate : html`
+                  <div class="p-8 text-center text-gray-500 border rounded-lg bg-white">
+                    The extracted data table is currently hidden. Click the "Show Table"
+                    button above to view the data.
+                  </div>
+                `}
 
               <div class="mt-8">
                 <h3 class="text-xl font-medium text-gray-700 mb-2">
@@ -780,12 +1109,14 @@
           class="container mx-auto bg-white shadow-xl rounded-xl p-6 md:p-10"
         >
           <h1 class="text-3xl font-extrabold text-blue-800 mb-2">
-            Tax Data Extractor
+            Tax & Bank Data Extractor
           </h1>
           <p class="text-gray-600 mb-6">
             Supports <strong>GST Receipts</strong>, <strong>GSTR-3B</strong>,
-            <strong>PF Payment Receipts</strong>,<strong>PF Challan</strong>,
-            and <strong>Income Tax Challans</strong>.
+            <strong>TDS Challans</strong>, <strong>PF Receipts</strong>,<strong
+            >PT challans</strong>, <strong>Union Bank</strong>,
+            <strong>Canara Bank</strong>, <strong>RBL Bank</strong>, and <strong
+            >IDBI Bank Statements</strong>.
             <br>Drag and drop multiple PDF files to process them in batch.
           </p>
 
