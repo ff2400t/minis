@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tax Data Extractor (GST & Income Tax)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load PDF.js library -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"
+    ></script>
+    <script>
+      // Set the workerSrc for PDF.js
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js";
+    </script>
+    <style>
+      /* Custom styles for better copy/paste experience on the output table */
+      #outputTable {
+        table-layout: fixed;
+        width: 100%;
+        border-collapse: collapse;
+        font-family:
+          ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+      }
+      #outputTable td {
+        border: 1px solid #e5e7eb;
+        padding: 8px;
+        text-align: left;
+        white-space: nowrap;
+      }
+      #outputTable tr:nth-child(even) {
+        background-color: #f9fafb;
+      }
+      /* Style for the header row specifically */
+      .header-row td {
+        background-color: #f3f4f6;
+        font-weight: bold;
+        color: #374151;
+      }
+      /* Style for file separator rows */
+      .file-row td {
+        background-color: #bfdbfe; /* Blue-200 */
+        font-weight: bold;
+        color: #1e3a8a;
+        border-top: 2px solid #3b82f6;
+      }
+      .container {
+        max-width: 1024px;
+      }
+      /* Drag and drop active state */
+      .drag-active {
+        border-color: #3b82f6 !important; /* blue-500 */
+        background-color: #eff6ff !important; /* blue-50 */
+        transform: scale(1.01);
+        transition: all 0.2s ease;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-50 p-4 md:p-8">
+    <div id="app"></div>
+
+    <script type="module">
+      import { html, reactive } from "https://esm.sh/@arrow-js/core";
+
+      // --- Reactive State ---
+      const store = reactive({
+        fileSummary: "",
+        status: { message: "", type: "" }, // type: 'error', 'success', 'info', ''
+        allRows: [], // Contains rows from ALL processed files
+        rawText: "", // Combined raw text for debugging
+        isResultVisible: false,
+        isDragging: false,
+      });
+
+      // --- Logic & Helpers ---
+
+      function setStatus(message, type = "info") {
+        store.status = { message, type };
+      }
+
+      function clearStatus() {
+        store.status = { message: "", type: "" };
+      }
+
+      // --- Drag and Drop Handlers ---
+
+      function handleDragOver(e) {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        store.isDragging = true;
+      }
+
+      function handleDragLeave(e) {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        store.isDragging = false;
+      }
+
+      function handleDrop(e) {
+        if (!e) return;
+        e.preventDefault();
+        e.stopPropagation();
+        store.isDragging = false;
+
+        const dt = e.dataTransfer;
+        const files = dt ? dt.files : null;
+
+        if (files && files.length > 0) {
+          processFiles(files);
+        }
+      }
+
+      function handleFileInput(e) {
+        const files = e.target.files;
+        processFiles(files);
+      }
+
+      // --- PDF Processing ---
+
+      async function processFiles(fileList) {
+        if (!fileList || fileList.length === 0) {
+          store.fileSummary = "";
+          store.isResultVisible = false;
+          clearStatus();
+          return;
+        }
+
+        const count = fileList.length;
+        store.fileSummary = count === 1
+          ? `File: ${fileList[0].name}`
+          : `${count} files selected`;
+
+        // Reset Output State
+        store.isResultVisible = false;
+        store.rawText = "";
+        store.allRows = [];
+
+        let successCount = 0;
+
+        try {
+          // Iterate through all files
+          for (let i = 0; i < count; i++) {
+            const file = fileList[i];
+            if (file.type !== "application/pdf") {
+              continue; // Skip non-pdfs
+            }
+
+            setStatus(
+              `Processing ${i + 1} of ${count}: ${file.name}...`,
+              "info",
+            );
+
+            let rawText = await getPdfText(file);
+
+            // 1. GLOBAL PRE-PROCESSING: Replace triple spaces with single space
+            // Using regex with global flag to replace all occurrences
+            rawText = rawText.replace(/   /g, " ");
+
+            // Detect Document Type and Parse
+            let parsedData = { allRows: [] };
+            let docType = "Unknown";
+
+            // Clean text for detection (remove excessive whitespace for checking keywords)
+            const cleanCheckText = rawText.replace(/\s+/g, " ");
+
+            if (
+              cleanCheckText.includes(
+                "GOODS AND SERVICES TAX PAYMENT RECEIPT",
+              )
+            ) {
+              docType = "GST Challan";
+              parsedData = parseChallanText(rawText);
+            } else if (
+              cleanCheckText.includes("Form GSTR-3B") ||
+              cleanCheckText.includes("See rule 61(5)")
+            ) {
+              docType = "GSTR-3B";
+              parsedData = parseGSTR3BText(rawText);
+            } else if (
+              cleanCheckText.includes("INCOME TAX DEPARTMENT") &&
+              cleanCheckText.includes("Challan Receipt")
+            ) {
+              docType = "Income Tax";
+              parsedData = parseIncomeTaxChallanText(rawText);
+            } else if (
+              cleanCheckText.includes("Payment Confirmation Receipt") &&
+              cleanCheckText.includes("TRRN No")
+            ) {
+              docType = "PF Receipts";
+              parsedData = parsePFPaymentReceiptsText(rawText);
+            } else if (
+              cleanCheckText.includes("CHALLAN MTR Form Number-6")
+            ) {
+              docType = "PT Challan";
+              parsedData = parsePTChallanText(rawText);
+            } else if (
+              cleanCheckText.includes("Union Bank of India")
+            ) {
+              docType = "Union Bank of India Statement of Account";
+              parsedData = parsePTChallanText(rawText);
+            } else {
+              // Fallback or skip
+              store.rawText +=
+                `\n--- SOURCE: ${file.name} (Unknown Type) ---\n${rawText}\n`;
+              continue;
+            }
+
+            store.rawText +=
+              `\n--- SOURCE: ${file.name} (${docType}) ---\n${rawText}\n`;
+
+            // --- Append to Main Table ---
+
+            // 1. Add visual separator/filename row
+            // We pad to a safe number of columns (7) to ensure grid integrity
+            const fileLabelRow = [
+              `Source:`,
+              file.name,
+              docType,
+              "",
+              "",
+              "",
+              "",
+            ];
+
+            // Add spacer if this isn't the first file
+            if (store.allRows.length > 0) {
+              store.allRows.push(["", "", "", "", "", "", ""]);
+            }
+
+            store.allRows.push(fileLabelRow);
+            store.allRows.push(...parsedData.allRows);
+
+            successCount++;
+          }
+
+          store.isResultVisible = true;
+
+          if (store.allRows.length === 0) {
+            setStatus(
+              "Processed files but found no recognized data (GST or Income Tax).",
+              "info",
+            );
+          } else {
+            setStatus(
+              `Successfully processed ${successCount} files!`,
+              "success",
+            );
+          }
+        } catch (error) {
+          console.error(error);
+          setStatus(`Error: ${error.message}`, "error");
+          store.isResultVisible = true;
+        }
+      }
+
+      async function getPdfText(file) {
+        const fileReader = new FileReader();
+        return new Promise((resolve, reject) => {
+          fileReader.onload = async function () {
+            const typedarray = new Uint8Array(this.result);
+            try {
+              const pdf = await pdfjsLib.getDocument({
+                data: typedarray,
+              }).promise;
+              const page = await pdf.getPage(1);
+              const textContent = await page.getTextContent();
+              const fullText = textContent.items.map((item) => item.str)
+                .join(" ");
+              resolve(fullText);
+            } catch (error) {
+              reject(new Error(`Could not parse PDF ${file.name}.`));
+            }
+          };
+          fileReader.onerror = () =>
+            reject(new Error("Error reading file."));
+          fileReader.readAsArrayBuffer(file);
+        });
+      }
+
+      // --- Parser 1: GST Challan ---
+      function parseChallanText(rawText) {
+        // Metadata
+        const metadataSpecs = [
+          { name: "Name", regex: /Name:\s+(.*)\s+Address/ },
+          { name: "GSTIN", regex: /GSTIN:\s+(\w+)/ },
+          { name: "Date", regex: /Date :\s+(\d\d\/\d\d\/\d{4})/ },
+          { name: "State", regex: /(\d+)\s+([^\d]+?)\s+SGST/ },
+        ];
+
+        const getMetadataValue = (spec) => {
+          const m = rawText.match(spec.regex);
+          if (!m) return "";
+          if (spec.name === "State") {
+            return `${m[1]} ${m[2]}`;
+          }
+          return m[1];
+        };
+
+        const metadataRows = metadataSpecs.map((spec) => {
+          return [
+            spec.name,
+            getMetadataValue(spec),
+            "",
+            "",
+            "",
+            "",
+            "",
+          ];
+        });
+
+        // Table
+        const tableRegex =
+          /(?<name>\w+)\(.*?\)\s+(?<tax>-|\d+)\s+(?<interest>-|\d+)\s+(?<penalty>-|\d+)\s+(?<fees>-|\d+)\s+(?<others>-|\d+)\s+(?<total>-|\d+)\s+/g;
+
+        const matches = [...rawText.matchAll(tableRegex)];
+        const headers = [
+          "Head",
+          "Tax",
+          "Interest",
+          "Penalty",
+          "Fees",
+          "Others",
+          "Total",
+        ];
+        const dataHeaderRow = headers;
+
+        const dataRows = matches.map((m) => {
+          const g = m.groups;
+          return [
+            g.name,
+            g.tax,
+            g.interest,
+            g.penalty,
+            g.fees,
+            g.others,
+            g.total,
+          ];
+        });
+
+        // Add Grand Total row if found
+        const totalMatch = rawText.match(/Total Amount\s+([\d,]+)/);
+        if (
+          totalMatch && !matches.find((m) => m.groups.name === "Total")
+        ) {
+          dataRows.push([
+            "Grand Total",
+            "-",
+            "-",
+            "-",
+            "-",
+            "-",
+            totalMatch[1].replace(/,/g, ""),
+          ]);
+        }
+
+        const allRows = [
+          ...metadataRows,
+          dataHeaderRow,
+          ...dataRows,
+        ];
+
+        return { allRows };
+      }
+
+      // --- Parser 2: GSTR-3B ---
+      function parseGSTR3BText(rawText) {
+        // Metadata
+        const metadataSpecs = [
+          {
+            name: "GSTIN",
+            regex: /GSTIN\s+of\s+the\s+supplier\s+(\w+)/,
+          },
+          {
+            name: "Name",
+            regex:
+              /Legal\s+name\s+of\s+the\s+registered\s+person\s+(.*)\s+2\(b\)/,
+          },
+          {
+            name: "Year and Period",
+            regex: /Year\s+(.*)\s+Period\s+(\w+)/,
+          },
+        ];
+
+        const getMetadataValue = (spec) => {
+          const m = rawText.match(spec.regex);
+          if (!m) return "";
+          if (spec.name === "Year and Period") {
+            return `Year: ${m[1]} Period: ${m[2]}`;
+          }
+          return m[1];
+        };
+
+        const metadataRows = metadataSpecs.map((spec) => {
+          return [
+            spec.name,
+            getMetadataValue(spec),
+            "",
+            "",
+            "",
+            "",
+            "",
+          ];
+        });
+
+        // Table Extraction
+        const tableRegex =
+          /\([a-e]\s?\)\s+(.*?)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+/g;
+
+        const matches = [...rawText.matchAll(tableRegex)];
+
+        // Define Headers for GSTR-3B
+        const headers = [
+          "Description",
+          "Taxable Value",
+          "IGST",
+          "CGST",
+          "SGST/UTGST",
+          "Cess",
+          "",
+        ];
+
+        const dataRows = matches.map((m) => {
+          return [
+            m[1].trim(), // Description
+            m[2], // Taxable
+            m[3], // IGST
+            m[4], // CGST
+            m[5], // SGST
+            m[6], // Cess
+            "", // Empty 7th column
+          ];
+        });
+
+        const allRows = [
+          ...metadataRows,
+          headers,
+          ...dataRows,
+        ];
+
+        return { allRows };
+      }
+
+      // --- Parser 3: Income Tax Challan ---
+      function parseIncomeTaxChallanText(rawText) {
+        // Regex as requested
+        // Using slightly loose whitespace (\s+) in the middle to be robust after the replaceAll
+        const regex =
+          /Nature of Payment : (?<sectionNo>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<amt>\d[\d,.]*).*(?<depositDate>\d\d\-\s?\w{3}-\d{4})/g;
+
+        const matches = [...rawText.matchAll(regex)];
+
+        // Column names from regex capture groups: sectionNo, amt, depositDate
+        const headers = [
+          "sectionNo",
+          "amt",
+          "depositDate",
+          "",
+          "",
+          "",
+          "",
+        ];
+
+        const dataRows = matches.map((m) => {
+          const g = m.groups;
+          return [
+            g.sectionNo,
+            g.amt,
+            g.depositDate,
+            "",
+            "",
+            "",
+            "", // Pad to 7 columns
+          ];
+        });
+
+        const allRows = [
+          headers,
+          ...dataRows,
+        ];
+
+        return { allRows };
+      }
+
+      // --- Parser 4: PF Payment Receipt  ---
+      function parsePFPaymentReceiptsText(rawText) {
+        // Regex as requested
+        // Using slightly loose whitespace (\s+) in the middle to be robust after the replaceAll
+        const regex =
+          /ID : (?<Name>.*) Establishment Name.*\s(?<WageMonth>\w+-\d{4}) Wage Month : (?<Amt>\d[\d,.]*).*Payment Date : (?<PaymentDate>\d{2}-\w+-\d{4})/g;
+
+        const matches = [...rawText.matchAll(regex)];
+
+        // Column names from regex capture groups: sectionNo, amt, depositDate
+        const headers = [
+          "Name",
+          "Month",
+          "Amount",
+          "Payment Date",
+          "",
+          "",
+          "",
+        ];
+
+        const dataRows = matches.map((m) => {
+          const g = m.groups;
+          return [
+            g.Name,
+            g.WageMonth,
+            g.Amt,
+            g.PaymentDate,
+            "",
+            "",
+            "", // Pad to 7 columns
+          ];
+        });
+
+        const allRows = [
+          headers,
+          ...dataRows,
+        ];
+
+        return { allRows };
+      }
+
+      // --- Parser 5: PF Challan ---
+      function parsePTChallanText(rawText) {
+        // Regex as requested
+        // Using slightly loose whitespace (\s+) in the middle to be robust after the replaceAll
+        const regex =
+          /Full Name (?<name>.*) Location.*From (?<period>.*) Flat.*TAX (?<amt>\d+\.\d{2}).*RBI Date (?<paymentDate>\d\d\/\d\d\/\d{4})/g;
+
+        const matches = [...rawText.matchAll(regex)];
+
+        // Column names from regex capture groups: sectionNo, amt, depositDate
+        const headers = [
+          "Name",
+          "period",
+          "Amount",
+          "Date",
+          "",
+          "",
+          "",
+        ];
+
+        const dataRows = matches.map((m) => {
+          const g = m.groups;
+          return [
+            g.name,
+            g.period,
+            g.amt,
+            g.paymentDate,
+            "",
+            "",
+            "", // Pad to 7 columns
+          ];
+        });
+
+        const allRows = [
+          headers,
+          ...dataRows,
+        ];
+
+        return { allRows };
+      }
+
+      // --- Parser 5: Union Bank of India Statement of Account ---
+      function parseUBIStatementOfAccountText(rawText) {
+        // Metadata
+        const metadataSpecs = [
+          {
+            name: "GSTIN",
+            regex: /GSTIN\s+of\s+the\s+supplier\s+(\w+)/,
+          },
+          {
+            name: "Name",
+            regex:
+              /Legal\s+name\s+of\s+the\s+registered\s+person\s+(.*)\s+2\(b\)/,
+          },
+          {
+            name: "Year and Period",
+            regex: /Year\s+(.*)\s+Period\s+(\w+)/,
+          },
+        ];
+
+        const getMetadataValue = (spec) => {
+          const m = rawText.match(spec.regex);
+          if (!m) return "";
+          if (spec.name === "Year and Period") {
+            return `Year: ${m[1]} Period: ${m[2]}`;
+          }
+          return m[1];
+        };
+
+        const metadataRows = metadataSpecs.map((spec) => {
+          return [
+            spec.name,
+            getMetadataValue(spec),
+            "",
+            "",
+            "",
+            "",
+            "",
+          ];
+        });
+
+        // Table Extraction
+        const tableRegex =
+          /\([a-e]\s?\)\s+(.*?)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+/g;
+
+        const matches = [...rawText.matchAll(tableRegex)];
+
+        // Define Headers for GSTR-3B
+        const headers = [
+          "Description",
+          "Taxable Value",
+          "IGST",
+          "CGST",
+          "SGST/UTGST",
+          "Cess",
+          "",
+        ];
+
+        const dataRows = matches.map((m) => {
+          return [
+            m[1].trim(), // Description
+            m[2], // Taxable
+            m[3], // IGST
+            m[4], // CGST
+            m[5], // SGST
+            m[6], // Cess
+            "", // Empty 7th column
+          ];
+        });
+
+        const allRows = [
+          ...metadataRows,
+          headers,
+          ...dataRows,
+        ];
+
+        return { allRows };
+      }
+
+      function copyTable() {
+        if (store.allRows.length === 0) return;
+
+        const tsvText = store.allRows.map((row) => row.join("\t")).join(
+          "\n",
+        );
+
+        const tempTextArea = document.createElement("textarea");
+        tempTextArea.style.position = "fixed";
+        tempTextArea.style.opacity = "0";
+        tempTextArea.value = tsvText;
+        document.body.appendChild(tempTextArea);
+        tempTextArea.select();
+
+        try {
+          document.execCommand("copy");
+          setStatus("All table data copied to clipboard!", "success");
+        } catch (err) {
+          setStatus("Manual copy required.", "error");
+        } finally {
+          document.body.removeChild(tempTextArea);
+          setTimeout(clearStatus, 3000);
+        }
+      }
+
+      // --- Templates ---
+
+      const statusTemplate = html`
+        ${() => {
+          if (!store.status.message) return "";
+          const baseClasses = "p-4 rounded-lg text-sm mb-6";
+          const typeClasses = store.status.type === "error"
+            ? "bg-red-100 text-red-800"
+            : store.status.type === "success"
+            ? "bg-green-100 text-green-800"
+            : "bg-blue-100 text-blue-800";
+          return html`
+            <div class="${baseClasses} ${typeClasses}" role="alert">${store
+              .status.message}</div>
+          `;
+        }}
+      `;
+
+      const tableTemplate = html`
+        <div class="overflow-x-auto border rounded-lg">
+          <table id="outputTable">
+            <tbody>
+              ${() =>
+                store.allRows.map((row, index) => {
+                  // Identify row types for styling
+                  const isSourceHeader = row[0] &&
+                    row[0].startsWith("Source:");
+                  // Heuristic for header rows based on first cell content
+                  const firstCell = row[0] || "";
+                  const isHeader =
+                    (firstCell === "Head" && row[1] === "Tax") ||
+                    (firstCell === "Description" &&
+                      row[1] === "Taxable Value") ||
+                    (firstCell === "sectionNo" && row[1] === "amt");
+
+                  let rowClass = "";
+                  if (isSourceHeader) rowClass = "file-row";
+                  else if (isHeader) rowClass = "header-row";
+
+                  return html`
+                    <tr class="${rowClass}">
+                      ${row.map((cell) =>
+                        html`
+                          <td>${cell}</td>
+                        `
+                      )}
+                    </tr>
+                  `;
+                })}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      const resultsTemplate = html`
+        ${() => {
+          if (!store.isResultVisible) return "";
+          return html`
+            <div>
+              <h2 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">
+                Extracted Data
+              </h2>
+
+              <div
+                class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg"
+              >
+                <p class="text-sm font-medium text-yellow-800 mb-3 md:mb-0">
+                  <span class="font-bold">Instructions:</span> Copy the table below
+                  to paste into Excel.
+                </p>
+                <button
+                  @click="${copyTable}"
+                  class="w-full md:w-auto px-4 py-2 bg-green-500 text-white font-bold rounded-lg shadow hover:bg-green-600 transition duration-150"
+                >
+                  Copy All to Clipboard
+                </button>
+              </div>
+
+              ${tableTemplate}
+
+              <div class="mt-8">
+                <h3 class="text-xl font-medium text-gray-700 mb-2">
+                  Raw Extracted Text (For Debugging)
+                </h3>
+                <pre
+                  class="bg-gray-100 p-4 rounded-lg text-xs overflow-auto max-h-64 border"
+                >${() => store.rawText}</pre>
+              </div>
+            </div>
+          `;
+        }}
+      `;
+
+      // Helper to generate class string safely
+      const dropZoneClass = () => {
+        const base =
+          "mb-8 p-10 border-2 border-dashed rounded-lg bg-blue-50 transition-all duration-200 flex flex-col items-center justify-center text-center cursor-pointer block";
+        const active = store.isDragging
+          ? "drag-active"
+          : "border-blue-300";
+        return `${base} ${active}`;
+      };
+
+      const mainTemplate = html`
+        <div
+          class="container mx-auto bg-white shadow-xl rounded-xl p-6 md:p-10"
+        >
+          <h1 class="text-3xl font-extrabold text-blue-800 mb-2">
+            Tax Data Extractor
+          </h1>
+          <p class="text-gray-600 mb-6">
+            Supports <strong>GST Receipts</strong>, <strong>GSTR-3B</strong>,
+            <strong>PF Payment Receipts</strong>,<strong>PF Challan</strong>,
+            and <strong>Income Tax Challans</strong>.
+            <br>Drag and drop multiple PDF files to process them in batch.
+          </p>
+
+          <!-- File Input / Drop Zone -->
+          <label
+            for="gstFileInput"
+            class="${dropZoneClass}"
+            @dragover="${(e) => handleDragOver(e)}"
+            @dragleave="${(e) => handleDragLeave(e)}"
+            @drop="${(e) => handleDrop(e)}"
+          >
+            <svg
+              class="w-12 h-12 text-blue-500 mb-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+              >
+              </path>
+            </svg>
+
+            <span
+              class="block text-lg font-medium text-blue-700 mb-2 cursor-pointer"
+            >
+              ${() =>
+                store.isDragging
+                  ? "Drop files here"
+                  : "Click to Upload or Drag & Drop"}
+            </span>
+
+            <span class="block text-sm text-gray-500 mb-4"
+            >PDF files only (Multiple allowed)</span>
+            <span class="block text-sm font-semibold text-blue-600"
+            >${() => store.fileSummary}</span>
+
+            <input
+              type="file"
+              id="gstFileInput"
+              @change="${handleFileInput}"
+              accept="application/pdf"
+              class="hidden"
+              multiple
+            >
+          </label>
+
+          ${statusTemplate} ${resultsTemplate}
+        </div>
+      `;
+
+      // Mount application
+      mainTemplate(document.getElementById("app"));
+    </script>
+  </body>
+</html>
