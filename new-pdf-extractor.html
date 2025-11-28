@@ -78,7 +78,6 @@
         isParserFormVisible: false,
         isConsolidatedVisible: false,
 
-        // Templates Modal State
         isTemplatesModalVisible: false,
         templatesText: "",
 
@@ -88,7 +87,7 @@
           matchString: "",
           metadataRegex: "",
           tableRegex: "",
-          configText: "", // For the raw paste input
+          configText: "",
         },
         passwordModal: {
           isOpen: false,
@@ -110,10 +109,267 @@
         store.status = { message, type };
       }
 
+      // --- CORE PARSING LOGIC ---
+
+      /**
+       * General Parser Function
+       * Adapts the extracted data into the { allRows, metadataFields } format required by the UI.
+       */
+      function generalDocumentParser(
+        text,
+        metadataRegex,
+        tableRegex,
+        fieldsToExtract,
+      ) {
+        let metadataRows = [];
+        let metadataFields = {};
+
+        // 1. Metadata Extraction
+        if (metadataRegex) {
+          try {
+            // Match regex against text. 's' flag is usually important for multiline metadata matching
+            const metaMatch = text.match(metadataRegex);
+
+            if (metaMatch && metaMatch.groups) {
+              for (
+                const [key, value] of Object.entries(metaMatch.groups)
+              ) {
+                const val = value ? value.trim() : "";
+                metadataFields[key] = val;
+                metadataRows.push([key, val, "", "", "", "", ""]);
+              }
+            } else if (metaMatch) {
+              // Fallback for unnamed groups (deprecated usage generally, but good fallback)
+              for (let i = 1; i < metaMatch.length; i++) {
+                const val = metaMatch[i] ? metaMatch[i].trim() : "";
+                const key = fieldsToExtract && fieldsToExtract[i - 1]
+                  ? fieldsToExtract[i - 1]
+                  : `Meta ${i}`;
+                metadataFields[key] = val;
+                metadataRows.push([key, val, "", "", "", "", ""]);
+              }
+            }
+          } catch (e) {
+            console.error("Metadata Regex Error", e);
+          }
+        }
+
+        // 2. Table Extraction
+        let headers = [];
+        let dataRows = [];
+
+        if (tableRegex) {
+          try {
+            const matches = [...text.matchAll(tableRegex)];
+            if (matches.length > 0) {
+              const firstMatch = matches[0];
+              if (firstMatch.groups) {
+                headers = Object.keys(firstMatch.groups).map((k) =>
+                  k.charAt(0).toUpperCase() +
+                  k.slice(1).replace(/_/g, " ")
+                );
+              } else {
+                headers = Array.from(
+                  { length: firstMatch.length - 1 },
+                  (_, i) => `Col ${i + 1}`,
+                );
+              }
+
+              // Ensure header is 7 cols for UI consistency
+              while (headers.length < 7) headers.push("");
+              if (headers.length > 7) headers = headers.slice(0, 7);
+
+              dataRows = matches.map((m) => {
+                let row = [];
+                if (m.groups) {
+                  row = Object.values(m.groups).map((val) =>
+                    val ? val.trim().replace(/,/g, "") : ""
+                  );
+                } else {row = m.slice(1).map((val) =>
+                    val ? val.trim().replace(/,/g, "") : ""
+                  );}
+
+                while (row.length < 7) row.push("");
+                return row.slice(0, 7);
+              });
+            }
+          } catch (e) {
+            console.error("Table Regex Error", e);
+          }
+        }
+
+        return {
+          allRows: [...metadataRows, headers, ...dataRows],
+          metadataFields,
+        };
+      }
+
+      // --- Specialized Parsers (Wrappers or Custom Logic) ---
+
+      function parseIDBIBankWrapper(text, metaRx, tableRx) {
+        // IDBI needs specific Dr/Cr logic that general parser doesn't handle natively
+        // We reuse the parsing logic style but implement specific processing
+        const metadataMatch = text.match(metaRx);
+        const metadataFields = {
+          "Account Name": metadataMatch?.groups?.Name?.trim() || "N/A",
+          "Account Number": metadataMatch?.groups?.AccNo || "N/A",
+        };
+        const metadataRows = Object.entries(metadataFields).map((
+          [k, v],
+        ) => [k, v, "", "", "", "", ""]);
+
+        const matches = [...text.matchAll(tableRx)];
+        const headers = [
+          "Date",
+          "Particulars/Description",
+          "Type",
+          "Amount",
+          "Serial No",
+          "Balance",
+          "",
+        ];
+        const dataRows = matches.map((m) => {
+          const g = m.groups;
+          const amount = g.type === "Dr." ? `-${g.Amt}` : g.Amt;
+          return [
+            g.date,
+            g.particular.trim(),
+            g.type,
+            amount.replace(/,/g, ""),
+            g.serialNo,
+            g.Bal.replace(/,/g, ""),
+            "",
+          ];
+        });
+        return {
+          allRows: [...metadataRows, headers, ...dataRows],
+          metadataFields,
+        };
+      }
+
+      function parseChallanWrapper(text, metaRx, tableRx) {
+        // GST Challan has specific row formatting requirements and "Grand Total" logic
+        // We use the regexes but apply custom logic for the rows
+
+        // Re-implementing logic using the regex passed in array
+        const metadataFields = {};
+        const metaMatch = text.match(metaRx);
+        if (metaMatch && metaMatch.groups) {
+          Object.assign(metadataFields, metaMatch.groups);
+          // Combine State parts if captured separately in the regex
+          if (
+            metaMatch.groups.StateCode && metaMatch.groups.StateName
+          ) {
+            metadataFields.State =
+              `${metaMatch.groups.StateCode} ${metaMatch.groups.StateName}`;
+            delete metadataFields.StateCode;
+            delete metadataFields.StateName;
+          }
+        }
+
+        const metadataRows = Object.entries(metadataFields).map((
+          [k, v],
+        ) => [k, v, "", "", "", "", ""]);
+        const matches = [...text.matchAll(tableRx)];
+        const headers = [
+          "Head",
+          "Tax",
+          "Interest",
+          "Penalty",
+          "Fees",
+          "Others",
+          "Total",
+        ];
+        const dataRows = matches.map(
+          (m) => [
+            m.groups.name,
+            m.groups.tax,
+            m.groups.interest,
+            m.groups.penalty,
+            m.groups.fees,
+            m.groups.others,
+            m.groups.total,
+          ],
+        );
+
+        const totalMatch = text.match(/Total Amount\s+([\d,]+)/);
+        if (
+          totalMatch && !matches.find((m) => m.groups.name === "Total")
+        ) {
+          dataRows.push([
+            "Grand Total",
+            "-",
+            "-",
+            "-",
+            "-",
+            "-",
+            totalMatch[1].replace(/,/g, ""),
+          ]);
+        }
+        return {
+          allRows: [...metadataRows, headers, ...dataRows],
+          metadataFields,
+        };
+      }
+
+      // --- BUILT-IN PARSERS CONFIGURATION ARRAY ---
+      const BUILT_IN_PARSERS = [
+        [
+          "GST Challan",
+          ["GOODS AND SERVICES TAX PAYMENT RECEIPT"],
+          // Complex regex to grab scattered metadata in one go using dotAll (s flag)
+          // Note: State logic combined into regex capture
+          /Name:\s+(?<Name>.*?)\s+Address.*?GSTIN:\s+(?<GSTIN>\w+).*?Date :\s+(?<Date>\d\d\/\d\d\/\d{4}).*?(?<StateCode>\d+)\s+(?<StateName>[^\d]+?)\s+SGST/s,
+          /(?<name>\w+)\(.*?\)\s+(?<tax>-|\d+)\s+(?<interest>-|\d+)\s+(?<penalty>-|\d+)\s+(?<fees>-|\d+)\s+(?<others>-|\d+)\s+(?<total>-|\d+)\s+/g,
+          parseChallanWrapper, // Uses specialized wrapper for Grand Total logic
+        ],
+        [
+          "GSTR-3B",
+          ["Form GSTR-3B", "See rule 61(5)"],
+          /Year (?<Year>[\d-]+)\s+Period\s+(.*)\s+GSTIN\s+of\s+the\s+supplier\s+(?<GSTIN>\w+)\s+2\(a\)\.\s+Legal\s+name\s+of\s+the\s+registered\s+person\s+(?<Name>.*)\s+2\(b\)/,
+          /\([a-e]\s?\) (?!and)(.*?) (\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+/g,
+          generalDocumentParser,
+        ],
+        [
+          "Income Tax",
+          ["INCOME TAX DEPARTMENT", "Challan Receipt"],
+          /Nature of Payment : (?<Section_No>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<Amount>\d[\d,.]*).*(?<Deposit_Date>\d\d\-\s?\w{3}-\d{4})/g, // Using table regex as metadata source since it's key-value like
+          /Nature of Payment : (?<sectionNo>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<amt>\d[\d,.]*).*(?<depositDate>\d\d\-\s?\w{3}-\d{4})/g,
+          generalDocumentParser,
+        ],
+        [
+          "Union Bank Statement",
+          ["Union Bank of India", "Statement of Account"],
+          /Statement of Account\s+(?<Account_Holder_Name>.*?)\s+.* Account No\s+(?<Account_Number>\d+)/is,
+          /(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d,]+\.\d\s?\d)\s+(?<bal>-?\s?[\d,]+\.\d\s?\d)/g,
+          generalDocumentParser,
+        ],
+        [
+          "Canara Bank Statement",
+          ["Canara Bank does not"],
+          /Account Number (?<Account_Number>\d+).* Opening Balance Rs\. (?<Opening_Balance>-?[\d,]+\.\d\d)\s+Closing Balance Rs\. (?<Closing_Balance>-?[\d,]+\.\d\d)/s,
+          /\s\s(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d+,]+\.\d\d)\s+(?<bal>-?[\d+,]+\.\d\d)/g,
+          generalDocumentParser,
+        ],
+        [
+          "RBL Bank Statement",
+          ["RBL BANK LTD"],
+          /Account Name: (?<Account_Name>.*?) Home Branch: .* in Account Number:\s+(?<Account_Number>\d+)\s+.* Opening Balance: ₹ (?<Opening_Balance>[\d,]+\.\d{2})\s+Count Of Debit: \d+\s+Closing Balance: ₹ (?<Closing_Balance>[\d,]+\.\d{2})/s,
+          /(?<date>\d\d\/\d\d\/\d{4})\s+\d\d\/\d\d\/\d{4}\s+(?<particular>.*?)\s+(?<amt>[\d,]+\.\s?\d\s?\d)\s+(?<bal>[\d,]+\s?\.\s?\d\s?\d)/g,
+          generalDocumentParser,
+        ],
+        [
+          "IDBI Bank Statement",
+          ["IDBI Bank or other authorities"],
+          /^(?<Name>.*?) Address .* A\/C NO: (?<AccNo>\d+)/s,
+          /(?<date>\d\d\/\d\d\/\d{4})\s+(?<particular>.*?)\s+(?<type>Dr\.|Cr\.)\s+\w{3}\s+(?<Amt>[\d,]+\.\d{2})\s+\d\d\/\d\d\/\d{4}\s+\d\d:\d\d:\d\d\s+(?<serialNo>\d+)\s+(?<Bal>-?[\d,]+\.\d{2})/g,
+          parseIDBIBankWrapper,
+        ],
+      ];
+
       // --- Custom Parser Logic ---
 
       function parseConfigBlock(text) {
-        // Helper to extract value between keys within a text block
         const getValue = (key, nextKeys) => {
           const regex = new RegExp(
             `${key}\\s*([\\s\\S]*?)(?=${nextKeys.join("|")}|$`,
@@ -143,7 +399,6 @@
         };
 
         const keys = ["Name:", "matchstring:", "Metadata:", "Table:"];
-
         const name = getValue(
           "Name:",
           keys.filter((k) => k !== "Name:"),
@@ -164,7 +419,6 @@
         return { name, matchString, metadataRegex, tableRegex };
       }
 
-      // Parse single block for the "Quick Import" field
       function parseConfigInput(text) {
         const data = parseConfigBlock(text);
         if (data.name) store.newParser.name = data.name;
@@ -200,10 +454,9 @@
           name,
           matchString: matchString.split(",").map((s) => s.trim()),
           metadataRegex,
-          tableRegex, // Can be empty
+          tableRegex,
         });
 
-        // Reset form
         store.newParser.name = "";
         store.newParser.matchString = "";
         store.newParser.metadataRegex = "";
@@ -221,10 +474,7 @@
         store.customParsers.splice(index, 1);
       }
 
-      // --- Templates Manager Logic ---
-
       function openTemplatesModal() {
-        // Generate text from current parsers
         const text = store.customParsers.map((p) => {
           return `Name: ${p.name}\nmatchstring: ${
             p.matchString.join(", ")
@@ -232,35 +482,24 @@
             p.tableRegex || ""
           }`;
         }).join("\n\n---\n\n");
-
         store.templatesText = text;
         store.isTemplatesModalVisible = true;
       }
 
       function saveTemplates() {
         const raw = store.templatesText;
-        // Split by separator or look for "Name:" start patterns
-        // We use a regex to split by Name: but capture the delimiter to reconstruct blocks
-        // Simpler: Split by double newline or separator if present
-
         let blocks = [];
         if (raw.includes("---")) {
           blocks = raw.split("---");
         } else {
-          // Fallback: heuristic split if user deleted separators
-          // We'll just assume they used at least double newlines between blocks
           blocks = raw.split(/\n\s*\n/);
         }
 
         const newParsers = [];
-
         for (const block of blocks) {
           const cleanBlock = block.trim();
           if (!cleanBlock) continue;
-
           const data = parseConfigBlock(cleanBlock);
-
-          // Basic validation
           if (data.name && data.matchString) {
             newParsers.push({
               name: data.name,
@@ -272,7 +511,6 @@
             });
           }
         }
-
         store.customParsers = newParsers;
         store.isTemplatesModalVisible = false;
         setStatus(
@@ -281,8 +519,6 @@
         );
       }
 
-      // --- Drag and Drop Handlers ---
-
       function handleDragOver(e) {
         if (e) {
           e.preventDefault();
@@ -290,7 +526,6 @@
         }
         store.isDragging = true;
       }
-
       function handleDragLeave(e) {
         if (e) {
           e.preventDefault();
@@ -298,7 +533,6 @@
         }
         store.isDragging = false;
       }
-
       function handleDrop(e) {
         if (!e) return;
         e.preventDefault();
@@ -308,12 +542,9 @@
         const files = dt ? dt.files : null;
         if (files && files.length > 0) processFiles(files);
       }
-
       function handleFileInput(e) {
         processFiles(e.target.files);
       }
-
-      // --- PDF Processing ---
 
       async function extractAllPdfText(file, password = "") {
         const fileReader = new FileReader();
@@ -464,8 +695,9 @@
             let docType = "Unknown";
             const cleanCheckText = rawText.replace(/\s+/g, " ");
 
-            // 1. Check CUSTOM Parsers First
-            let customParserFound = false;
+            let parserFound = false;
+
+            // 1. Check CUSTOM Parsers
             for (const parser of store.customParsers) {
               const isMatch = parser.matchString.some((s) =>
                 cleanCheckText.includes(s)
@@ -473,58 +705,34 @@
               if (isMatch) {
                 docType = parser.name + " (Custom)";
                 parsedData = genericParser(rawText, parser);
-                customParserFound = true;
+                parserFound = true;
                 break;
               }
             }
 
-            // 2. Fallback to Built-in Parsers
-            if (!customParserFound) {
-              if (
-                cleanCheckText.includes(
-                  "GOODS AND SERVICES TAX PAYMENT RECEIPT",
-                )
+            // 2. Check BUILT-IN Parsers (Iterating Array)
+            if (!parserFound) {
+              for (
+                const [name, matches, metaRx, tableRx, parserFn]
+                  of BUILT_IN_PARSERS
               ) {
-                docType = "GST Challan";
-                parsedData = parseChallanText(rawText);
-              } else if (
-                cleanCheckText.includes("Form GSTR-3B") ||
-                cleanCheckText.includes("See rule 61(5)")
-              ) {
-                docType = "GSTR-3B";
-                parsedData = parseGSTR3BText(rawText);
-              } else if (
-                cleanCheckText.includes("INCOME TAX DEPARTMENT") &&
-                cleanCheckText.includes("Challan Receipt")
-              ) {
-                docType = "Income Tax";
-                parsedData = parseIncomeTaxChallanText(rawText);
-              } else if (cleanCheckText.includes("RBL BANK LTD")) {
-                docType = "RBL Bank Statement";
-                parsedData = parseRBLBankStatementText(rawText);
-              } else if (
-                cleanCheckText.includes("Canara Bank does not")
-              ) {
-                docType = "Canara Bank Statement";
-                parsedData = parseCanaraBankStatementText(rawText);
-              } else if (
-                cleanCheckText.includes("Union Bank of India") &&
-                cleanCheckText.includes("Statement of Account")
-              ) {
-                docType = "Union Bank Statement";
-                parsedData = parseUnionBankStatementText(rawText);
-              } else if (
-                cleanCheckText.includes(
-                  "IDBI Bank or other authorities",
-                )
-              ) {
-                docType = "IDBI Bank Statement";
-                parsedData = parseIDBIBankStatementText(rawText);
-              } else {
-                store.rawText +=
-                  `\n--- SOURCE: ${file.name} (Unknown Type) ---\n${rawText}\n`;
-                continue;
+                const isMatch = matches.some((s) =>
+                  cleanCheckText.includes(s)
+                );
+                if (isMatch) {
+                  docType = name;
+                  parsedData = parserFn(rawText, metaRx, tableRx);
+                  parserFound = true;
+                  break;
+                }
               }
+            }
+
+            if (!parserFound) {
+              store.rawText +=
+                `\n--- SOURCE: ${file.name} (Unknown Type) ---\n${rawText}\n`;
+              console.log(`Document type unknown for: ${file.name}`);
+              continue;
             }
 
             if (
@@ -581,488 +789,6 @@
           console.error(error);
           setStatus(`Error: ${error.message}`, "error");
           store.isResultVisible = true;
-        }
-      }
-
-      function generateConsolidatedTables() {
-        const groups = {};
-        store.consolidatedMetadata.forEach((item) => {
-          if (!groups[item.docType]) groups[item.docType] = [];
-          groups[item.docType].push(item);
-        });
-
-        store.consolidatedTables = Object.keys(groups).map((type) => {
-          const items = groups[type];
-          const keys = new Set();
-          items.forEach((i) =>
-            Object.keys(i.fields).forEach((k) => keys.add(k))
-          );
-          const header = Array.from(keys);
-
-          const rows = items.map((item) => {
-            const rowData = [item.fileName];
-            header.forEach((h) => {
-              rowData.push(item.fields[h] || "");
-            });
-            return rowData;
-          });
-
-          return {
-            title: type,
-            headers: ["Source File", ...header],
-            rows: rows,
-          };
-        });
-      }
-
-      // --- Parsers ---
-
-      function genericParser(rawText, config) {
-        let metadataRows = [];
-        let metadataFields = {};
-
-        if (config.metadataRegex) {
-          try {
-            const metaRx = new RegExp(config.metadataRegex, "s");
-            const metaMatch = rawText.match(metaRx);
-            if (metaMatch && metaMatch.groups) {
-              for (
-                const [key, value] of Object.entries(metaMatch.groups)
-              ) {
-                const val = value.trim();
-                metadataFields[key] = val;
-                metadataRows.push([key, val, "", "", "", "", ""]);
-              }
-            } else if (metaMatch) {
-              for (let i = 1; i < metaMatch.length; i++) {
-                const val = metaMatch[i]?.trim();
-                metadataFields[`Meta ${i}`] = val;
-                metadataRows.push([
-                  `Meta ${i}`,
-                  val,
-                  "",
-                  "",
-                  "",
-                  "",
-                  "",
-                ]);
-              }
-            }
-          } catch (e) {
-            console.error("Metadata Regex Error", e);
-          }
-        }
-
-        let headers = [];
-        let dataRows = [];
-
-        if (config.tableRegex) {
-          try {
-            const tableRx = new RegExp(config.tableRegex, "g");
-            const matches = [...rawText.matchAll(tableRx)];
-            if (matches.length > 0) {
-              const firstMatch = matches[0];
-              if (firstMatch.groups) {
-                headers = Object.keys(firstMatch.groups);
-              } else {
-                headers = Array.from(
-                  { length: firstMatch.length - 1 },
-                  (_, i) => `Col ${i + 1}`,
-                );
-              }
-              while (headers.length < 7) headers.push("");
-              if (headers.length > 7) headers = headers.slice(0, 7);
-
-              dataRows = matches.map((m) => {
-                let row = [];
-                if (m.groups) {
-                  row = Object.values(m.groups).map((val) =>
-                    val ? val.trim().replace(/,/g, "") : ""
-                  );
-                } else {row = m.slice(1).map((val) =>
-                    val ? val.trim().replace(/,/g, "") : ""
-                  );}
-                while (row.length < 7) row.push("");
-                return row.slice(0, 7);
-              });
-            }
-          } catch (e) {
-            console.error("Table Regex Error", e);
-          }
-        }
-
-        return {
-          allRows: [...metadataRows, headers, ...dataRows],
-          metadataFields,
-        };
-      }
-
-      function parseChallanText(rawText) {
-        const metadataFields = {};
-        const metadataSpecs = [
-          { name: "Name", regex: /Name:\s+(.*)\s+Address/ },
-          { name: "GSTIN", regex: /GSTIN:\s+(\w+)/ },
-          { name: "Date", regex: /Date :\s+(\d\d\/\d\d\/\d{4})/ },
-          { name: "State", regex: /(\d+)\s+([^\d]+?)\s+SGST/ },
-        ];
-        const getMetadataValue = (spec) => {
-          const m = rawText.match(spec.regex);
-          if (!m) return "";
-          if (spec.name === "State") return `${m[1]} ${m[2]}`;
-          return m[1];
-        };
-        const metadataRows = metadataSpecs.map((spec) => {
-          const val = getMetadataValue(spec);
-          metadataFields[spec.name] = val;
-          return [spec.name, val, "", "", "", "", ""];
-        });
-        const tableRegex =
-          /(?<name>\w+)\(.*?\)\s+(?<tax>-|\d+)\s+(?<interest>-|\d+)\s+(?<penalty>-|\d+)\s+(?<fees>-|\d+)\s+(?<others>-|\d+)\s+(?<total>-|\d+)\s+/g;
-        const matches = [...rawText.matchAll(tableRegex)];
-        const headers = [
-          "Head",
-          "Tax",
-          "Interest",
-          "Penalty",
-          "Fees",
-          "Others",
-          "Total",
-        ];
-        const dataRows = matches.map(
-          (m) => [
-            m.groups.name,
-            m.groups.tax,
-            m.groups.interest,
-            m.groups.penalty,
-            m.groups.fees,
-            m.groups.others,
-            m.groups.total,
-          ]
-        );
-        const totalMatch = rawText.match(/Total Amount\s+([\d,]+)/);
-        if (
-          totalMatch && !matches.find((m) => m.groups.name === "Total")
-        ) {
-          dataRows.push([
-            "Grand Total",
-            "-",
-            "-",
-            "-",
-            "-",
-            "-",
-            totalMatch[1].replace(/,/g, ""),
-          ]);
-        }
-        return {
-          allRows: [...metadataRows, headers, ...dataRows],
-          metadataFields,
-        };
-      }
-
-      function parseGSTR3BText(rawText) {
-        const metadataFields = {};
-        // New Regex for metadata per user request
-        const metaRegex =
-          /Year (?<Year>[\d-]+)\s+Period\s+(.*)\s+GSTIN\s+of\s+the\s+supplier\s+(?<GSTIN>\w+)\s+2\(a\)\.\s+Legal\s+name\s+of\s+the\s+registered\s+person\s+(?<Name>.*)\s+2\(b\)/;
-        const metaMatch = rawText.match(metaRegex);
-        const metadataRows = [];
-
-        if (metaMatch) {
-          const year = metaMatch.groups.Year;
-          const period = metaMatch[2]; // Capture group 2 is the period
-          const gstin = metaMatch.groups.GSTIN;
-          const name = metaMatch.groups.Name;
-
-          metadataFields["GSTIN"] = gstin;
-          metadataFields["Name"] = name;
-          metadataFields["Year and Period"] =
-            `Year: ${year} Period: ${period}`;
-
-          metadataRows.push(["GSTIN", gstin, "", "", "", "", ""]);
-          metadataRows.push(["Name", name, "", "", "", "", ""]);
-          metadataRows.push([
-            "Year and Period",
-            metadataFields["Year and Period"],
-            "",
-            "",
-            "",
-            "",
-            "",
-          ]);
-        }
-
-        // New Regex for table per user request
-        const tableRegex =
-          /\([a-e]\s?\) (?!and)(.*?) (\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+/g;
-        const matches = [...rawText.matchAll(tableRegex)];
-        const headers = [
-          "Description",
-          "Taxable Value",
-          "IGST",
-          "CGST",
-          "SGST/UTGST",
-          "Cess",
-          "",
-        ];
-
-        const dataRows = matches.map((m) => {
-          return [m[1].trim(), m[2], m[3], m[4], m[5], m[6], ""];
-        });
-
-        return {
-          allRows: [...metadataRows, headers, ...dataRows],
-          metadataFields,
-        };
-      }
-
-      function parseIncomeTaxChallanText(rawText) {
-        const regex =
-          /Nature of Payment : (?<sectionNo>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<amt>\d[\d,.]*).*(?<depositDate>\d\d\-\s?\w{3}-\d{4})/g;
-        const matches = [...rawText.matchAll(regex)];
-        const metadataFields = matches.length > 0
-          ? {
-            "Section No": matches[0].groups.sectionNo,
-            "Amount": matches[0].groups.amt,
-            "Date": matches[0].groups.depositDate.replace(/\s/g, ""),
-          }
-          : {};
-        const headers = [
-          "Section No",
-          "Amount (Rs.)",
-          "Deposit Date",
-          "",
-          "",
-          "",
-          "",
-        ];
-        const dataRows = matches.map(
-          (m) => [
-            m.groups.sectionNo,
-            m.groups.amt,
-            m.groups.depositDate.replace(/\s/g, ""),
-            "",
-            "",
-            "",
-            "",
-          ]
-        );
-        return { allRows: [headers, ...dataRows], metadataFields };
-      }
-
-      function parseUnionBankStatementText(rawText) {
-        const nameMatch = rawText.match(
-          /Statement of Account\s+(?<name>.*?)\s+.* Account No/i,
-        );
-        const accountMatch = rawText.match(
-          /Account No\s+(?<accountNo>\d+)/i,
-        );
-        const metadataFields = {
-          "Account Holder Name": nameMatch?.groups?.name?.trim() ||
-            "N/A",
-          "Account Number": accountMatch?.groups?.accountNo || "N/A",
-        };
-        const metadataRows = [[
-          "Account Holder Name",
-          metadataFields["Account Holder Name"],
-          "",
-          "",
-          "",
-          "",
-          "",
-        ], [
-          "Account Number",
-          metadataFields["Account Number"],
-          "",
-          "",
-          "",
-          "",
-          "",
-        ]];
-        const tableRegex =
-          /(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d,]+\.\d\s?\d)\s+(?<bal>-?\s?[\d,]+\.\d\s?\d)/g;
-        const matches = [...rawText.matchAll(tableRegex)];
-        const headers = [
-          "Date",
-          "Particulars/Description",
-          "Amount",
-          "Balance",
-          "",
-          "",
-          "",
-        ];
-        const dataRows = matches.map(
-          (m) => [
-            m.groups.date,
-            m.groups.particulars.trim(),
-            m.groups.amt.replace(/\s/g, ""),
-            m.groups.bal.replace(/\s/g, ""),
-            "",
-            "",
-            "",
-          ]
-        );
-        return {
-          allRows: [...metadataRows, headers, ...dataRows],
-          metadataFields,
-        };
-      }
-
-      function parseCanaraBankStatementText(rawText) {
-        const metadataRegex =
-          /Account Number (?<accountNo>\d+).* Opening Balance Rs\. (?<opBal>-?[\d,]+\.\d\d)\s+Closing Balance Rs\. (?<closeBal>-?[\d,]+\.\d\d)/s;
-        const metadataMatch = rawText.match(metadataRegex);
-        const metadataFields = {
-          "Account Number": metadataMatch?.groups?.accountNo || "N/A",
-          "Opening Balance": metadataMatch?.groups?.opBal || "N/A",
-          "Closing Balance": metadataMatch?.groups?.closeBal || "N/A",
-        };
-        const metadataRows = Object.entries(metadataFields).map((
-          [k, v],
-        ) => [k, v, "", "", "", "", ""]);
-        const tableRegex =
-          /\s\s(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d+,]+\.\d\d)\s+(?<bal>-?[\d+,]+\.\d\d)/g;
-        const matches = [...rawText.matchAll(tableRegex)];
-        const headers = [
-          "Date",
-          "Particulars/Description",
-          "Amount",
-          "Balance",
-          "",
-          "",
-          "",
-        ];
-        const dataRows = matches.map(
-          (m) => [
-            m.groups.date,
-            m.groups.particulars.trim(),
-            m.groups.amt.replace(/,/g, ""),
-            m.groups.bal.replace(/,/g, ""),
-            "",
-            "",
-            "",
-          ]
-        );
-        return {
-          allRows: [...metadataRows, headers, ...dataRows],
-          metadataFields,
-        };
-      }
-
-      function parseRBLBankStatementText(rawText) {
-        const metadataRegex =
-          /Account Name: (?<AccName>.*?) Home Branch: .* in Account Number:\s+(?<AccountNo>\d+)\s+.* Opening Balance: ₹ (?<Opbal>[\d,]+\.\d{2})\s+Count Of Debit: \d+\s+Closing Balance: ₹ (?<ClBal>[\d,]+\.\d{2})/s;
-        const metadataMatch = rawText.match(metadataRegex);
-        const metadataFields = {
-          "Account Name": metadataMatch?.groups?.AccName?.trim() ||
-            "N/A",
-          "Account Number": metadataMatch?.groups?.AccountNo || "N/A",
-          "Opening Balance": metadataMatch?.groups?.Opbal || "N/A",
-          "Closing Balance": metadataMatch?.groups?.ClBal || "N/A",
-        };
-        const metadataRows = Object.entries(metadataFields).map((
-          [k, v],
-        ) => [k, v, "", "", "", "", ""]);
-        const tableHeaderStart = rawText.indexOf("Value Date");
-        let transactionText = rawText;
-        if (tableHeaderStart !== -1) {
-          const dateHeaderIndex = rawText.indexOf("Date Value Date");
-          if (dateHeaderIndex !== -1) {
-            transactionText = rawText.substring(dateHeaderIndex);
-          } else transactionText = rawText.substring(tableHeaderStart);
-        }
-        const tableRegex = new RegExp(
-          /(?<date>\d\d\/\d\d\/\d{4})\s+\d\d\/\d\d\/\d{4}\s+(?<particular>.*?)\s+(?<amt>[\d,]+\.\s?\d\s?\d)\s+(?<bal>[\d,]+\s?\.\s?\d\s?\d)/g,
-        );
-        const matches = [...transactionText.matchAll(tableRegex)];
-        const headers = [
-          "Date",
-          "Particulars/Description",
-          "Amount",
-          "Balance",
-          "",
-          "",
-          "",
-        ];
-        const dataRows = matches.map(
-          (m) => [
-            m.groups.date,
-            m.groups.particular.trim(),
-            m.groups.amt.replace(/,/g, "").replace(/\s/g, ""),
-            m.groups.bal.replace(/\s/g, ""),
-            "",
-            "",
-            "",
-          ]
-        );
-        return {
-          allRows: [...metadataRows, headers, ...dataRows],
-          metadataFields,
-        };
-      }
-
-      function parseIDBIBankStatementText(rawText) {
-        const metadataRegex =
-          /^(?<Name>.*?) Address .* A\/C NO: (?<AccNo>\d+)/s;
-        const metadataMatch = rawText.match(metadataRegex);
-        const metadataFields = {
-          "Account Name": metadataMatch?.groups?.Name?.trim() || "N/A",
-          "Account Number": metadataMatch?.groups?.AccNo || "N/A",
-        };
-        const metadataRows = Object.entries(metadataFields).map((
-          [k, v],
-        ) => [k, v, "", "", "", "", ""]);
-        const tableRegex = new RegExp(
-          /(?<date>\d\d\/\d\d\/\d{4})\s+(?<particular>.*?)\s+(?<type>Dr\.|Cr\.)\s+\w{3}\s+(?<Amt>[\d,]+\.\d{2})\s+\d\d\/\d\d\/\d{4}\s+\d\d:\d\d:\d\d\s+(?<serialNo>\d+)\s+(?<Bal>-?[\d,]+\.\d{2})/g,
-        );
-        const matches = [...rawText.matchAll(tableRegex)];
-        const headers = [
-          "Date",
-          "Particulars/Description",
-          "Type",
-          "Amount",
-          "Serial No",
-          "Balance",
-          "",
-        ];
-        const dataRows = matches.map((m) => {
-          const g = m.groups;
-          const amount = g.type === "Dr." ? `-${g.Amt}` : g.Amt;
-          return [
-            g.date,
-            g.particular.trim(),
-            g.type,
-            amount.replace(/,/g, ""),
-            g.serialNo,
-            g.Bal.replace(/,/g, ""),
-            "",
-          ];
-        });
-        return {
-          allRows: [...metadataRows, headers, ...dataRows],
-          metadataFields,
-        };
-      }
-
-      function copyTable(tableId = "outputTable") {
-        const table = document.getElementById(tableId);
-        if (!table) return;
-        const rows = Array.from(table.rows).map((row) =>
-          Array.from(row.cells).map((cell) => cell.innerText).join("\t")
-        ).join("\n");
-        const tempTextArea = document.createElement("textarea");
-        tempTextArea.style.position = "fixed";
-        tempTextArea.style.opacity = "0";
-        tempTextArea.value = rows;
-        document.body.appendChild(tempTextArea);
-        tempTextArea.select();
-        try {
-          document.execCommand("copy");
-          setStatus("Table content copied to clipboard!", "success");
-        } catch (err) {
-          setStatus("Manual copy required.", "error");
-        } finally {
-          document.body.removeChild(tempTextArea);
-          setTimeout(() => clearStatus(), 3000);
         }
       }
 
@@ -1509,8 +1235,7 @@
                           @input="${(e) =>
                             store.passwordModal.passwordInput =
                               e.target.value}"
-                          @keydown="${(e) =>
-                            e.key === "Enter" &&
+                          @keydown="${(e) => e.key === "Enter" &&
                             handlePasswordSubmit()}"
                         >
                       </div>
