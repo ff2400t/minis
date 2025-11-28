@@ -761,36 +761,39 @@
 
       function parseGSTR3BText(rawText) {
         const metadataFields = {};
-        const metadataSpecs = [
-          {
-            name: "GSTIN",
-            regex: /GSTIN\s+of\s+the\s+supplier\s+(\w+)/,
-          },
-          {
-            name: "Name",
-            regex:
-              /Legal\s+name\s+of\s+the\s+registered\s+person\s+(.*)\s+2\(b\)/,
-          },
-          {
-            name: "Year and Period",
-            regex: /Year\s+(.*)\s+Period\s+(\w+)/,
-          },
-        ];
-        const getMetadataValue = (spec) => {
-          const m = rawText.match(spec.regex);
-          if (!m) return "";
-          if (spec.name === "Year and Period") {
-            return `Year: ${m[1]} Period: ${m[2]}`;
-          }
-          return m[1];
-        };
-        const metadataRows = metadataSpecs.map((spec) => {
-          const val = getMetadataValue(spec);
-          metadataFields[spec.name] = val;
-          return [spec.name, val, "", "", "", "", ""];
-        });
+        // New Regex for metadata per user request
+        const metaRegex =
+          /Year (?<Year>[\d-]+)\s+Period\s+(.*)\s+GSTIN\s+of\s+the\s+supplier\s+(?<GSTIN>\w+)\s+2\(a\)\.\s+Legal\s+name\s+of\s+the\s+registered\s+person\s+(?<Name>.*)\s+2\(b\)/;
+        const metaMatch = rawText.match(metaRegex);
+        const metadataRows = [];
+
+        if (metaMatch) {
+          const year = metaMatch.groups.Year;
+          const period = metaMatch[2]; // Capture group 2 is the period
+          const gstin = metaMatch.groups.GSTIN;
+          const name = metaMatch.groups.Name;
+
+          metadataFields["GSTIN"] = gstin;
+          metadataFields["Name"] = name;
+          metadataFields["Year and Period"] =
+            `Year: ${year} Period: ${period}`;
+
+          metadataRows.push(["GSTIN", gstin, "", "", "", "", ""]);
+          metadataRows.push(["Name", name, "", "", "", "", ""]);
+          metadataRows.push([
+            "Year and Period",
+            metadataFields["Year and Period"],
+            "",
+            "",
+            "",
+            "",
+            "",
+          ]);
+        }
+
+        // New Regex for table per user request
         const tableRegex =
-          /\([a-e]\s?\)\s+(.*?)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+/g;
+          /\([a-e]\s?\) (?!and)(.*?) (\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+/g;
         const matches = [...rawText.matchAll(tableRegex)];
         const headers = [
           "Description",
@@ -801,9 +804,11 @@
           "Cess",
           "",
         ];
-        const dataRows = matches.map(
-          (m) => [m[1].trim(), m[2], m[3], m[4], m[5], m[6], ""]
-        );
+
+        const dataRows = matches.map((m) => {
+          return [m[1].trim(), m[2], m[3], m[4], m[5], m[6], ""];
+        });
+
         return {
           allRows: [...metadataRows, headers, ...dataRows],
           metadataFields,
