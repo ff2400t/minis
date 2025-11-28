@@ -16,7 +16,7 @@
     </script>
     <style>
       /* Custom styles for better copy/paste experience on the output table */
-      #outputTable {
+      .data-table {
         table-layout: fixed;
         width: 100%;
         border-collapse: collapse;
@@ -24,13 +24,13 @@
           ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
           "Liberation Mono", "Courier New", monospace;
       }
-      #outputTable td {
+      .data-table td, .data-table th {
         border: 1px solid #e5e7eb;
         padding: 8px;
         text-align: left;
         white-space: nowrap;
       }
-      #outputTable tr:nth-child(even) {
+      .data-table tr:nth-child(even) {
         background-color: #f9fafb;
       }
       /* Style for the header row specifically */
@@ -56,6 +56,10 @@
         transform: scale(1.01);
         transition: all 0.2s ease;
       }
+      /* Modal Backdrop */
+      .modal-backdrop {
+        background-color: rgba(0, 0, 0, 0.5);
+      }
     </style>
   </head>
   <body class="bg-gray-50 p-4 md:p-8">
@@ -68,11 +72,22 @@
       const store = reactive({
         fileSummary: "",
         status: { message: "", type: "" }, // type: 'error', 'success', 'info', ''
-        allRows: [], // Contains rows from ALL processed files
-        rawText: "", // Combined raw text for debugging
+        allRows: [],
+        rawText: "",
         isResultVisible: false,
         isDragging: false,
-        isTableVisible: true, // New state for toggle
+        isTableVisible: true,
+        isRawTextVisible: false,
+
+        // Password Modal State
+        passwordModal: {
+          isOpen: false,
+          fileName: "",
+          passwordInput: "",
+          useForSubsequent: false,
+          resolve: null, // Function to resolve the promise waiting for password
+        },
+        savedPassword: null, // To store password if "use for subsequent" is checked
       });
 
       // --- Logic & Helpers ---
@@ -82,7 +97,7 @@
       }
 
       function clearStatus() {
-        store.status = { message: "", type: "" };
+        store.status = { message, type };
       }
 
       // --- Drag and Drop Handlers ---
@@ -124,23 +139,25 @@
 
       // --- PDF Processing ---
 
-      // Function to extract text from ALL pages of the PDF
-      async function extractAllPdfText(file) {
+      // Function to extract text from ALL pages of the PDF, accepting an optional password
+      async function extractAllPdfText(file, password = "") {
         const fileReader = new FileReader();
         return new Promise((resolve, reject) => {
           fileReader.onload = async function () {
             const typedarray = new Uint8Array(this.result);
             try {
+              // Pass password to getDocument
               const pdf = await pdfjsLib.getDocument({
                 data: typedarray,
+                password: password,
               }).promise;
+
               let fullText = "";
 
               // Iterate through all pages
               for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
                 const textContent = await page.getTextContent();
-                // Join text content from this page, add a space to separate words across pages/lines
                 fullText += textContent.items.map((item) =>
                   item.str
                 ).join(" ") + " ";
@@ -148,13 +165,101 @@
 
               resolve(fullText);
             } catch (error) {
-              reject(new Error(`Could not parse PDF ${file.name}.`));
+              // Pass specific error object so we can check name/code
+              reject(error);
             }
           };
           fileReader.onerror = () =>
             reject(new Error("Error reading file."));
           fileReader.readAsArrayBuffer(file);
         });
+      }
+
+      // Wrapper to handle Password Logic
+      async function extractTextWithPasswordHandling(file) {
+        // 1. Try with no password (or currently saved password if relevant, though usually start blank or specific)
+        // Strategy: Always try empty first unless we specifically know.
+        // Actually, if we have a saved password, we might want to try that if empty fails.
+
+        try {
+          return await extractAllPdfText(file, "");
+        } catch (e) {
+          if (e.name === "PasswordException") {
+            // It is encrypted.
+
+            // 2. Try Saved Password if exists
+            if (store.savedPassword) {
+              console.log(`Trying saved password for ${file.name}...`);
+              try {
+                return await extractAllPdfText(
+                  file,
+                  store.savedPassword,
+                );
+              } catch (e2) {
+                if (e2.name !== "PasswordException") throw e2;
+                // Saved password failed, proceed to ask user
+              }
+            }
+
+            // 3. Prompt User
+            while (true) {
+              const userResponse = await promptForPassword(file.name);
+
+              if (userResponse.skip) {
+                throw new Error("Skipped by user");
+              }
+
+              try {
+                const text = await extractAllPdfText(
+                  file,
+                  userResponse.password,
+                );
+
+                // If successful and checkbox checked, save it
+                if (userResponse.useForSubsequent) {
+                  store.savedPassword = userResponse.password;
+                }
+                return text;
+              } catch (e3) {
+                if (e3.name !== "PasswordException") throw e3;
+                // Password was wrong, loop will continue and prompt again
+                alert("Incorrect password. Please try again.");
+              }
+            }
+          }
+          throw e; // Rethrow other errors
+        }
+      }
+
+      function promptForPassword(fileName) {
+        return new Promise((resolve) => {
+          // Open Modal
+          store.passwordModal.fileName = fileName;
+          store.passwordModal.passwordInput = ""; // Reset input
+          store.passwordModal.useForSubsequent = false;
+          store.passwordModal.resolve = resolve;
+          store.passwordModal.isOpen = true;
+        });
+      }
+
+      function handlePasswordSubmit() {
+        if (store.passwordModal.resolve) {
+          store.passwordModal.resolve({
+            password: store.passwordModal.passwordInput,
+            useForSubsequent: store.passwordModal.useForSubsequent,
+            skip: false,
+          });
+          store.passwordModal.isOpen = false;
+          store.passwordModal.resolve = null;
+        }
+      }
+
+      function handlePasswordSkip() {
+        if (store.passwordModal.resolve) {
+          store.passwordModal.resolve({ skip: true });
+          store.passwordModal.isOpen = false;
+          store.passwordModal.resolve = null;
+        }
       }
 
       async function processFiles(fileList) {
@@ -174,7 +279,9 @@
         store.isResultVisible = false;
         store.rawText = "";
         store.allRows = [];
-        store.isTableVisible = true; // Show table by default when new files are processed
+        store.isTableVisible = true;
+        store.isRawTextVisible = false;
+        store.savedPassword = null; // Reset saved password on new batch? Or keep it? Let's reset for safety.
 
         let successCount = 0;
 
@@ -183,7 +290,7 @@
           for (let i = 0; i < count; i++) {
             const file = fileList[i];
             if (file.type !== "application/pdf") {
-              console.log(`Skipping file: ${file.name} (Not a PDF)`); // DEBUG: Skipping non-PDFs
+              console.log(`Skipping file: ${file.name} (Not a PDF)`); // DEBUG
               continue;
             }
 
@@ -191,26 +298,42 @@
               `Processing ${i + 1} of ${count}: ${file.name}...`,
               "info",
             );
-            console.log(`Starting processing for: ${file.name}`); // DEBUG: File start
+            console.log(`Starting processing for: ${file.name}`); // DEBUG
 
-            let rawText = await extractAllPdfText(file);
+            let rawText;
+            try {
+              rawText = await extractTextWithPasswordHandling(file);
+            } catch (extractionError) {
+              if (extractionError.message === "Skipped by user") {
+                console.log(`Skipped file: ${file.name}`);
+                store.rawText +=
+                  `\n--- SOURCE: ${file.name} (SKIPPED) ---\n[User skipped password entry]\n`;
+                continue;
+              }
+              console.error(
+                `Failed to extract text from ${file.name}:`,
+                extractionError,
+              );
+              store.rawText +=
+                `\n--- SOURCE: ${file.name} (ERROR) ---\n[Extraction Failed: ${extractionError.message}]\n`;
+              continue;
+            }
 
-            // 1. GLOBAL PRE-PROCESSING: Replace triple spaces with single space
+            // 1. GLOBAL PRE-PROCESSING
             rawText = rawText.replace(/   /g, " ");
             console.log(
               `Raw text extracted (first 200 chars): ${
                 rawText.substring(0, 200)
               }...`,
-            ); // DEBUG: Raw text check
+            ); // DEBUG
 
             // Detect Document Type and Parse
             let parsedData = { allRows: [] };
             let docType = "Unknown";
 
-            // Clean text for detection (remove excessive whitespace for checking keywords)
+            // Clean text for detection
             const cleanCheckText = rawText.replace(/\s+/g, " ");
 
-            // Check for document types in order of specificity/preference
             if (
               cleanCheckText.includes(
                 "GOODS AND SERVICES TAX PAYMENT RECEIPT",
@@ -230,24 +353,12 @@
             ) {
               docType = "Income Tax";
               parsedData = parseIncomeTaxChallanText(rawText);
-            } else if (
-              cleanCheckText.includes("Payment Confirmation Receipt") &&
-              cleanCheckText.includes("TRRN No")
-            ) {
-              docType = "PF Receipts";
-              parsedData = parsePFPaymentReceiptsText(rawText);
-            } else if (
-              cleanCheckText.includes("CHALLAN MTR Form Number-6")
-            ) {
-              docType = "PT Challan";
-              parsedData = parsePTChallanText(rawText);
             } else if (cleanCheckText.includes("RBL BANK LTD")) {
               docType = "RBL Bank Statement";
               parsedData = parseRBLBankStatementText(rawText);
             } else if (
               cleanCheckText.includes("Canara Bank does not")
             ) {
-              // Canara Bank detection
               docType = "Canara Bank Statement";
               parsedData = parseCanaraBankStatementText(rawText);
             } else if (
@@ -265,33 +376,29 @@
               // Fallback or skip
               store.rawText +=
                 `\n--- SOURCE: ${file.name} (Unknown Type) ---\n${rawText}\n`;
-              console.log(`Document type unknown for: ${file.name}`); // DEBUG: Unknown type
+              console.log(`Document type unknown for: ${file.name}`); // DEBUG
               continue;
             }
 
-            console.log(`Detected document type: ${docType}`); // DEBUG: Detected type
+            console.log(`Detected document type: ${docType}`); // DEBUG
             console.log(
               `Parsed ${parsedData.allRows.length} data rows.`,
-            ); // DEBUG: Row count
+            ); // DEBUG
 
             store.rawText +=
               `\n--- SOURCE: ${file.name} (${docType}) ---\n${rawText}\n`;
 
             // --- Append to Main Table ---
-
-            // 1. Add visual separator/filename row
-            // We pad to a safe number of columns (7) to ensure grid integrity
             const fileLabelRow = [
-              `Source:`,
-              file.name,
-              docType,
+              `Source: ${file.name} (${docType})`,
+              "",
+              "",
               "",
               "",
               "",
               "",
             ];
 
-            // Add spacer if this isn't the first file
             if (store.allRows.length > 0) {
               store.allRows.push(["", "", "", "", "", "", ""]);
             }
@@ -306,12 +413,12 @@
 
           if (store.allRows.length === 0) {
             setStatus(
-              "Processed files but found no recognized data.",
+              "Processed files but found no recognized data (or skipped).",
               "info",
             );
             console.log(
               "No recognized data found in any processed files.",
-            ); // DEBUG: No data
+            ); // DEBUG
           } else {
             setStatus(
               `Successfully processed ${successCount} files!`,
@@ -319,7 +426,7 @@
             );
             console.log(
               `Finished processing. Total success count: ${successCount}`,
-            ); // DEBUG: Success
+            ); // DEBUG
           }
         } catch (error) {
           console.error(error);
@@ -328,25 +435,20 @@
         }
       }
 
-      // --- Parser 1: GST Challan ---
+      // --- Parsers (Same as before) ---
       function parseChallanText(rawText) {
-        // Metadata
         const metadataSpecs = [
           { name: "Name", regex: /Name:\s+(.*)\s+Address/ },
           { name: "GSTIN", regex: /GSTIN:\s+(\w+)/ },
           { name: "Date", regex: /Date :\s+(\d\d\/\d\d\/\d{4})/ },
           { name: "State", regex: /(\d+)\s+([^\d]+?)\s+SGST/ },
         ];
-
         const getMetadataValue = (spec) => {
           const m = rawText.match(spec.regex);
           if (!m) return "";
-          if (spec.name === "State") {
-            return `${m[1]} ${m[2]}`;
-          }
+          if (spec.name === "State") return `${m[1]} ${m[2]}`;
           return m[1];
         };
-
         const metadataRows = metadataSpecs.map((spec) => {
           return [
             spec.name,
@@ -358,11 +460,8 @@
             "",
           ];
         });
-
-        // Table
         const tableRegex =
           /(?<name>\w+)\(.*?\)\s+(?<tax>-|\d+)\s+(?<interest>-|\d+)\s+(?<penalty>-|\d+)\s+(?<fees>-|\d+)\s+(?<others>-|\d+)\s+(?<total>-|\d+)\s+/g;
-
         const matches = [...rawText.matchAll(tableRegex)];
         const headers = [
           "Head",
@@ -374,7 +473,6 @@
           "Total",
         ];
         const dataHeaderRow = headers;
-
         const dataRows = matches.map((m) => {
           const g = m.groups;
           return [
@@ -387,8 +485,6 @@
             g.total,
           ];
         });
-
-        // Add Grand Total row if found
         const totalMatch = rawText.match(/Total Amount\s+([\d,]+)/);
         if (
           totalMatch && !matches.find((m) => m.groups.name === "Total")
@@ -403,19 +499,12 @@
             totalMatch[1].replace(/,/g, ""),
           ]);
         }
-
-        const allRows = [
-          ...metadataRows,
-          dataHeaderRow,
-          ...dataRows,
-        ];
-
-        return { allRows };
+        return {
+          allRows: [...metadataRows, dataHeaderRow, ...dataRows],
+        };
       }
 
-      // --- Parser 2: GSTR-3B ---
       function parseGSTR3BText(rawText) {
-        // Metadata
         const metadataSpecs = [
           {
             name: "GSTIN",
@@ -431,7 +520,6 @@
             regex: /Year\s+(.*)\s+Period\s+(\w+)/,
           },
         ];
-
         const getMetadataValue = (spec) => {
           const m = rawText.match(spec.regex);
           if (!m) return "";
@@ -440,7 +528,6 @@
           }
           return m[1];
         };
-
         const metadataRows = metadataSpecs.map((spec) => {
           return [
             spec.name,
@@ -452,14 +539,9 @@
             "",
           ];
         });
-
-        // Table Extraction
         const tableRegex =
           /\([a-e]\s?\)\s+(.*?)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+/g;
-
         const matches = [...rawText.matchAll(tableRegex)];
-
-        // Define Headers for GSTR-3B
         const headers = [
           "Description",
           "Taxable Value",
@@ -469,37 +551,16 @@
           "Cess",
           "",
         ];
-
         const dataRows = matches.map((m) => {
-          return [
-            m[1].trim(), // Description
-            m[2], // Taxable
-            m[3], // IGST
-            m[4], // CGST
-            m[5], // SGST
-            m[6], // Cess
-            "", // Empty 7th column
-          ];
+          return [m[1].trim(), m[2], m[3], m[4], m[5], m[6], ""];
         });
-
-        const allRows = [
-          ...metadataRows,
-          headers,
-          ...dataRows,
-        ];
-
-        return { allRows };
+        return { allRows: [...metadataRows, headers, ...dataRows] };
       }
 
-      // --- Parser 3: Income Tax Challan ---
       function parseIncomeTaxChallanText(rawText) {
-        // Regex for Income Tax Challan
         const regex =
           /Nature of Payment : (?<sectionNo>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<amt>\d[\d,.]*).*(?<depositDate>\d\d\-\s?\w{3}-\d{4})/g;
-
         const matches = [...rawText.matchAll(regex)];
-
-        // Column names from regex capture groups: sectionNo, amt, depositDate
         const headers = [
           "Section No",
           "Amount (Rs.)",
@@ -509,149 +570,48 @@
           "",
           "",
         ];
-
         const dataRows = matches.map((m) => {
           const g = m.groups;
           return [
             g.sectionNo,
             g.amt,
-            g.depositDate.replace(/\s/g, ""), // Remove potential spaces in date
+            g.depositDate.replace(/\s/g, ""),
             "",
             "",
             "",
-            "", // Pad to 7 columns
+            "",
           ];
         });
-
-        const allRows = [
-          headers,
-          ...dataRows,
-        ];
-
-        return { allRows };
+        return { allRows: [headers, ...dataRows] };
       }
 
-      // --- Parser 4: PF Payment Receipt  ---
-      function parsePFPaymentReceiptsText(rawText) {
-        // Regex as requested
-        // Using slightly loose whitespace (\s+) in the middle to be robust after the replaceAll
-        const regex =
-          /ID : (?<Name>.*) Establishment Name.*\s(?<WageMonth>\w+-\d{4}) Wage Month : (?<Amt>\d[\d,.]*).*Payment Date : (?<PaymentDate>\d{2}-\w+-\d{4})/g;
-
-        const matches = [...rawText.matchAll(regex)];
-
-        // Column names from regex capture groups: sectionNo, amt, depositDate
-        const headers = [
-          "Name",
-          "Month",
-          "Amount",
-          "Payment Date",
-          "",
-          "",
-          "",
-        ];
-
-        const dataRows = matches.map((m) => {
-          const g = m.groups;
-          return [
-            g.Name,
-            g.WageMonth,
-            g.Amt,
-            g.PaymentDate,
-            "",
-            "",
-            "", // Pad to 7 columns
-          ];
-        });
-
-        const allRows = [
-          headers,
-          ...dataRows,
-        ];
-
-        return { allRows };
-      }
-
-      // --- Parser 5: PF Challan ---
-      function parsePTChallanText(rawText) {
-        // Regex as requested
-        // Using slightly loose whitespace (\s+) in the middle to be robust after the replaceAll
-        const regex =
-          /Full Name (?<name>.*) Location.*From (?<period>.*) Flat.*TAX (?<amt>\d+\.\d{2}).*RBI Date (?<paymentDate>\d\d\/\d\d\/\d{4})/g;
-
-        const matches = [...rawText.matchAll(regex)];
-
-        // Column names from regex capture groups: sectionNo, amt, depositDate
-        const headers = [
-          "Name",
-          "period",
-          "Amount",
-          "Date",
-          "",
-          "",
-          "",
-        ];
-
-        const dataRows = matches.map((m) => {
-          const g = m.groups;
-          return [
-            g.name,
-            g.period,
-            g.amt,
-            g.paymentDate,
-            "",
-            "",
-            "", // Pad to 7 columns
-          ];
-        });
-
-        const allRows = [
-          headers,
-          ...dataRows,
-        ];
-
-        return { allRows };
-      }
-
-      // --- Parser 6: Union Bank Statement ---
       function parseUnionBankStatementText(rawText) {
-        // 1. Metadata Extraction
         const nameMatch = rawText.match(
           /Statement of Account\s+(?<name>.*?)\s+.* Account No/i,
         );
         const accountMatch = rawText.match(
           /Account No\s+(?<accountNo>\d+)/i,
         );
-
-        const metadataRows = [
-          [
-            "Account Holder Name",
-            nameMatch?.groups?.name?.trim() || "N/A",
-            "",
-            "",
-            "",
-            "",
-            "",
-          ],
-          [
-            "Account Number",
-            accountMatch?.groups?.accountNo || "N/A",
-            "",
-            "",
-            "",
-            "",
-            "",
-          ],
-        ];
-
-        // 2. Transaction Table Extraction
-        // Regex: /(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d,]+\.\d\s?\d)\s+(?<bal>-?\s?[\d,]+\.\d\s?\d)/g
+        const metadataRows = [[
+          "Account Holder Name",
+          nameMatch?.groups?.name?.trim() || "N/A",
+          "",
+          "",
+          "",
+          "",
+          "",
+        ], [
+          "Account Number",
+          accountMatch?.groups?.accountNo || "N/A",
+          "",
+          "",
+          "",
+          "",
+          "",
+        ]];
         const tableRegex =
           /(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d,]+\.\d\s?\d)\s+(?<bal>-?\s?[\d,]+\.\d\s?\d)/g;
-
         const matches = [...rawText.matchAll(tableRegex)];
-
-        // Define Headers for Union Bank Statement
         const headers = [
           "Date",
           "Particulars/Description",
@@ -661,76 +621,53 @@
           "",
           "",
         ];
-
         const dataRows = matches.map((m) => {
           const g = m.groups;
           return [
             g.date,
             g.particulars.trim(),
-            // Clean the amounts by removing any spaces that might be captured due to the flexible regex
             g.amt.replace(/\s/g, ""),
             g.bal.replace(/\s/g, ""),
             "",
             "",
-            "", // Pad to 7 columns
+            "",
           ];
         });
-
-        const allRows = [
-          ...metadataRows,
-          headers,
-          ...dataRows,
-        ];
-
-        return { allRows };
+        return { allRows: [...metadataRows, headers, ...dataRows] };
       }
 
-      // --- Parser 7: Canara Bank Statement ---
       function parseCanaraBankStatementText(rawText) {
-        // 1. Metadata Extraction
-        // Regex: /Account Number (?<accountNo>\d+).* Opening Balance Rs. (?<opBal>-?[\d,]+\.\d\d)  Closing Balance Rs. (?<closeBal>-?[\d,]+\.\d\d)/
         const metadataRegex =
           /Account Number (?<accountNo>\d+).* Opening Balance Rs\. (?<opBal>-?[\d,]+\.\d\d)\s+Closing Balance Rs\. (?<closeBal>-?[\d,]+\.\d\d)/s;
         const metadataMatch = rawText.match(metadataRegex);
-
-        const metadataRows = [
-          [
-            "Account Number",
-            metadataMatch?.groups?.accountNo || "N/A",
-            "",
-            "",
-            "",
-            "",
-            "",
-          ],
-          [
-            "Opening Balance",
-            metadataMatch?.groups?.opBal || "N/A",
-            "",
-            "",
-            "",
-            "",
-            "",
-          ],
-          [
-            "Closing Balance",
-            metadataMatch?.groups?.closeBal || "N/A",
-            "",
-            "",
-            "",
-            "",
-            "",
-          ],
-        ];
-
-        // 2. Transaction Table Extraction
-        // Regex: \s\s(?<date>\d\d-\d\d-\d{4}) \d\d:\d\d:\d\d (.*?) (?<amt>[\d+,]+\.\d\d) (?<bal>-?[\d+,]+\.\d\d)
+        const metadataRows = [[
+          "Account Number",
+          metadataMatch?.groups?.accountNo || "N/A",
+          "",
+          "",
+          "",
+          "",
+          "",
+        ], [
+          "Opening Balance",
+          metadataMatch?.groups?.opBal || "N/A",
+          "",
+          "",
+          "",
+          "",
+          "",
+        ], [
+          "Closing Balance",
+          metadataMatch?.groups?.closeBal || "N/A",
+          "",
+          "",
+          "",
+          "",
+          "",
+        ]];
         const tableRegex =
           /\s\s(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d+,]+\.\d\d)\s+(?<bal>-?[\d+,]+\.\d\d)/g;
-
         const matches = [...rawText.matchAll(tableRegex)];
-
-        // Define Headers for Canara Bank Statement
         const headers = [
           "Date",
           "Particulars/Description",
@@ -740,99 +677,70 @@
           "",
           "",
         ];
-
         const dataRows = matches.map((m) => {
           const g = m.groups;
           return [
             g.date,
             g.particulars.trim(),
-            g.amt.replace(/,/g, ""), // Clean commas from amount
-            g.bal.replace(/,/g, ""), // Clean commas from balance
+            g.amt.replace(/,/g, ""),
+            g.bal.replace(/,/g, ""),
             "",
             "",
-            "", // Pad to 7 columns
+            "",
           ];
         });
-
-        const allRows = [
-          ...metadataRows,
-          headers,
-          ...dataRows,
-        ];
-
-        return { allRows };
+        return { allRows: [...metadataRows, headers, ...dataRows] };
       }
 
-      // --- Parser 8: RBL Bank Statement ---
       function parseRBLBankStatementText(rawText) {
-        // 1. Metadata Extraction (using dotAll flag 's')
         const metadataRegex =
           /Account Name: (?<AccName>.*?) Home Branch: .* in Account Number:\s+(?<AccountNo>\d+)\s+.* Opening Balance: ₹ (?<Opbal>[\d,]+\.\d{2})\s+Count Of Debit: \d+\s+Closing Balance: ₹ (?<ClBal>[\d,]+\.\d{2})/s;
         const metadataMatch = rawText.match(metadataRegex);
-
-        const metadataRows = [
-          [
-            "Account Name",
-            metadataMatch?.groups?.AccName?.trim() || "N/A",
-            "",
-            "",
-            "",
-            "",
-            "",
-          ],
-          [
-            "Account Number",
-            metadataMatch?.groups?.AccountNo || "N/A",
-            "",
-            "",
-            "",
-            "",
-            "",
-          ],
-          [
-            "Opening Balance",
-            metadataMatch?.groups?.Opbal || "N/A",
-            "",
-            "",
-            "",
-            "",
-            "",
-          ],
-          [
-            "Closing Balance",
-            metadataMatch?.groups?.ClBal || "N/A",
-            "",
-            "",
-            "",
-            "",
-            "",
-          ],
-        ];
-
-        // 2. Preprocessing: Clear text before the transaction table header ("Value Date")
+        const metadataRows = [[
+          "Account Name",
+          metadataMatch?.groups?.AccName?.trim() || "N/A",
+          "",
+          "",
+          "",
+          "",
+          "",
+        ], [
+          "Account Number",
+          metadataMatch?.groups?.AccountNo || "N/A",
+          "",
+          "",
+          "",
+          "",
+          "",
+        ], [
+          "Opening Balance",
+          metadataMatch?.groups?.Opbal || "N/A",
+          "",
+          "",
+          "",
+          "",
+          "",
+        ], [
+          "Closing Balance",
+          metadataMatch?.groups?.ClBal || "N/A",
+          "",
+          "",
+          "",
+          "",
+          "",
+        ]];
         const tableHeaderStart = rawText.indexOf("Value Date");
         let transactionText = rawText;
-
         if (tableHeaderStart !== -1) {
-          // Find the start of the table block (usually begins with 'Date')
           const dateHeaderIndex = rawText.indexOf("Date Value Date");
           if (dateHeaderIndex !== -1) {
             transactionText = rawText.substring(dateHeaderIndex);
-          } else {
-            // Fallback to searching from Value Date
-            transactionText = rawText.substring(tableHeaderStart);
-          }
+          } else transactionText = rawText.substring(tableHeaderStart);
         }
-
-        // 3. Transaction Table Extraction
-        // Updated Regex: /(?<date>\d\d\/\d\d\/\d{4}) \d\d\/\d\d\/\d{4} (?<particular>.*?) (?<amt>[\d,]+\.\s?\d\s?\d) (?<bal>[\d,]+\s?\.\s?\d\s?\d)/g
         const tableRegex = new RegExp(
           /(?<date>\d\d\/\d\d\/\d{4})\s+\d\d\/\d\d\/\d{4}\s+(?<particular>.*?)\s+(?<amt>[\d,]+\.\s?\d\s?\d)\s+(?<bal>[\d,]+\s?\.\s?\d\s?\d)/g,
         );
-
         const matches = [...transactionText.matchAll(tableRegex)];
-
-        // Define Headers for RBL Bank Statement
         const headers = [
           "Date",
           "Particulars/Description",
@@ -842,77 +750,46 @@
           "",
           "",
         ];
-
         const dataRows = matches.map((m) => {
           const g = m.groups;
           return [
             g.date,
             g.particular.trim(),
-            // Clean the amounts (remove commas and spaces)
             g.amt.replace(/,/g, "").replace(/\s/g, ""),
-            // Clean the balance (remove spaces)
             g.bal.replace(/\s/g, ""),
             "",
             "",
-            "", // Pad to 7 columns
+            "",
           ];
         });
-
-        const allRows = [
-          ...metadataRows,
-          headers,
-          ...dataRows,
-        ];
-
-        return { allRows };
+        return { allRows: [...metadataRows, headers, ...dataRows] };
       }
 
-      // --- Parser 7: IDBI Bank Statement ---
       function parseIDBIBankStatementText(rawText) {
-        console.log("Starting IDBI Bank parsing."); // DEBUG
-
-        // 1. Metadata Extraction (using dotAll flag 's')
-        // Regex: /^(?<Name>.*)  Address .* A\/C NO: (?<AccNo>\d+)/s
         const metadataRegex =
           /^(?<Name>.*?) Address .* A\/C NO: (?<AccNo>\d+)/s;
         const metadataMatch = rawText.match(metadataRegex);
-
-        const metadataRows = [
-          [
-            "Account Name",
-            metadataMatch?.groups?.Name?.trim() || "N/A",
-            "",
-            "",
-            "",
-            "",
-            "",
-          ],
-          [
-            "Account Number",
-            metadataMatch?.groups?.AccNo || "N/A",
-            "",
-            "",
-            "",
-            "",
-            "",
-          ],
-        ];
-
-        console.log("IDBI Metadata:", metadataRows); // DEBUG
-
-        // 2. Transaction Table Extraction
-        // Regex: (?<date>\d\d\/\d\d\/\d{4}) (.*?) (Dr\.|Cr\.) \w{3} (?<Amt>[\d,]+\.\d{2}) \d\d\/\d\d\/\d{4} \d\d:\d\d:\d\d (?<serialNo>\d+) (?<Bal>-?[\d,]+\.\d{2})
-        // Note: The second capture group (.*?) holds the particulars/description.
+        const metadataRows = [[
+          "Account Name",
+          metadataMatch?.groups?.Name?.trim() || "N/A",
+          "",
+          "",
+          "",
+          "",
+          "",
+        ], [
+          "Account Number",
+          metadataMatch?.groups?.AccNo || "N/A",
+          "",
+          "",
+          "",
+          "",
+          "",
+        ]];
         const tableRegex = new RegExp(
           /(?<date>\d\d\/\d\d\/\d{4})\s+(?<particular>.*?)\s+(?<type>Dr\.|Cr\.)\s+\w{3}\s+(?<Amt>[\d,]+\.\d{2})\s+\d\d\/\d\d\/\d{4}\s+\d\d:\d\d:\d\d\s+(?<serialNo>\d+)\s+(?<Bal>-?[\d,]+\.\d{2})/g,
         );
-
-        // Run the regex over the raw text
         const matches = [...rawText.matchAll(tableRegex)];
-
-        console.log(`IDBI found ${matches.length} transactions.`); // DEBUG
-
-        // Define Headers for IDBI Bank Statement
         const headers = [
           "Date",
           "Particulars/Description",
@@ -922,47 +799,33 @@
           "Balance",
           "",
         ];
-
         const dataRows = matches.map((m) => {
           const g = m.groups;
-
-          // Determine the actual amount based on Dr/Cr type
           const amount = g.type === "Dr." ? `-${g.Amt}` : g.Amt;
-
           return [
             g.date,
             g.particular.trim(),
             g.type,
-            amount.replace(/,/g, ""), // Clean commas from amount
+            amount.replace(/,/g, ""),
             g.serialNo,
-            g.Bal.replace(/,/g, ""), // Clean commas from balance
-            "", // Pad to 7 columns
+            g.Bal.replace(/,/g, ""),
+            "",
           ];
         });
-
-        const allRows = [
-          ...metadataRows,
-          headers,
-          ...dataRows,
-        ];
-
-        return { allRows };
+        return { allRows: [...metadataRows, headers, ...dataRows] };
       }
 
       function copyTable() {
         if (store.allRows.length === 0) return;
-
         const tsvText = store.allRows.map((row) => row.join("\t")).join(
           "\n",
         );
-
         const tempTextArea = document.createElement("textarea");
         tempTextArea.style.position = "fixed";
         tempTextArea.style.opacity = "0";
         tempTextArea.value = tsvText;
         document.body.appendChild(tempTextArea);
         tempTextArea.select();
-
         try {
           document.execCommand("copy");
           setStatus("All table data copied to clipboard!", "success");
@@ -975,6 +838,22 @@
       }
 
       // --- Templates ---
+
+      const tableToggleClass = () => {
+        return `flex-shrink-0 w-full md:w-auto px-4 py-2 text-white font-bold rounded-lg shadow transition duration-150 ${
+          store.isTableVisible
+            ? "bg-blue-500 hover:bg-blue-600"
+            : "bg-gray-500 hover:bg-gray-600"
+        }`;
+      };
+
+      const rawTextToggleClass = () => {
+        return `px-3 py-1 text-sm text-white font-bold rounded shadow transition duration-150 ${
+          store.isRawTextVisible
+            ? "bg-blue-500 hover:bg-blue-600"
+            : "bg-gray-500 hover:bg-gray-600"
+        }`;
+      };
 
       const statusTemplate = html`
         ${() => {
@@ -992,16 +871,86 @@
         }}
       `;
 
+      const modalTemplate = html`
+        ${() => {
+          if (!store.passwordModal.isOpen) return "";
+          return html`
+            <div
+              class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop"
+            >
+              <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">
+                  Password Required
+                </h3>
+                <p class="text-sm text-gray-600 mb-2">
+                  The file <span class="font-bold text-blue-600">${store
+                    .passwordModal.fileName}</span>
+                  is encrypted.
+                </p>
+
+                <div class="mb-4">
+                  <label class="block text-sm font-medium text-gray-700 mb-1"
+                  >Enter Password</label>
+                  <input
+                    type="text"
+                    class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Password"
+                    value="${() => store.passwordModal.passwordInput}"
+                    @input="${(e) =>
+                      store.passwordModal.passwordInput =
+                        e.target.value}"
+                    @keydown="${(e) =>
+                      e.key === "Enter" && handlePasswordSubmit()}"
+                  >
+                </div>
+
+                <div class="flex items-center mb-6">
+                  <input
+                    type="checkbox"
+                    id="useForSubsequent"
+                    class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    checked="${() =>
+                      store.passwordModal.useForSubsequent}"
+                    @change="${(e) =>
+                      store.passwordModal.useForSubsequent =
+                        e.target.checked}"
+                  >
+                  <label
+                    for="useForSubsequent"
+                    class="ml-2 block text-sm text-gray-700"
+                  >
+                    Use this password for subsequent files
+                  </label>
+                </div>
+
+                <div class="flex justify-end space-x-3">
+                  <button
+                    @click="${handlePasswordSkip}"
+                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium text-sm"
+                  >
+                    Skip File
+                  </button>
+                  <button
+                    @click="${handlePasswordSubmit}"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
+                  >
+                    Decrypt & Extract
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }}
+      `;
+
       const tableTemplate = html`
         <div class="overflow-x-auto border rounded-lg">
           <table id="outputTable">
             <tbody>
               ${() =>
                 store.allRows.map((row, index) => {
-                  // Identify row types for styling
                   const isSourceHeader = row[0] &&
                     row[0].startsWith("Source:");
-                  // Heuristic for header rows based on first cell content
                   const firstCell = row[0] || "";
                   const isHeader =
                     (firstCell === "Head" && row[1] === "Tax") ||
@@ -1052,10 +1001,7 @@
                   <button
                     @click="${() =>
                       store.isTableVisible = !store.isTableVisible}"
-                    class="flex-shrink-0 w-full md:w-auto px-4 py-2 text-white font-bold rounded-lg shadow transition duration-150 ${() =>
-                      store.isTableVisible
-                        ? "bg-blue-500 hover:bg-blue-600"
-                        : "bg-gray-500 hover:bg-gray-600"}"
+                    class="${tableToggleClass}"
                   >
                     ${() =>
                       store.isTableVisible
@@ -1082,12 +1028,35 @@
                 `}
 
               <div class="mt-8">
-                <h3 class="text-xl font-medium text-gray-700 mb-2">
-                  Raw Extracted Text (For Debugging)
-                </h3>
-                <pre
-                  class="bg-gray-100 p-4 rounded-lg text-xs overflow-auto max-h-64 border"
-                >${() => store.rawText}</pre>
+                <div class="flex justify-between items-center mb-2">
+                  <h3 class="text-xl font-medium text-gray-700">
+                    Raw Extracted Text (For Debugging)
+                  </h3>
+                  <!-- Raw Text Toggle -->
+                  <button
+                    @click="${() =>
+                      store.isRawTextVisible = !store.isRawTextVisible}"
+                    class="${rawTextToggleClass}"
+                  >
+                    ${() =>
+                      store.isRawTextVisible
+                        ? "Hide Raw Text"
+                        : "Show Raw Text"}
+                  </button>
+                </div>
+
+                ${() =>
+                  store.isRawTextVisible
+                    ? html`
+                      <pre
+                        class="bg-gray-100 p-4 rounded-lg text-xs overflow-auto max-h-64 border"
+                      >${store.rawText}</pre>
+                    `
+                    : html`
+                      <div class="p-4 bg-gray-50 border rounded text-xs text-gray-500 italic">
+                        Raw text hidden.
+                      </div>
+                    `}
               </div>
             </div>
           `;
@@ -1106,15 +1075,14 @@
 
       const mainTemplate = html`
         <div
-          class="container mx-auto bg-white shadow-xl rounded-xl p-6 md:p-10"
+          class="container mx-auto bg-white shadow-xl rounded-xl p-6 md:p-10 relative"
         >
           <h1 class="text-3xl font-extrabold text-blue-800 mb-2">
             Tax & Bank Data Extractor
           </h1>
           <p class="text-gray-600 mb-6">
             Supports <strong>GST Receipts</strong>, <strong>GSTR-3B</strong>,
-            <strong>TDS Challans</strong>, <strong>PF Receipts</strong>,<strong
-            >PT challans</strong>, <strong>Union Bank</strong>,
+            <strong>Income Tax Challans</strong>, <strong>Union Bank</strong>,
             <strong>Canara Bank</strong>, <strong>RBL Bank</strong>, and <strong
             >IDBI Bank Statements</strong>.
             <br>Drag and drop multiple PDF files to process them in batch.
@@ -1168,7 +1136,7 @@
             >
           </label>
 
-          ${statusTemplate} ${resultsTemplate}
+          ${statusTemplate} ${resultsTemplate} ${modalTemplate}
         </div>
       `;
 
