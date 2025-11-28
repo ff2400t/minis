@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tax Data Extractor (GST, Income Tax & Bank)</title>
+    <title>Tax & Bank Data Extractor (Universal)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load PDF.js library -->
     <script
@@ -15,7 +15,6 @@
         "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js";
     </script>
     <style>
-      /* Custom styles for better copy/paste experience on the output table */
       .data-table {
         table-layout: fixed;
         width: 100%;
@@ -33,13 +32,11 @@
       .data-table tr:nth-child(even) {
         background-color: #f9fafb;
       }
-      /* Style for the header row specifically */
       .header-row td {
         background-color: #f3f4f6;
         font-weight: bold;
         color: #374151;
       }
-      /* Style for file separator rows */
       .file-row td {
         background-color: #bfdbfe; /* Blue-200 */
         font-weight: bold;
@@ -49,14 +46,12 @@
       .container {
         max-width: 1024px;
       }
-      /* Drag and drop active state */
       .drag-active {
         border-color: #3b82f6 !important; /* blue-500 */
         background-color: #eff6ff !important; /* blue-50 */
         transform: scale(1.01);
         transition: all 0.2s ease;
       }
-      /* Modal Backdrop */
       .modal-backdrop {
         background-color: rgba(0, 0, 0, 0.5);
       }
@@ -71,23 +66,33 @@
       // --- Reactive State ---
       const store = reactive({
         fileSummary: "",
-        status: { message: "", type: "" }, // type: 'error', 'success', 'info', ''
+        status: { message: "", type: "" },
         allRows: [],
+        consolidatedMetadata: [],
+        consolidatedTables: [],
         rawText: "",
         isResultVisible: false,
         isDragging: false,
         isTableVisible: true,
         isRawTextVisible: false,
-
-        // Password Modal State
+        isParserFormVisible: false,
+        isConsolidatedVisible: false,
+        customParsers: [],
+        newParser: {
+          name: "",
+          matchString: "",
+          metadataRegex: "",
+          tableRegex: "",
+          configText: "", // For the raw paste input
+        },
         passwordModal: {
           isOpen: false,
           fileName: "",
           passwordInput: "",
           useForSubsequent: false,
-          resolve: null, // Function to resolve the promise waiting for password
+          resolve: null,
         },
-        savedPassword: null, // To store password if "use for subsequent" is checked
+        savedPassword: null,
       });
 
       // --- Logic & Helpers ---
@@ -98,6 +103,107 @@
 
       function clearStatus() {
         store.status = { message, type };
+      }
+
+      // --- Custom Parser Logic ---
+
+      function parseConfigInput(text) {
+        // Helper to extract value between keys
+        const getValue = (key, nextKeys) => {
+          const regex = new RegExp(
+            `${key}\\s*([\\s\\S]*?)(?=${nextKeys.join("|")}|$`,
+            "i",
+          );
+          // We manually search to avoid regex complexity with special chars in values
+          const lowerText = text.toLowerCase();
+          const keyIndex = lowerText.indexOf(key.toLowerCase());
+
+          if (keyIndex === -1) return null;
+
+          const contentStart = keyIndex + key.length;
+          let endIndex = text.length;
+
+          nextKeys.forEach((nk) => {
+            const nkIndex = lowerText.indexOf(
+              nk.toLowerCase(),
+              contentStart,
+            );
+            if (nkIndex !== -1 && nkIndex < endIndex) {
+              endIndex = nkIndex;
+            }
+          });
+
+          let val = text.substring(contentStart, endIndex).trim();
+          // Remove trailing comma if present
+          if (val.endsWith(",")) val = val.slice(0, -1).trim();
+          return val;
+        };
+
+        const keys = ["Name:", "matchstring:", "Metadata:", "Table:"];
+
+        const name = getValue(
+          "Name:",
+          keys.filter((k) => k !== "Name:"),
+        );
+        const matchString = getValue(
+          "matchstring:",
+          keys.filter((k) => k !== "matchstring:"),
+        );
+        const metadata = getValue(
+          "Metadata:",
+          keys.filter((k) => k !== "Metadata:"),
+        );
+        const table = getValue(
+          "Table:",
+          keys.filter((k) => k !== "Table:"),
+        );
+
+        if (name) store.newParser.name = name;
+        if (matchString) store.newParser.matchString = matchString;
+        if (metadata) store.newParser.metadataRegex = metadata;
+        if (table) store.newParser.tableRegex = table;
+      }
+
+      function addCustomParser() {
+        const { name, matchString, metadataRegex, tableRegex } =
+          store.newParser;
+
+        if (!name || !matchString) {
+          setStatus("Name and Match String are required.", "error");
+          return;
+        }
+
+        try {
+          if (metadataRegex) new RegExp(metadataRegex);
+          if (tableRegex) new RegExp(tableRegex);
+        } catch (e) {
+          setStatus(`Invalid Regex: ${e.message}`, "error");
+          return;
+        }
+
+        store.customParsers.push({
+          name,
+          matchString: matchString.split(",").map((s) => s.trim()),
+          metadataRegex,
+          tableRegex, // Can be empty
+        });
+
+        // Reset form
+        store.newParser.name = "";
+        store.newParser.matchString = "";
+        store.newParser.metadataRegex = "";
+        store.newParser.tableRegex = "";
+        store.newParser.configText = "";
+        store.isParserFormVisible = false;
+
+        setStatus(
+          `Custom parser "${name}" added successfully!`,
+          "success",
+        );
+      }
+
+      function removeCustomParser(index) {
+        store.customParsers.splice(index, 1);
       }
 
       // --- Drag and Drop Handlers ---
@@ -123,38 +229,28 @@
         e.preventDefault();
         e.stopPropagation();
         store.isDragging = false;
-
         const dt = e.dataTransfer;
         const files = dt ? dt.files : null;
-
-        if (files && files.length > 0) {
-          processFiles(files);
-        }
+        if (files && files.length > 0) processFiles(files);
       }
 
       function handleFileInput(e) {
-        const files = e.target.files;
-        processFiles(files);
+        processFiles(e.target.files);
       }
 
       // --- PDF Processing ---
 
-      // Function to extract text from ALL pages of the PDF, accepting an optional password
       async function extractAllPdfText(file, password = "") {
         const fileReader = new FileReader();
         return new Promise((resolve, reject) => {
           fileReader.onload = async function () {
             const typedarray = new Uint8Array(this.result);
             try {
-              // Pass password to getDocument
               const pdf = await pdfjsLib.getDocument({
                 data: typedarray,
                 password: password,
               }).promise;
-
               let fullText = "";
-
-              // Iterate through all pages
               for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
                 const textContent = await page.getTextContent();
@@ -162,10 +258,8 @@
                   item.str
                 ).join(" ") + " ";
               }
-
               resolve(fullText);
             } catch (error) {
-              // Pass specific error object so we can check name/code
               reject(error);
             }
           };
@@ -175,21 +269,12 @@
         });
       }
 
-      // Wrapper to handle Password Logic
       async function extractTextWithPasswordHandling(file) {
-        // 1. Try with no password (or currently saved password if relevant, though usually start blank or specific)
-        // Strategy: Always try empty first unless we specifically know.
-        // Actually, if we have a saved password, we might want to try that if empty fails.
-
         try {
           return await extractAllPdfText(file, "");
         } catch (e) {
           if (e.name === "PasswordException") {
-            // It is encrypted.
-
-            // 2. Try Saved Password if exists
             if (store.savedPassword) {
-              console.log(`Trying saved password for ${file.name}...`);
               try {
                 return await extractAllPdfText(
                   file,
@@ -197,45 +282,34 @@
                 );
               } catch (e2) {
                 if (e2.name !== "PasswordException") throw e2;
-                // Saved password failed, proceed to ask user
               }
             }
-
-            // 3. Prompt User
             while (true) {
               const userResponse = await promptForPassword(file.name);
-
-              if (userResponse.skip) {
-                throw new Error("Skipped by user");
-              }
-
+              if (userResponse.skip) throw new Error("Skipped by user");
               try {
                 const text = await extractAllPdfText(
                   file,
                   userResponse.password,
                 );
-
-                // If successful and checkbox checked, save it
                 if (userResponse.useForSubsequent) {
                   store.savedPassword = userResponse.password;
                 }
                 return text;
               } catch (e3) {
                 if (e3.name !== "PasswordException") throw e3;
-                // Password was wrong, loop will continue and prompt again
                 alert("Incorrect password. Please try again.");
               }
             }
           }
-          throw e; // Rethrow other errors
+          throw e;
         }
       }
 
       function promptForPassword(fileName) {
         return new Promise((resolve) => {
-          // Open Modal
           store.passwordModal.fileName = fileName;
-          store.passwordModal.passwordInput = ""; // Reset input
+          store.passwordModal.passwordInput = "";
           store.passwordModal.useForSubsequent = false;
           store.passwordModal.resolve = resolve;
           store.passwordModal.isOpen = true;
@@ -275,22 +349,23 @@
           ? `File: ${fileList[0].name}`
           : `${count} files selected`;
 
-        // Reset Output State
         store.isResultVisible = false;
         store.rawText = "";
         store.allRows = [];
+        store.consolidatedMetadata = [];
+        store.consolidatedTables = [];
         store.isTableVisible = true;
         store.isRawTextVisible = false;
-        store.savedPassword = null; // Reset saved password on new batch? Or keep it? Let's reset for safety.
+        store.isConsolidatedVisible = false;
+        store.savedPassword = null;
 
         let successCount = 0;
 
         try {
-          // Iterate through all files
           for (let i = 0; i < count; i++) {
             const file = fileList[i];
             if (file.type !== "application/pdf") {
-              console.log(`Skipping file: ${file.name} (Not a PDF)`); // DEBUG
+              console.log(`Skipping file: ${file.name} (Not a PDF)`);
               continue;
             }
 
@@ -298,97 +373,99 @@
               `Processing ${i + 1} of ${count}: ${file.name}...`,
               "info",
             );
-            console.log(`Starting processing for: ${file.name}`); // DEBUG
 
             let rawText;
             try {
               rawText = await extractTextWithPasswordHandling(file);
             } catch (extractionError) {
-              if (extractionError.message === "Skipped by user") {
-                console.log(`Skipped file: ${file.name}`);
-                store.rawText +=
-                  `\n--- SOURCE: ${file.name} (SKIPPED) ---\n[User skipped password entry]\n`;
-                continue;
-              }
-              console.error(
-                `Failed to extract text from ${file.name}:`,
-                extractionError,
-              );
               store.rawText +=
-                `\n--- SOURCE: ${file.name} (ERROR) ---\n[Extraction Failed: ${extractionError.message}]\n`;
+                `\n--- SOURCE: ${file.name} (FAILED) ---\nError: ${extractionError.message}\n`;
               continue;
             }
 
-            // 1. GLOBAL PRE-PROCESSING
             rawText = rawText.replace(/   /g, " ");
-            console.log(
-              `Raw text extracted (first 200 chars): ${
-                rawText.substring(0, 200)
-              }...`,
-            ); // DEBUG
 
-            // Detect Document Type and Parse
-            let parsedData = { allRows: [] };
+            let parsedData = { allRows: [], metadataFields: {} };
             let docType = "Unknown";
-
-            // Clean text for detection
             const cleanCheckText = rawText.replace(/\s+/g, " ");
 
-            if (
-              cleanCheckText.includes(
-                "GOODS AND SERVICES TAX PAYMENT RECEIPT",
-              )
-            ) {
-              docType = "GST Challan";
-              parsedData = parseChallanText(rawText);
-            } else if (
-              cleanCheckText.includes("Form GSTR-3B") ||
-              cleanCheckText.includes("See rule 61(5)")
-            ) {
-              docType = "GSTR-3B";
-              parsedData = parseGSTR3BText(rawText);
-            } else if (
-              cleanCheckText.includes("INCOME TAX DEPARTMENT") &&
-              cleanCheckText.includes("Challan Receipt")
-            ) {
-              docType = "Income Tax";
-              parsedData = parseIncomeTaxChallanText(rawText);
-            } else if (cleanCheckText.includes("RBL BANK LTD")) {
-              docType = "RBL Bank Statement";
-              parsedData = parseRBLBankStatementText(rawText);
-            } else if (
-              cleanCheckText.includes("Canara Bank does not")
-            ) {
-              docType = "Canara Bank Statement";
-              parsedData = parseCanaraBankStatementText(rawText);
-            } else if (
-              cleanCheckText.includes("Union Bank of India") &&
-              cleanCheckText.includes("Statement of Account")
-            ) {
-              docType = "Union Bank Statement";
-              parsedData = parseUnionBankStatementText(rawText);
-            } else if (
-              cleanCheckText.includes("IDBI Bank or other authorities")
-            ) {
-              docType = "IDBI Bank Statement";
-              parsedData = parseIDBIBankStatementText(rawText);
-            } else {
-              // Fallback or skip
-              store.rawText +=
-                `\n--- SOURCE: ${file.name} (Unknown Type) ---\n${rawText}\n`;
-              console.log(`Document type unknown for: ${file.name}`); // DEBUG
-              continue;
+            // 1. Check CUSTOM Parsers First
+            let customParserFound = false;
+            for (const parser of store.customParsers) {
+              const isMatch = parser.matchString.some((s) =>
+                cleanCheckText.includes(s)
+              );
+              if (isMatch) {
+                docType = parser.name + " (Custom)";
+                parsedData = genericParser(rawText, parser);
+                customParserFound = true;
+                break;
+              }
             }
 
-            console.log(`Detected document type: ${docType}`); // DEBUG
-            console.log(
-              `Parsed ${parsedData.allRows.length} data rows.`,
-            ); // DEBUG
+            // 2. Fallback to Built-in Parsers
+            if (!customParserFound) {
+              if (
+                cleanCheckText.includes(
+                  "GOODS AND SERVICES TAX PAYMENT RECEIPT",
+                )
+              ) {
+                docType = "GST Challan";
+                parsedData = parseChallanText(rawText);
+              } else if (
+                cleanCheckText.includes("Form GSTR-3B") ||
+                cleanCheckText.includes("See rule 61(5)")
+              ) {
+                docType = "GSTR-3B";
+                parsedData = parseGSTR3BText(rawText);
+              } else if (
+                cleanCheckText.includes("INCOME TAX DEPARTMENT") &&
+                cleanCheckText.includes("Challan Receipt")
+              ) {
+                docType = "Income Tax";
+                parsedData = parseIncomeTaxChallanText(rawText);
+              } else if (cleanCheckText.includes("RBL BANK LTD")) {
+                docType = "RBL Bank Statement";
+                parsedData = parseRBLBankStatementText(rawText);
+              } else if (
+                cleanCheckText.includes("Canara Bank does not")
+              ) {
+                docType = "Canara Bank Statement";
+                parsedData = parseCanaraBankStatementText(rawText);
+              } else if (
+                cleanCheckText.includes("Union Bank of India") &&
+                cleanCheckText.includes("Statement of Account")
+              ) {
+                docType = "Union Bank Statement";
+                parsedData = parseUnionBankStatementText(rawText);
+              } else if (
+                cleanCheckText.includes(
+                  "IDBI Bank or other authorities",
+                )
+              ) {
+                docType = "IDBI Bank Statement";
+                parsedData = parseIDBIBankStatementText(rawText);
+              } else {
+                store.rawText +=
+                  `\n--- SOURCE: ${file.name} (Unknown Type) ---\n${rawText}\n`;
+                continue;
+              }
+            }
+
+            if (
+              parsedData.metadataFields &&
+              Object.keys(parsedData.metadataFields).length > 0
+            ) {
+              store.consolidatedMetadata.push({
+                fileName: file.name,
+                docType: docType,
+                fields: parsedData.metadataFields,
+              });
+            }
 
             store.rawText +=
               `\n--- SOURCE: ${file.name} (${docType}) ---\n${rawText}\n`;
 
-            // --- Append to Main Table ---
             const fileLabelRow = [
               `Source: ${file.name} (${docType})`,
               "",
@@ -398,35 +475,32 @@
               "",
               "",
             ];
-
             if (store.allRows.length > 0) {
               store.allRows.push(["", "", "", "", "", "", ""]);
             }
-
             store.allRows.push(fileLabelRow);
             store.allRows.push(...parsedData.allRows);
 
             successCount++;
           }
 
+          generateConsolidatedTables();
+
           store.isResultVisible = true;
 
-          if (store.allRows.length === 0) {
+          if (
+            store.allRows.length === 0 &&
+            store.consolidatedMetadata.length === 0
+          ) {
             setStatus(
-              "Processed files but found no recognized data (or skipped).",
+              "Processed files but found no recognized data.",
               "info",
             );
-            console.log(
-              "No recognized data found in any processed files.",
-            ); // DEBUG
           } else {
             setStatus(
               `Successfully processed ${successCount} files!`,
               "success",
             );
-            console.log(
-              `Finished processing. Total success count: ${successCount}`,
-            ); // DEBUG
           }
         } catch (error) {
           console.error(error);
@@ -435,8 +509,121 @@
         }
       }
 
-      // --- Parsers (Same as before) ---
+      function generateConsolidatedTables() {
+        const groups = {};
+        store.consolidatedMetadata.forEach((item) => {
+          if (!groups[item.docType]) groups[item.docType] = [];
+          groups[item.docType].push(item);
+        });
+
+        store.consolidatedTables = Object.keys(groups).map((type) => {
+          const items = groups[type];
+          const keys = new Set();
+          items.forEach((i) =>
+            Object.keys(i.fields).forEach((k) => keys.add(k))
+          );
+          const header = Array.from(keys);
+
+          const rows = items.map((item) => {
+            const rowData = [item.fileName];
+            header.forEach((h) => {
+              rowData.push(item.fields[h] || "");
+            });
+            return rowData;
+          });
+
+          return {
+            title: type,
+            headers: ["Source File", ...header],
+            rows: rows,
+          };
+        });
+      }
+
+      // --- Parsers ---
+
+      function genericParser(rawText, config) {
+        let metadataRows = [];
+        let metadataFields = {};
+
+        if (config.metadataRegex) {
+          try {
+            const metaRx = new RegExp(config.metadataRegex, "s");
+            const metaMatch = rawText.match(metaRx);
+            if (metaMatch && metaMatch.groups) {
+              for (
+                const [key, value] of Object.entries(metaMatch.groups)
+              ) {
+                const val = value.trim();
+                metadataFields[key] = val;
+                metadataRows.push([key, val, "", "", "", "", ""]);
+              }
+            } else if (metaMatch) {
+              for (let i = 1; i < metaMatch.length; i++) {
+                const val = metaMatch[i]?.trim();
+                metadataFields[`Meta ${i}`] = val;
+                metadataRows.push([
+                  `Meta ${i}`,
+                  val,
+                  "",
+                  "",
+                  "",
+                  "",
+                  "",
+                ]);
+              }
+            }
+          } catch (e) {
+            console.error("Metadata Regex Error", e);
+          }
+        }
+
+        let headers = [];
+        let dataRows = [];
+
+        if (config.tableRegex) {
+          try {
+            const tableRx = new RegExp(config.tableRegex, "g");
+            const matches = [...rawText.matchAll(tableRx)];
+            if (matches.length > 0) {
+              const firstMatch = matches[0];
+              if (firstMatch.groups) {
+                headers = Object.keys(firstMatch.groups);
+              } else {
+                headers = Array.from(
+                  { length: firstMatch.length - 1 },
+                  (_, i) => `Col ${i + 1}`,
+                );
+              }
+              while (headers.length < 7) headers.push("");
+              if (headers.length > 7) headers = headers.slice(0, 7);
+
+              dataRows = matches.map((m) => {
+                let row = [];
+                if (m.groups) {
+                  row = Object.values(m.groups).map((val) =>
+                    val ? val.trim().replace(/,/g, "") : ""
+                  );
+                } else {row = m.slice(1).map((val) =>
+                    val ? val.trim().replace(/,/g, "") : ""
+                  );}
+                while (row.length < 7) row.push("");
+                return row.slice(0, 7);
+              });
+            }
+          } catch (e) {
+            console.error("Table Regex Error", e);
+          }
+        }
+
+        return {
+          allRows: [...metadataRows, headers, ...dataRows],
+          metadataFields,
+        };
+      }
+
       function parseChallanText(rawText) {
+        const metadataFields = {};
         const metadataSpecs = [
           { name: "Name", regex: /Name:\s+(.*)\s+Address/ },
           { name: "GSTIN", regex: /GSTIN:\s+(\w+)/ },
@@ -450,15 +637,9 @@
           return m[1];
         };
         const metadataRows = metadataSpecs.map((spec) => {
-          return [
-            spec.name,
-            getMetadataValue(spec),
-            "",
-            "",
-            "",
-            "",
-            "",
-          ];
+          const val = getMetadataValue(spec);
+          metadataFields[spec.name] = val;
+          return [spec.name, val, "", "", "", "", ""];
         });
         const tableRegex =
           /(?<name>\w+)\(.*?\)\s+(?<tax>-|\d+)\s+(?<interest>-|\d+)\s+(?<penalty>-|\d+)\s+(?<fees>-|\d+)\s+(?<others>-|\d+)\s+(?<total>-|\d+)\s+/g;
@@ -472,19 +653,17 @@
           "Others",
           "Total",
         ];
-        const dataHeaderRow = headers;
-        const dataRows = matches.map((m) => {
-          const g = m.groups;
-          return [
-            g.name,
-            g.tax,
-            g.interest,
-            g.penalty,
-            g.fees,
-            g.others,
-            g.total,
-          ];
-        });
+        const dataRows = matches.map(
+          (m) => [
+            m.groups.name,
+            m.groups.tax,
+            m.groups.interest,
+            m.groups.penalty,
+            m.groups.fees,
+            m.groups.others,
+            m.groups.total,
+          ]
+        );
         const totalMatch = rawText.match(/Total Amount\s+([\d,]+)/);
         if (
           totalMatch && !matches.find((m) => m.groups.name === "Total")
@@ -500,11 +679,13 @@
           ]);
         }
         return {
-          allRows: [...metadataRows, dataHeaderRow, ...dataRows],
+          allRows: [...metadataRows, headers, ...dataRows],
+          metadataFields,
         };
       }
 
       function parseGSTR3BText(rawText) {
+        const metadataFields = {};
         const metadataSpecs = [
           {
             name: "GSTIN",
@@ -529,15 +710,9 @@
           return m[1];
         };
         const metadataRows = metadataSpecs.map((spec) => {
-          return [
-            spec.name,
-            getMetadataValue(spec),
-            "",
-            "",
-            "",
-            "",
-            "",
-          ];
+          const val = getMetadataValue(spec);
+          metadataFields[spec.name] = val;
+          return [spec.name, val, "", "", "", "", ""];
         });
         const tableRegex =
           /\([a-e]\s?\)\s+(.*?)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+/g;
@@ -551,16 +726,26 @@
           "Cess",
           "",
         ];
-        const dataRows = matches.map((m) => {
-          return [m[1].trim(), m[2], m[3], m[4], m[5], m[6], ""];
-        });
-        return { allRows: [...metadataRows, headers, ...dataRows] };
+        const dataRows = matches.map(
+          (m) => [m[1].trim(), m[2], m[3], m[4], m[5], m[6], ""]
+        );
+        return {
+          allRows: [...metadataRows, headers, ...dataRows],
+          metadataFields,
+        };
       }
 
       function parseIncomeTaxChallanText(rawText) {
         const regex =
           /Nature of Payment : (?<sectionNo>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<amt>\d[\d,.]*).*(?<depositDate>\d\d\-\s?\w{3}-\d{4})/g;
         const matches = [...rawText.matchAll(regex)];
+        const metadataFields = matches.length > 0
+          ? {
+            "Section No": matches[0].groups.sectionNo,
+            "Amount": matches[0].groups.amt,
+            "Date": matches[0].groups.depositDate.replace(/\s/g, ""),
+          }
+          : {};
         const headers = [
           "Section No",
           "Amount (Rs.)",
@@ -570,19 +755,18 @@
           "",
           "",
         ];
-        const dataRows = matches.map((m) => {
-          const g = m.groups;
-          return [
-            g.sectionNo,
-            g.amt,
-            g.depositDate.replace(/\s/g, ""),
+        const dataRows = matches.map(
+          (m) => [
+            m.groups.sectionNo,
+            m.groups.amt,
+            m.groups.depositDate.replace(/\s/g, ""),
             "",
             "",
             "",
             "",
-          ];
-        });
-        return { allRows: [headers, ...dataRows] };
+          ]
+        );
+        return { allRows: [headers, ...dataRows], metadataFields };
       }
 
       function parseUnionBankStatementText(rawText) {
@@ -592,9 +776,14 @@
         const accountMatch = rawText.match(
           /Account No\s+(?<accountNo>\d+)/i,
         );
+        const metadataFields = {
+          "Account Holder Name": nameMatch?.groups?.name?.trim() ||
+            "N/A",
+          "Account Number": accountMatch?.groups?.accountNo || "N/A",
+        };
         const metadataRows = [[
           "Account Holder Name",
-          nameMatch?.groups?.name?.trim() || "N/A",
+          metadataFields["Account Holder Name"],
           "",
           "",
           "",
@@ -602,7 +791,7 @@
           "",
         ], [
           "Account Number",
-          accountMatch?.groups?.accountNo || "N/A",
+          metadataFields["Account Number"],
           "",
           "",
           "",
@@ -621,50 +810,35 @@
           "",
           "",
         ];
-        const dataRows = matches.map((m) => {
-          const g = m.groups;
-          return [
-            g.date,
-            g.particulars.trim(),
-            g.amt.replace(/\s/g, ""),
-            g.bal.replace(/\s/g, ""),
+        const dataRows = matches.map(
+          (m) => [
+            m.groups.date,
+            m.groups.particulars.trim(),
+            m.groups.amt.replace(/\s/g, ""),
+            m.groups.bal.replace(/\s/g, ""),
             "",
             "",
             "",
-          ];
-        });
-        return { allRows: [...metadataRows, headers, ...dataRows] };
+          ]
+        );
+        return {
+          allRows: [...metadataRows, headers, ...dataRows],
+          metadataFields,
+        };
       }
 
       function parseCanaraBankStatementText(rawText) {
         const metadataRegex =
           /Account Number (?<accountNo>\d+).* Opening Balance Rs\. (?<opBal>-?[\d,]+\.\d\d)\s+Closing Balance Rs\. (?<closeBal>-?[\d,]+\.\d\d)/s;
         const metadataMatch = rawText.match(metadataRegex);
-        const metadataRows = [[
-          "Account Number",
-          metadataMatch?.groups?.accountNo || "N/A",
-          "",
-          "",
-          "",
-          "",
-          "",
-        ], [
-          "Opening Balance",
-          metadataMatch?.groups?.opBal || "N/A",
-          "",
-          "",
-          "",
-          "",
-          "",
-        ], [
-          "Closing Balance",
-          metadataMatch?.groups?.closeBal || "N/A",
-          "",
-          "",
-          "",
-          "",
-          "",
-        ]];
+        const metadataFields = {
+          "Account Number": metadataMatch?.groups?.accountNo || "N/A",
+          "Opening Balance": metadataMatch?.groups?.opBal || "N/A",
+          "Closing Balance": metadataMatch?.groups?.closeBal || "N/A",
+        };
+        const metadataRows = Object.entries(metadataFields).map((
+          [k, v],
+        ) => [k, v, "", "", "", "", ""]);
         const tableRegex =
           /\s\s(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d+,]+\.\d\d)\s+(?<bal>-?[\d+,]+\.\d\d)/g;
         const matches = [...rawText.matchAll(tableRegex)];
@@ -677,58 +851,37 @@
           "",
           "",
         ];
-        const dataRows = matches.map((m) => {
-          const g = m.groups;
-          return [
-            g.date,
-            g.particulars.trim(),
-            g.amt.replace(/,/g, ""),
-            g.bal.replace(/,/g, ""),
+        const dataRows = matches.map(
+          (m) => [
+            m.groups.date,
+            m.groups.particulars.trim(),
+            m.groups.amt.replace(/,/g, ""),
+            m.groups.bal.replace(/,/g, ""),
             "",
             "",
             "",
-          ];
-        });
-        return { allRows: [...metadataRows, headers, ...dataRows] };
+          ]
+        );
+        return {
+          allRows: [...metadataRows, headers, ...dataRows],
+          metadataFields,
+        };
       }
 
       function parseRBLBankStatementText(rawText) {
         const metadataRegex =
           /Account Name: (?<AccName>.*?) Home Branch: .* in Account Number:\s+(?<AccountNo>\d+)\s+.* Opening Balance: ₹ (?<Opbal>[\d,]+\.\d{2})\s+Count Of Debit: \d+\s+Closing Balance: ₹ (?<ClBal>[\d,]+\.\d{2})/s;
         const metadataMatch = rawText.match(metadataRegex);
-        const metadataRows = [[
-          "Account Name",
-          metadataMatch?.groups?.AccName?.trim() || "N/A",
-          "",
-          "",
-          "",
-          "",
-          "",
-        ], [
-          "Account Number",
-          metadataMatch?.groups?.AccountNo || "N/A",
-          "",
-          "",
-          "",
-          "",
-          "",
-        ], [
-          "Opening Balance",
-          metadataMatch?.groups?.Opbal || "N/A",
-          "",
-          "",
-          "",
-          "",
-          "",
-        ], [
-          "Closing Balance",
-          metadataMatch?.groups?.ClBal || "N/A",
-          "",
-          "",
-          "",
-          "",
-          "",
-        ]];
+        const metadataFields = {
+          "Account Name": metadataMatch?.groups?.AccName?.trim() ||
+            "N/A",
+          "Account Number": metadataMatch?.groups?.AccountNo || "N/A",
+          "Opening Balance": metadataMatch?.groups?.Opbal || "N/A",
+          "Closing Balance": metadataMatch?.groups?.ClBal || "N/A",
+        };
+        const metadataRows = Object.entries(metadataFields).map((
+          [k, v],
+        ) => [k, v, "", "", "", "", ""]);
         const tableHeaderStart = rawText.indexOf("Value Date");
         let transactionText = rawText;
         if (tableHeaderStart !== -1) {
@@ -750,42 +903,34 @@
           "",
           "",
         ];
-        const dataRows = matches.map((m) => {
-          const g = m.groups;
-          return [
-            g.date,
-            g.particular.trim(),
-            g.amt.replace(/,/g, "").replace(/\s/g, ""),
-            g.bal.replace(/\s/g, ""),
+        const dataRows = matches.map(
+          (m) => [
+            m.groups.date,
+            m.groups.particular.trim(),
+            m.groups.amt.replace(/,/g, "").replace(/\s/g, ""),
+            m.groups.bal.replace(/\s/g, ""),
             "",
             "",
             "",
-          ];
-        });
-        return { allRows: [...metadataRows, headers, ...dataRows] };
+          ]
+        );
+        return {
+          allRows: [...metadataRows, headers, ...dataRows],
+          metadataFields,
+        };
       }
 
       function parseIDBIBankStatementText(rawText) {
         const metadataRegex =
           /^(?<Name>.*?) Address .* A\/C NO: (?<AccNo>\d+)/s;
         const metadataMatch = rawText.match(metadataRegex);
-        const metadataRows = [[
-          "Account Name",
-          metadataMatch?.groups?.Name?.trim() || "N/A",
-          "",
-          "",
-          "",
-          "",
-          "",
-        ], [
-          "Account Number",
-          metadataMatch?.groups?.AccNo || "N/A",
-          "",
-          "",
-          "",
-          "",
-          "",
-        ]];
+        const metadataFields = {
+          "Account Name": metadataMatch?.groups?.Name?.trim() || "N/A",
+          "Account Number": metadataMatch?.groups?.AccNo || "N/A",
+        };
+        const metadataRows = Object.entries(metadataFields).map((
+          [k, v],
+        ) => [k, v, "", "", "", "", ""]);
         const tableRegex = new RegExp(
           /(?<date>\d\d\/\d\d\/\d{4})\s+(?<particular>.*?)\s+(?<type>Dr\.|Cr\.)\s+\w{3}\s+(?<Amt>[\d,]+\.\d{2})\s+\d\d\/\d\d\/\d{4}\s+\d\d:\d\d:\d\d\s+(?<serialNo>\d+)\s+(?<Bal>-?[\d,]+\.\d{2})/g,
         );
@@ -812,48 +957,55 @@
             "",
           ];
         });
-        return { allRows: [...metadataRows, headers, ...dataRows] };
+        return {
+          allRows: [...metadataRows, headers, ...dataRows],
+          metadataFields,
+        };
       }
 
-      function copyTable() {
-        if (store.allRows.length === 0) return;
-        const tsvText = store.allRows.map((row) => row.join("\t")).join(
-          "\n",
-        );
+      function copyTable(tableId = "outputTable") {
+        const table = document.getElementById(tableId);
+        if (!table) return;
+        const rows = Array.from(table.rows).map((row) =>
+          Array.from(row.cells).map((cell) => cell.innerText).join("\t")
+        ).join("\n");
         const tempTextArea = document.createElement("textarea");
         tempTextArea.style.position = "fixed";
         tempTextArea.style.opacity = "0";
-        tempTextArea.value = tsvText;
+        tempTextArea.value = rows;
         document.body.appendChild(tempTextArea);
         tempTextArea.select();
         try {
           document.execCommand("copy");
-          setStatus("All table data copied to clipboard!", "success");
+          setStatus("Table content copied to clipboard!", "success");
         } catch (err) {
           setStatus("Manual copy required.", "error");
         } finally {
           document.body.removeChild(tempTextArea);
-          setTimeout(clearStatus, 3000);
+          setTimeout(() => clearStatus(), 3000);
         }
       }
 
       // --- Templates ---
 
-      const tableToggleClass = () => {
-        return `flex-shrink-0 w-full md:w-auto px-4 py-2 text-white font-bold rounded-lg shadow transition duration-150 ${
+      const tableToggleClass = () =>
+        `flex-shrink-0 w-full md:w-auto px-4 py-2 text-white font-bold rounded-lg shadow transition duration-150 ${
           store.isTableVisible
             ? "bg-blue-500 hover:bg-blue-600"
             : "bg-gray-500 hover:bg-gray-600"
         }`;
-      };
-
-      const rawTextToggleClass = () => {
-        return `px-3 py-1 text-sm text-white font-bold rounded shadow transition duration-150 ${
+      const rawTextToggleClass = () =>
+        `px-3 py-1 text-sm text-white font-bold rounded shadow transition duration-150 ${
           store.isRawTextVisible
             ? "bg-blue-500 hover:bg-blue-600"
             : "bg-gray-500 hover:bg-gray-600"
         }`;
-      };
+      const consolidatedToggleClass = () =>
+        `flex-shrink-0 w-full md:w-auto px-4 py-2 text-white font-bold rounded-lg shadow transition duration-150 ${
+          store.isConsolidatedVisible
+            ? "bg-purple-500 hover:bg-purple-600"
+            : "bg-gray-500 hover:bg-gray-600"
+        }`;
 
       const statusTemplate = html`
         ${() => {
@@ -871,112 +1023,190 @@
         }}
       `;
 
-      const modalTemplate = html`
-        ${() => {
-          if (!store.passwordModal.isOpen) return "";
-          return html`
-            <div
-              class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop"
-            >
-              <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
-                <h3 class="text-xl font-bold text-gray-800 mb-4">
-                  Password Required
-                </h3>
-                <p class="text-sm text-gray-600 mb-2">
-                  The file <span class="font-bold text-blue-600">${store
-                    .passwordModal.fileName}</span>
-                  is encrypted.
-                </p>
+      const customParserTemplate = html`
+        <div class="mb-6 border rounded-lg overflow-hidden">
+          <button
+            class="w-full text-left px-6 py-4 bg-gray-100 font-semibold text-gray-700 hover:bg-gray-200 flex justify-between items-center"
+            @click="${() =>
+              store.isParserFormVisible = !store.isParserFormVisible}"
+          >
+            <span>🛠️ Configure Custom Parser</span>
+            <span>${() => store.isParserFormVisible ? "▲" : "▼"}</span>
+          </button>
 
-                <div class="mb-4">
-                  <label class="block text-sm font-medium text-gray-700 mb-1"
-                  >Enter Password</label>
-                  <input
-                    type="text"
-                    class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Password"
-                    value="${() => store.passwordModal.passwordInput}"
-                    @input="${(e) =>
-                      store.passwordModal.passwordInput =
-                        e.target.value}"
-                    @keydown="${(e) =>
-                      e.key === "Enter" && handlePasswordSubmit()}"
-                  >
-                </div>
+          ${() =>
+            store.isParserFormVisible
+              ? html`
+                <div class="p-6 bg-white border-t">
+                  ${() =>
+                    store.customParsers.length > 0
+                      ? html`
+                        <div class="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+                          <h4 class="font-bold text-indigo-800 mb-3">Active Custom Parsers:</h4>
+                          <ul class="space-y-2">
+                            ${store.customParsers.map((p, i) =>
+                              html`
+                                <li
+                                  class="flex justify-between items-center bg-white p-2 rounded shadow-sm"
+                                >
+                                  <div>
+                                    <span class="font-semibold text-gray-800">${p
+                                      .name}</span>
+                                    <span class="text-xs text-gray-500 ml-2">(Match: ${p
+                                      .matchString.join(", ")})</span>
+                                  </div>
+                                  <button
+                                    @click="${() =>
+                                      removeCustomParser(i)}"
+                                    class="text-red-500 hover:text-red-700 text-sm font-medium px-2"
+                                  >
+                                    Remove
+                                  </button>
+                                </li>
+                              `
+                            )}
+                          </ul>
+                        </div>
+                      `
+                      : ""}
 
-                <div class="flex items-center mb-6">
-                  <input
-                    type="checkbox"
-                    id="useForSubsequent"
-                    class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                    checked="${() =>
-                      store.passwordModal.useForSubsequent}"
-                    @change="${(e) =>
-                      store.passwordModal.useForSubsequent =
-                        e.target.checked}"
-                  >
-                  <label
-                    for="useForSubsequent"
-                    class="ml-2 block text-sm text-gray-700"
-                  >
-                    Use this password for subsequent files
-                  </label>
-                </div>
+                  <!-- Quick Import Textarea -->
+                  <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-1"
+                    >Quick Import (Paste Config)</label>
+                    <textarea
+                      class="w-full h-24 rounded-md border-gray-300 shadow-sm border p-2 text-sm font-mono"
+                      placeholder="Name: My Parser,\\nmatchstring: invoice, bill,\\nMetadata: (?<Key>...)\\nTable: (?<Row>...)"
+                      value="${() => store.newParser.configText}"
+                      @input="${(e) => {
+                        store.newParser.configText = e.target.value;
+                        parseConfigInput(e.target.value);
+                      }}"
+                    ></textarea>
+                    <p class="text-xs text-gray-500 mt-1">
+                      Paste your parser configuration here to auto-populate the fields
+                      below.
+                    </p>
+                  </div>
 
-                <div class="flex justify-end space-x-3">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700"
+                      >Parser Name</label>
+                      <input
+                        type="text"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
+                        placeholder="e.g. My Custom Bank"
+                        value="${() => store.newParser.name}"
+                        @input="${(e) =>
+                          store.newParser.name = e.target.value}"
+                      >
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700"
+                      >Match Strings (comma separated)</label>
+                      <input
+                        type="text"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
+                        placeholder="e.g. My Bank Ltd, Custom Statement"
+                        value="${() => store.newParser.matchString}"
+                        @input="${(e) =>
+                          store.newParser.matchString = e.target.value}"
+                      >
+                    </div>
+                  </div>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700"
+                      >Metadata Regex (Named Groups recommended)</label>
+                      <input
+                        type="text"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
+                        placeholder="e.g. Account: (?<AccNo>\\d+)"
+                        value="${() => store.newParser.metadataRegex}"
+                        @input="${(e) =>
+                          store.newParser.metadataRegex =
+                            e.target.value}"
+                      >
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700"
+                      >Table Regex (Optional)</label>
+                      <input
+                        type="text"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
+                        placeholder="e.g. (?<Date>\\d{2}-\\d{2}-\\d{4}) (?<Amt>\\d+)"
+                        value="${() => store.newParser.tableRegex}"
+                        @input="${(e) =>
+                          store.newParser.tableRegex = e.target.value}"
+                      >
+                    </div>
+                  </div>
                   <button
-                    @click="${handlePasswordSkip}"
-                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium text-sm"
+                    @click="${addCustomParser}"
+                    class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 font-medium"
                   >
-                    Skip File
-                  </button>
-                  <button
-                    @click="${handlePasswordSubmit}"
-                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
-                  >
-                    Decrypt & Extract
+                    Add Parser
                   </button>
                 </div>
-              </div>
-            </div>
-          `;
-        }}
+              `
+              : ""}
+        </div>
       `;
 
-      const tableTemplate = html`
-        <div class="overflow-x-auto border rounded-lg">
-          <table id="outputTable">
-            <tbody>
-              ${() =>
-                store.allRows.map((row, index) => {
-                  const isSourceHeader = row[0] &&
-                    row[0].startsWith("Source:");
-                  const firstCell = row[0] || "";
-                  const isHeader =
-                    (firstCell === "Head" && row[1] === "Tax") ||
-                    (firstCell === "Description" &&
-                      row[1] === "Taxable Value") ||
-                    (firstCell === "Section No" &&
-                      row[1] === "Amount (Rs.)") ||
-                    (firstCell === "Date" &&
-                      row[1] === "Particulars/Description");
+      const consolidatedTemplate = html`
+        <div class="mt-8 border-t pt-8">
+          <h2 class="text-2xl font-bold text-gray-800 mb-4">
+            Consolidated Metadata Summary
+          </h2>
+          <p class="text-gray-600 mb-4">
+            A combined view of metadata across all processed files, grouped by
+            document type.
+          </p>
 
-                  let rowClass = "";
-                  if (isSourceHeader) rowClass = "file-row";
-                  else if (isHeader) rowClass = "header-row";
-
-                  return html`
-                    <tr class="${rowClass}">
-                      ${row.map((cell) =>
-                        html`
-                          <td>${cell}</td>
-                        `
-                      )}
-                    </tr>
-                  `;
-                })}
-            </tbody>
-          </table>
+          ${() =>
+            store.consolidatedTables.map((tbl, i) =>
+              html`
+                <div class="mb-8">
+                  <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-lg font-semibold text-blue-700">${tbl
+                      .title}</h3>
+                    <button
+                      @click="${() => copyTable(`consTable-${i}`)}"
+                      class="px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded text-sm font-bold"
+                    >
+                      Copy Table
+                    </button>
+                  </div>
+                  <div class="overflow-x-auto border rounded-lg shadow-sm">
+                    <table id="consTable-${i}" class="data-table">
+                      <thead class="bg-gray-50">
+                        <tr>
+                          ${tbl.headers.map((h) =>
+                            html`
+                              <th class="font-bold text-gray-600">${h}</th>
+                            `
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${tbl.rows.map((row) =>
+                          html`
+                            <tr>
+                              ${row.map((cell) =>
+                                html`
+                                  <td>${cell}</td>
+                                `
+                              )}
+                            </tr>
+                          `
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              `
+            )}
         </div>
       `;
 
@@ -993,51 +1223,79 @@
                 class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg"
               >
                 <p class="text-sm font-medium text-yellow-800 mb-3 md:mb-0">
-                  <span class="font-bold">Instructions:</span> Copy the table below
-                  to paste into Excel.
+                  <span class="font-bold">Instructions:</span> View detailed data
+                  below or toggle summary views.
                 </p>
-                <div class="flex space-x-4 w-full md:w-auto">
-                  <!-- Table Visibility Toggle -->
-                  <button
-                    @click="${() =>
-                      store.isTableVisible = !store.isTableVisible}"
-                    class="${tableToggleClass}"
-                  >
+                <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                  <button @click="${() =>
+                    store.isTableVisible = !store
+                      .isTableVisible}" class="${tableToggleClass}">
                     ${() =>
                       store.isTableVisible
-                        ? "Hide Table"
-                        : "Show Table"}
+                        ? "Hide Details"
+                        : "Show Details"}
                   </button>
-                  <!-- Copy Button -->
+                  <button @click="${() =>
+                    store.isConsolidatedVisible = !store
+                      .isConsolidatedVisible}" class="${consolidatedToggleClass}">
+                    ${() =>
+                      store.isConsolidatedVisible
+                        ? "Hide Metadata Summary"
+                        : "Show Metadata Summary"}
+                  </button>
                   <button
-                    @click="${copyTable}"
+                    @click="${() => copyTable("outputTable")}"
                     class="flex-shrink-0 w-full md:w-auto px-4 py-2 bg-green-500 text-white font-bold rounded-lg shadow hover:bg-green-600 transition duration-150"
                   >
-                    Copy All to Clipboard
+                    Copy Details
                   </button>
                 </div>
               </div>
 
-              <!-- Conditional Table Rendering -->
               ${() =>
-                store.isTableVisible ? tableTemplate : html`
-                  <div class="p-8 text-center text-gray-500 border rounded-lg bg-white">
-                    The extracted data table is currently hidden. Click the "Show Table"
-                    button above to view the data.
-                  </div>
-                `}
+                store.isConsolidatedVisible
+                  ? consolidatedTemplate
+                  : ""} ${() =>
+                store.isTableVisible
+                  ? html`
+                    <div class="mt-6">
+                      <h3 class="text-lg font-bold text-gray-700 mb-2">
+                        Detailed Extraction
+                      </h3>
+                      <div class="overflow-x-auto border rounded-lg">
+                        <table id="outputTable" class="data-table">
+                          <tbody>
+                            ${store.allRows.map((row) => {
+                              const isSourceHeader = row[0] &&
+                                row[0].startsWith("Source:");
+                              let rowClass = "";
+                              if (isSourceHeader) rowClass = "file-row";
+
+                              return html`
+                                <tr class="${rowClass}">
+                                  ${row.map((cell) =>
+                                    html`
+                                      <td>${cell}</td>
+                                    `
+                                  )}
+                                </tr>
+                              `;
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  `
+                  : ""}
 
               <div class="mt-8">
                 <div class="flex justify-between items-center mb-2">
                   <h3 class="text-xl font-medium text-gray-700">
                     Raw Extracted Text (For Debugging)
                   </h3>
-                  <!-- Raw Text Toggle -->
-                  <button
-                    @click="${() =>
-                      store.isRawTextVisible = !store.isRawTextVisible}"
-                    class="${rawTextToggleClass}"
-                  >
+                  <button @click="${() =>
+                    store.isRawTextVisible = !store
+                      .isRawTextVisible}" class="${rawTextToggleClass}">
                     ${() =>
                       store.isRawTextVisible
                         ? "Hide Raw Text"
@@ -1063,85 +1321,149 @@
         }}
       `;
 
-      // Helper to generate class string safely
-      const dropZoneClass = () => {
-        const base =
-          "mb-8 p-10 border-2 border-dashed rounded-lg bg-blue-50 transition-all duration-200 flex flex-col items-center justify-center text-center cursor-pointer block";
-        const active = store.isDragging
-          ? "drag-active"
-          : "border-blue-300";
-        return `${base} ${active}`;
-      };
+      const dropZoneClass = () =>
+        `mb-8 p-10 border-2 border-dashed rounded-lg bg-blue-50 transition-all duration-200 flex flex-col items-center justify-center text-center cursor-pointer block ${
+          store.isDragging ? "drag-active" : "border-blue-300"
+        }`;
 
       const mainTemplate = html`
         <div
           class="container mx-auto bg-white shadow-xl rounded-xl p-6 md:p-10 relative"
         >
           <h1 class="text-3xl font-extrabold text-blue-800 mb-2">
-            Tax & Bank Data Extractor
+            Universal Data Extractor
           </h1>
           <p class="text-gray-600 mb-6">
-            Supports <strong>GST Receipts</strong>, <strong>GSTR-3B</strong>,
-            <strong>Income Tax Challans</strong>, <strong>Union Bank</strong>,
-            <strong>Canara Bank</strong>, <strong>RBL Bank</strong>, and <strong
-            >IDBI Bank Statements</strong>.
-            <br>Drag and drop multiple PDF files to process them in batch.
-          </p>
+            Supports <strong>GST</strong>, <strong>Income Tax</strong>, and
+            various <strong>Bank Statements</strong>.
+            <br>Drag & drop PDFs or define your own <strong>Custom
+              Parser</strong> below.
+            </p>
 
-          <!-- File Input / Drop Zone -->
-          <label
-            for="gstFileInput"
-            class="${dropZoneClass}"
-            @dragover="${(e) => handleDragOver(e)}"
-            @dragleave="${(e) => handleDragLeave(e)}"
-            @drop="${(e) => handleDrop(e)}"
-          >
-            <svg
-              class="w-12 h-12 text-blue-500 mb-3"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
+            ${customParserTemplate}
+
+            <label
+              for="gstFileInput"
+              class="${dropZoneClass}"
+              @dragover="${handleDragOver}"
+              @dragleave="${handleDragLeave}"
+              @drop="${handleDrop}"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+              <svg
+                class="w-12 h-12 text-blue-500 mb-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
               >
-              </path>
-            </svg>
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                >
+                </path>
+              </svg>
 
-            <span
-              class="block text-lg font-medium text-blue-700 mb-2 cursor-pointer"
-            >
-              ${() =>
-                store.isDragging
-                  ? "Drop files here"
-                  : "Click to Upload or Drag & Drop"}
-            </span>
+              <span
+                class="block text-lg font-medium text-blue-700 mb-2 cursor-pointer"
+              >
+                ${() =>
+                  store.isDragging
+                    ? "Drop files here"
+                    : "Click to Upload or Drag & Drop"}
+              </span>
 
-            <span class="block text-sm text-gray-500 mb-4"
-            >PDF files only (Multiple allowed)</span>
-            <span class="block text-sm font-semibold text-blue-600"
-            >${() => store.fileSummary}</span>
+              <span class="block text-sm text-gray-500 mb-4"
+              >PDF files only (Multiple allowed)</span>
+              <span class="block text-sm font-semibold text-blue-600"
+              >${() => store.fileSummary}</span>
 
-            <input
-              type="file"
-              id="gstFileInput"
-              @change="${handleFileInput}"
-              accept="application/pdf"
-              class="hidden"
-              multiple
-            >
-          </label>
+              <input
+                type="file"
+                id="gstFileInput"
+                @change="${handleFileInput}"
+                accept="application/pdf"
+                class="hidden"
+                multiple
+              >
+            </label>
 
-          ${statusTemplate} ${resultsTemplate} ${modalTemplate}
-        </div>
-      `;
+            ${statusTemplate} ${resultsTemplate} ${() =>
+              store.passwordModal.isOpen
+                ? html`
+                  <div
+                    class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop"
+                  >
+                    <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+                      <h3 class="text-xl font-bold text-gray-800 mb-4">
+                        Password Required
+                      </h3>
+                      <p class="text-sm text-gray-600 mb-2">
+                        The file <span class="font-bold text-blue-600">${store
+                          .passwordModal.fileName}</span>
+                        is encrypted.
+                      </p>
 
-      // Mount application
-      mainTemplate(document.getElementById("app"));
+                      <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1"
+                        >Enter Password</label>
+                        <input
+                          type="text"
+                          class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Password"
+                          value="${() =>
+                            store.passwordModal.passwordInput}"
+                          @input="${(e) =>
+                            store.passwordModal.passwordInput =
+                              e.target.value}"
+                          @keydown="${(e) =>
+                            e.key === "Enter" &&
+                            handlePasswordSubmit()}"
+                        >
+                      </div>
+
+                      <div class="flex items-center mb-6">
+                        <input
+                          type="checkbox"
+                          id="useForSubsequent"
+                          class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          checked="${() =>
+                            store.passwordModal.useForSubsequent}"
+                          @change="${(e) =>
+                            store.passwordModal.useForSubsequent =
+                              e.target.checked}"
+                        >
+                        <label
+                          for="useForSubsequent"
+                          class="ml-2 block text-sm text-gray-700"
+                        >
+                          Use this password for subsequent files
+                        </label>
+                      </div>
+
+                      <div class="flex justify-end space-x-3">
+                        <button
+                          @click="${handlePasswordSkip}"
+                          class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium text-sm"
+                        >
+                          Skip File
+                        </button>
+                        <button
+                          @click="${handlePasswordSubmit}"
+                          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
+                        >
+                          Decrypt & Extract
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                `
+                : ""}
+          </div>
+        `;
+
+        mainTemplate(document.getElementById("app"));
     </script>
   </body>
 </html>
