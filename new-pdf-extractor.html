@@ -77,6 +77,11 @@
         isRawTextVisible: false,
         isParserFormVisible: false,
         isConsolidatedVisible: false,
+
+        // Templates Modal State
+        isTemplatesModalVisible: false,
+        templatesText: "",
+
         customParsers: [],
         newParser: {
           name: "",
@@ -107,14 +112,13 @@
 
       // --- Custom Parser Logic ---
 
-      function parseConfigInput(text) {
-        // Helper to extract value between keys
+      function parseConfigBlock(text) {
+        // Helper to extract value between keys within a text block
         const getValue = (key, nextKeys) => {
           const regex = new RegExp(
             `${key}\\s*([\\s\\S]*?)(?=${nextKeys.join("|")}|$`,
             "i",
           );
-          // We manually search to avoid regex complexity with special chars in values
           const lowerText = text.toLowerCase();
           const keyIndex = lowerText.indexOf(key.toLowerCase());
 
@@ -134,7 +138,6 @@
           });
 
           let val = text.substring(contentStart, endIndex).trim();
-          // Remove trailing comma if present
           if (val.endsWith(",")) val = val.slice(0, -1).trim();
           return val;
         };
@@ -149,19 +152,31 @@
           "matchstring:",
           keys.filter((k) => k !== "matchstring:"),
         );
-        const metadata = getValue(
+        const metadataRegex = getValue(
           "Metadata:",
           keys.filter((k) => k !== "Metadata:"),
         );
-        const table = getValue(
+        const tableRegex = getValue(
           "Table:",
           keys.filter((k) => k !== "Table:"),
         );
 
-        if (name) store.newParser.name = name;
-        if (matchString) store.newParser.matchString = matchString;
-        if (metadata) store.newParser.metadataRegex = metadata;
-        if (table) store.newParser.tableRegex = table;
+        return { name, matchString, metadataRegex, tableRegex };
+      }
+
+      // Parse single block for the "Quick Import" field
+      function parseConfigInput(text) {
+        const data = parseConfigBlock(text);
+        if (data.name) store.newParser.name = data.name;
+        if (data.matchString) {
+          store.newParser.matchString = data.matchString;
+        }
+        if (data.metadataRegex) {
+          store.newParser.metadataRegex = data.metadataRegex;
+        }
+        if (data.tableRegex) {
+          store.newParser.tableRegex = data.tableRegex;
+        }
       }
 
       function addCustomParser() {
@@ -204,6 +219,66 @@
 
       function removeCustomParser(index) {
         store.customParsers.splice(index, 1);
+      }
+
+      // --- Templates Manager Logic ---
+
+      function openTemplatesModal() {
+        // Generate text from current parsers
+        const text = store.customParsers.map((p) => {
+          return `Name: ${p.name}\nmatchstring: ${
+            p.matchString.join(", ")
+          }\nMetadata: ${p.metadataRegex || ""}\nTable: ${
+            p.tableRegex || ""
+          }`;
+        }).join("\n\n---\n\n");
+
+        store.templatesText = text;
+        store.isTemplatesModalVisible = true;
+      }
+
+      function saveTemplates() {
+        const raw = store.templatesText;
+        // Split by separator or look for "Name:" start patterns
+        // We use a regex to split by Name: but capture the delimiter to reconstruct blocks
+        // Simpler: Split by double newline or separator if present
+
+        let blocks = [];
+        if (raw.includes("---")) {
+          blocks = raw.split("---");
+        } else {
+          // Fallback: heuristic split if user deleted separators
+          // We'll just assume they used at least double newlines between blocks
+          blocks = raw.split(/\n\s*\n/);
+        }
+
+        const newParsers = [];
+
+        for (const block of blocks) {
+          const cleanBlock = block.trim();
+          if (!cleanBlock) continue;
+
+          const data = parseConfigBlock(cleanBlock);
+
+          // Basic validation
+          if (data.name && data.matchString) {
+            newParsers.push({
+              name: data.name,
+              matchString: data.matchString.split(",").map((s) =>
+                s.trim()
+              ),
+              metadataRegex: data.metadataRegex || "",
+              tableRegex: data.tableRegex || "",
+            });
+          }
+        }
+
+        store.customParsers = newParsers;
+        store.isTemplatesModalVisible = false;
+        setStatus(
+          `Updated ${newParsers.length} custom parsers.`,
+          "success",
+        );
       }
 
       // --- Drag and Drop Handlers ---
@@ -1042,7 +1117,16 @@
                     store.customParsers.length > 0
                       ? html`
                         <div class="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
-                          <h4 class="font-bold text-indigo-800 mb-3">Active Custom Parsers:</h4>
+                          <div class="flex justify-between items-center mb-3">
+                            <h4 class="font-bold text-indigo-800">Active Custom Parsers:</h4>
+                            <!-- Edit / Export All Button -->
+                            <button
+                              @click="${openTemplatesModal}"
+                              class="text-xs bg-indigo-600 text-white px-2 py-1 rounded hover:bg-indigo-700"
+                            >
+                              Edit / Export All
+                            </button>
+                          </div>
                           <ul class="space-y-2">
                             ${store.customParsers.map((p, i) =>
                               html`
@@ -1389,7 +1473,10 @@
               >
             </label>
 
-            ${statusTemplate} ${resultsTemplate} ${() =>
+            ${statusTemplate} ${resultsTemplate}
+
+            <!-- Password Modal -->
+            ${() =>
               store.passwordModal.isOpen
                 ? html`
                   <div
@@ -1454,6 +1541,51 @@
                           class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
                         >
                           Decrypt & Extract
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                `
+                : ""}
+
+            <!-- Templates Management Modal -->
+            ${() =>
+              store.isTemplatesModalVisible
+                ? html`
+                  <div
+                    class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop"
+                  >
+                    <div
+                      class="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4 flex flex-col max-h-[90vh]"
+                    >
+                      <h3 class="text-xl font-bold text-gray-800 mb-2">
+                        Manage All Custom Parsers
+                      </h3>
+                      <p class="text-sm text-gray-600 mb-4">
+                        Edit all parsers below or paste a list to import multiple.
+                      </p>
+
+                      <textarea
+                        class="flex-grow w-full border border-gray-300 rounded-lg p-3 font-mono text-xs mb-4 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        rows="15"
+                        value="${() => store.templatesText}"
+                        @input="${(e) =>
+                          store.templatesText = e.target.value}"
+                      ></textarea>
+
+                      <div class="flex justify-end space-x-3">
+                        <button
+                          @click="${() =>
+                            store.isTemplatesModalVisible = false}"
+                          class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium text-sm"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          @click="${saveTemplates}"
+                          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
+                        >
+                          Save All Changes
                         </button>
                       </div>
                     </div>
