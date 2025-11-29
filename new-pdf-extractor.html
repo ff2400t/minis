@@ -69,6 +69,9 @@
         import { createStore } from 'https://esm.sh/solid-js@1.8.16/store';
         import { render } from 'https://esm.sh/solid-js@1.8.16/web';
         import html from 'https://esm.sh/solid-js@1.8.16/html';
+        
+        // --- CONSTANTS ---
+        const LOCAL_STORAGE_KEY = 'dataExtractorCustomParsers';
 
         // --- Store Setup ---
         const [store, setStore] = createStore({
@@ -91,12 +94,8 @@
             isParserListModalVisible: false,
             expandedParsers: {}, 
 
-            customParsers: [], 
-            newParser: {
-                name: '',
-                matchString: '',
-                metadataRegex: '',
-                tableRegex: '',
+            customParsers: [], // Will be populated from localStorage
+            newParser: { // Simplified, configText is the primary input
                 configText: ''
             },
             passwordModal: {
@@ -110,25 +109,44 @@
         });
         
         // --- Local Signals for Controlled Inputs ---
-        const [nameInput, setNameInput] = createSignal('');
-        const [matchStringInput, setMatchStringInput] = createSignal('');
-        const [metadataRegexInput, setMetadataRegexInput] = createSignal('');
-        const [tableRegexInput, setTableRegexInput] = createSignal('');
+        // Only configTextInput remains
         const [configTextInput, setConfigTextInput] = createSignal('');
 
         // Helper to sync local signals with the store's initial/cleared state
         function syncLocalSignals() {
-            setNameInput(store.newParser.name);
-            setMatchStringInput(store.newParser.matchString);
-            setMetadataRegexInput(store.newParser.metadataRegex);
-            setTableRegexInput(store.newParser.tableRegex);
+            // Only sync the config text input
             setConfigTextInput(store.newParser.configText);
+        }
+
+        // --- Local Storage Handlers ---
+
+        function loadCustomParsers() {
+            try {
+                const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+                if (stored) {
+                    const parsers = JSON.parse(stored);
+                    if (Array.isArray(parsers)) {
+                        setStore('customParsers', parsers);
+                    }
+                }
+            } catch (e) {
+                console.error("Could not load custom parsers from localStorage:", e);
+            }
+        }
+
+        function saveCustomParsers(parsers) {
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(parsers));
+            } catch (e) {
+                console.error("Could not save custom parsers to localStorage:", e);
+            }
         }
 
         // --- Core Parser Config and Handlers ---
 
         // Standard parser configuration (moved out for cleaner code)
         const BUILT_IN_PARSERS = [
+            // ... (BUILT_IN_PARSERS array remains the same) ...
             [
                 "GST Challan",
                 ["GOODS AND SERVICES TAX PAYMENT RECEIPT"],
@@ -200,7 +218,7 @@
             // Add other bank parsers here following the pattern...
         ];
         
-        // --- Helper Actions and General Parser ---
+        // --- Helper Actions and General Parser (functions remain the same) ---
         
         function setStatus(message, type = 'info') {
             setStore('status', { message, type });
@@ -269,6 +287,7 @@
         }
 
         function parseConfigBlock(text) {
+            // Function to safely extract content between two keys
             const getValue = (key, nextKeys) => {
                 const lowerText = text.toLowerCase();
                 const keyIndex = lowerText.indexOf(key.toLowerCase());
@@ -286,10 +305,12 @@
                 });
                 
                 let val = text.substring(contentStart, endIndex).trim();
-                if (val.endsWith(',')) val = val.slice(0, -1).trim();
+                // Remove trailing comma if present, which is common when copying
+                if (val.endsWith(',')) val = val.slice(0, -1).trim(); 
                 return val;
             };
 
+            // These are the keys we look for
             const keys = ['Name:', 'matchstring:', 'Metadata:', 'Table:'];
             const name = getValue('Name:', keys.filter(k => k !== 'Name:'));
             const matchString = getValue('matchstring:', keys.filter(k => k !== 'matchstring:'));
@@ -298,39 +319,29 @@
 
             return { name, matchString, metadataRegex, tableRegex };
         }
-
-        function parseConfigInput(text) {
-            const data = parseConfigBlock(text);
-            batch(() => {
-                if (data.name) setNameInput(data.name);
-                if (data.matchString) setMatchStringInput(data.matchString);
-                if (data.metadataRegex) setMetadataRegexInput(data.metadataRegex);
-                if (data.tableRegex) setTableRegexInput(data.tableRegex);
-                setStore('newParser', 'configText', text);
-            });
-        }
         
+        // Only update the single input signal
         const handleConfigTextUpdate = (e) => {
             setConfigTextInput(e.target.value);
-            parseConfigInput(e.target.value);
+            setStore('newParser', 'configText', e.target.value);
         };
         
-        const handleInputUpdate = (e, setter) => {
-            // Only update the local signal, preventing re-renders in outer components
-            setter(e.target.value);
-        };
-
         function addCustomParser() {
-            const name = nameInput();
-            const matchString = matchStringInput();
-            const metadataRegex = metadataRegexInput();
-            const tableRegex = tableRegexInput();
+            // Get data from the single config text input
+            const configText = configTextInput();
+            const data = parseConfigBlock(configText);
+
+            const name = data.name;
+            const matchString = data.matchString;
+            const metadataRegex = data.metadataRegex;
+            const tableRegex = data.tableRegex;
 
             if (!name || !matchString) {
-                setStatus("Name and Match String are required.", 'error');
+                setStatus("Parser Name (Name:) and Match Strings (matchstring:) are required in the config block.", 'error');
                 return;
             }
 
+            // Validate Regex strings
             try {
                 if (metadataRegex) new RegExp(metadataRegex);
                 if (tableRegex) new RegExp(tableRegex);
@@ -339,29 +350,57 @@
                 return;
             }
 
-            setStore('customParsers', [
-                ...store.customParsers, 
-                {
-                    name,
-                    matchString: matchString.split(',').map(s => s.trim()), 
-                    metadataRegex,
-                    tableRegex 
-                }
-            ]);
+            const newParser = {
+                name,
+                matchString: matchString.split(',').map(s => s.trim()).filter(s => s.length > 0), 
+                metadataRegex: metadataRegex || '',
+                tableRegex: tableRegex || ''
+            };
+            
+            // Check for valid match strings
+            if (newParser.matchString.length === 0) {
+                setStatus("The matchstring: value cannot be empty.", 'error');
+                return;
+            }
+
+
+            const currentParsers = [...store.customParsers];
+            // Look for existing parser by name for upsert logic
+            const existingIndex = currentParsers.findIndex(p => p.name === name);
+
+            let newParserList;
+            let action;
+
+            if (existingIndex !== -1) {
+                // Update existing parser
+                currentParsers[existingIndex] = newParser;
+                newParserList = currentParsers;
+                action = "updated";
+            } else {
+                // Add new parser
+                newParserList = [...currentParsers, newParser];
+                action = "added";
+            }
+
 
             batch(() => {
-                setStore('newParser', { name: '', matchString: '', metadataRegex: '', tableRegex: '', configText: '' });
-                syncLocalSignals();
+                setStore('customParsers', newParserList); // Update store
+                saveCustomParsers(newParserList);        // Save to storage
+                setStore('newParser', 'configText', ''); // Clear store state
+                setConfigTextInput('');                  // Clear input field
                 setStore('isParserFormVisible', false);
             });
 
-            setStatus(`Custom parser "${name}" added successfully!`, 'success');
+            setStatus(`Custom parser "${name}" successfully ${action}!`, 'success');
         }
 
         function removeCustomParser(index) {
+            const name = store.customParsers[index].name;
             const current = [...store.customParsers];
             current.splice(index, 1);
             setStore('customParsers', current);
+            saveCustomParsers(current); // Save to storage
+            setStatus(`Custom parser "${name}" removed.`, 'info');
         }
 
         function openTemplatesModal() {
@@ -377,9 +416,11 @@
         function saveTemplates() {
             const raw = store.templatesText;
             let blocks = [];
+            // Split by separator '---' or by two or more newlines
             if (raw.includes('---')) {
                 blocks = raw.split('---');
             } else {
+                // This splits by any occurrence of two or more newlines
                 blocks = raw.split(/\n\s*\n/);
             }
 
@@ -388,10 +429,12 @@
                 const cleanBlock = block.trim();
                 if (!cleanBlock) continue;
                 const data = parseConfigBlock(cleanBlock);
+                
+                // Only save if required fields are present
                 if (data.name && data.matchString) {
                     newParsers.push({
                         name: data.name,
-                        matchString: data.matchString.split(',').map(s => s.trim()),
+                        matchString: data.matchString.split(',').map(s => s.trim()).filter(s => s.length > 0),
                         metadataRegex: data.metadataRegex || '',
                         tableRegex: data.tableRegex || ''
                     });
@@ -400,6 +443,7 @@
             batch(() => {
                 setStore('customParsers', newParsers);
                 setStore('isTemplatesModalVisible', false);
+                saveCustomParsers(newParsers); // Save to storage
             });
             setStatus(`Updated ${newParsers.length} custom parsers.`, 'success');
         }
@@ -562,6 +606,7 @@
                         const isMatch = parser.matchString.some(s => cleanCheckText.includes(s));
                         if (isMatch) {
                             docType = parser.name + " (Custom)";
+                            // Note: Custom parsers always use generalDocumentParser logic with their defined regex
                             parsedData = generalDocumentParser(rawText, parser.metadataRegex, parser.tableRegex);
                             parserFound = true;
                             break;
@@ -713,65 +758,23 @@
                 ` : ''}
 
                 <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Quick Import (Paste Config)</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Quick Import (Paste Config Block)</label>
                     <textarea 
-                        class="w-full h-24 rounded-md border-gray-300 shadow-sm border p-2 text-sm font-mono"
-                        placeholder="Name: My Parser,\nmatchstring: invoice, bill,\nMetadata: (?<Key>...)\nTable: (?<Row>...)"
+                        class="w-full h-48 rounded-md border-gray-300 shadow-sm border p-2 text-sm font-mono"
+                        placeholder="Define your parser here using the required keys.&#10;&#10;Name: My Custom Bank Statement&#10;matchstring: Bank Statement, Account Summary, MyBankCorp&#10;Metadata: /Account Number: (?<AccNo>\\d+).*?Name: (?<Name>.*?)/s&#10;Table: /(?<Date>\\d{2}\\.\\d{2}\\.\\d{4})\\s+.*\\s+(?<Amount>\\d+)/g"
                         value=${configTextInput()}
                         onInput=${handleConfigTextUpdate}
                     ></textarea>
-                    <p class="text-xs text-gray-500 mt-1">Paste your parser configuration here to auto-populate the fields below.</p>
+                    <p class="text-xs text-gray-500 mt-1">
+                        Define your parser using the keys: <code class="font-semibold">Name:</code>, <code class="font-semibold">matchstring:</code> (comma-separated document identifiers), <code class="font-semibold">Metadata:</code> (single-match regex for key info), and <code class="font-semibold">Table:</code> (global-match regex for rows).
+                    </p>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Parser Name</label>
-                        <input 
-                            type="text" 
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
-                            placeholder="e.g. My Custom Bank"
-                            value=${nameInput()}
-                            onInput=${e => handleInputUpdate(e, setNameInput)}
-                        />
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Match Strings (comma separated)</label>
-                        <input 
-                            type="text" 
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
-                            placeholder="e.g. My Bank Ltd, Custom Statement"
-                            value=${matchStringInput()}
-                            onInput=${e => handleInputUpdate(e, setMatchStringInput)}
-                        />
-                    </div>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Metadata Regex (Named Groups recommended)</label>
-                        <input 
-                            type="text" 
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
-                            placeholder="e.g. Account: (?<AccNo>\\d+)"
-                            value=${metadataRegexInput()}
-                            onInput=${e => handleInputUpdate(e, setMetadataRegexInput)}
-                        />
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Table Regex (Optional)</label>
-                        <input 
-                            type="text" 
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
-                            placeholder="e.g. (?<Date>\\d{2}-\\d{2}-\\d{4}) (?<Amt>\\d+)"
-                            value=${tableRegexInput()}
-                            onInput=${e => handleInputUpdate(e, setTableRegexInput)}
-                        />
-                    </div>
-                </div>
                 <button 
                     onClick=${addCustomParser}
                     class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
                 >
-                    Add Parser
+                    Add / Update Parser
                 </button>
             </div>
         `;
@@ -782,7 +785,7 @@
                     class="w-full text-left px-6 py-4 bg-gray-100 font-semibold text-gray-700 hover:bg-gray-200 flex justify-between items-center"
                     onClick=${() => setStore('isParserFormVisible', !store.isParserFormVisible)}
                 >
-                    <span>🛠️ Configure Custom Parser</span>
+                    <span>🛠️ Configure Custom Parser (Add/Update/Import)</span>
                     <span>${store.isParserFormVisible ? '▲' : '▼'}</span>
                 </button>
 
@@ -846,8 +849,16 @@
         const TemplatesModalComponent = () => html`
             <div class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop">
                 <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4 flex flex-col max-h-[90vh]">
-                    <h3 class="text-xl font-bold text-gray-800 mb-2">Manage All Custom Parsers</h3>
-                    <p class="text-sm text-gray-600 mb-4">Edit all parsers below or paste a list to import multiple.</p>
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold text-gray-800">Manage All Custom Parsers</h3>
+                        <button 
+                            onClick=${() => setStore('isTemplatesModalVisible', false)}
+                            class="text-gray-500 hover:text-gray-700"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-4">Edit all parsers below or paste a list to import multiple. Separate parsers with <code class="font-mono">---</code> or two blank lines.</p>
                     
                     <textarea 
                         class="flex-grow w-full border border-gray-300 rounded-lg p-3 font-mono text-xs mb-4 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -1075,7 +1086,10 @@
         // --- Main App Component ---
 
         const App = () => {
-            onMount(syncLocalSignals); 
+            onMount(() => {
+                syncLocalSignals(); 
+                loadCustomParsers(); // Load parsers on startup
+            });
 
             return html`
                 <div class="container mx-auto bg-white shadow-xl rounded-xl p-6 md:p-10 relative">
