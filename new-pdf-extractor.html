@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tax & Bank Data Extractor (Universal)</title>
+    <title>Tax & Bank Data Extractor (SolidJS)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load PDF.js library -->
     <script
@@ -61,10 +61,17 @@
     <div id="app"></div>
 
     <script type="module">
-      import { html, reactive } from "https://esm.sh/@arrow-js/core";
+      import {
+        batch,
+        createSignal,
+        onMount,
+      } from "https://esm.sh/solid-js@1.8.16";
+      import { createStore } from "https://esm.sh/solid-js@1.8.16/store";
+      import { render } from "https://esm.sh/solid-js@1.8.16/web";
+      import html from "https://esm.sh/solid-js@1.8.16/html";
 
-      // --- Reactive State ---
-      const store = reactive({
+      // --- Store Setup ---
+      const [store, setStore] = createStore({
         fileSummary: "",
         status: { message: "", type: "" },
         allRows: [],
@@ -99,22 +106,18 @@
         savedPassword: null,
       });
 
-      // --- Logic & Helpers ---
+      // --- Helper Actions ---
 
       function setStatus(message, type = "info") {
-        store.status = { message, type };
+        setStore("status", { message, type });
       }
 
       function clearStatus() {
-        store.status = { message, type };
+        setStore("status", { message: "", type: "" });
       }
 
-      // --- CORE PARSING LOGIC ---
+      // --- Core Parsing Logic (Pure Functions) ---
 
-      /**
-       * General Parser Function
-       * Adapts the extracted data into the { allRows, metadataFields } format required by the UI.
-       */
       function generalDocumentParser(
         text,
         metadataRegex,
@@ -127,9 +130,7 @@
         // 1. Metadata Extraction
         if (metadataRegex) {
           try {
-            // Match regex against text. 's' flag is usually important for multiline metadata matching
             const metaMatch = text.match(metadataRegex);
-
             if (metaMatch && metaMatch.groups) {
               for (
                 const [key, value] of Object.entries(metaMatch.groups)
@@ -139,7 +140,6 @@
                 metadataRows.push([key, val, "", "", "", "", ""]);
               }
             } else if (metaMatch) {
-              // Fallback for unnamed groups (deprecated usage generally, but good fallback)
               for (let i = 1; i < metaMatch.length; i++) {
                 const val = metaMatch[i] ? metaMatch[i].trim() : "";
                 const key = fieldsToExtract && fieldsToExtract[i - 1]
@@ -175,7 +175,6 @@
                 );
               }
 
-              // Ensure header is 7 cols for UI consistency
               while (headers.length < 7) headers.push("");
               if (headers.length > 7) headers = headers.slice(0, 7);
 
@@ -204,11 +203,8 @@
         };
       }
 
-      // --- Specialized Parsers (Wrappers or Custom Logic) ---
-
+      // Specialized Wrappers
       function parseIDBIBankWrapper(text, metaRx, tableRx) {
-        // IDBI needs specific Dr/Cr logic that general parser doesn't handle natively
-        // We reuse the parsing logic style but implement specific processing
         const metadataMatch = text.match(metaRx);
         const metadataFields = {
           "Account Name": metadataMatch?.groups?.Name?.trim() || "N/A",
@@ -248,15 +244,10 @@
       }
 
       function parseChallanWrapper(text, metaRx, tableRx) {
-        // GST Challan has specific row formatting requirements and "Grand Total" logic
-        // We use the regexes but apply custom logic for the rows
-
-        // Re-implementing logic using the regex passed in array
         const metadataFields = {};
         const metaMatch = text.match(metaRx);
         if (metaMatch && metaMatch.groups) {
           Object.assign(metadataFields, metaMatch.groups);
-          // Combine State parts if captured separately in the regex
           if (
             metaMatch.groups.StateCode && metaMatch.groups.StateName
           ) {
@@ -312,16 +303,14 @@
         };
       }
 
-      // --- BUILT-IN PARSERS CONFIGURATION ARRAY ---
+      // Configuration Array
       const BUILT_IN_PARSERS = [
         [
           "GST Challan",
           ["GOODS AND SERVICES TAX PAYMENT RECEIPT"],
-          // Complex regex to grab scattered metadata in one go using dotAll (s flag)
-          // Note: State logic combined into regex capture
           /Name:\s+(?<Name>.*?)\s+Address.*?GSTIN:\s+(?<GSTIN>\w+).*?Date :\s+(?<Date>\d\d\/\d\d\/\d{4}).*?(?<StateCode>\d+)\s+(?<StateName>[^\d]+?)\s+SGST/s,
           /(?<name>\w+)\(.*?\)\s+(?<tax>-|\d+)\s+(?<interest>-|\d+)\s+(?<penalty>-|\d+)\s+(?<fees>-|\d+)\s+(?<others>-|\d+)\s+(?<total>-|\d+)\s+/g,
-          parseChallanWrapper, // Uses specialized wrapper for Grand Total logic
+          parseChallanWrapper,
         ],
         [
           "GSTR-3B",
@@ -333,7 +322,7 @@
         [
           "Income Tax",
           ["INCOME TAX DEPARTMENT", "Challan Receipt"],
-          /Nature of Payment : (?<Section_No>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<Amount>\d[\d,.]*).*(?<Deposit_Date>\d\d\-\s?\w{3}-\d{4})/g, // Using table regex as metadata source since it's key-value like
+          /Nature of Payment : (?<Section_No>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<Amount>\d[\d,.]*).*(?<Deposit_Date>\d\d\-\s?\w{3}-\d{4})/g,
           /Nature of Payment : (?<sectionNo>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<amt>\d[\d,.]*).*(?<depositDate>\d\d\-\s?\w{3}-\d{4})/g,
           generalDocumentParser,
         ],
@@ -367,7 +356,7 @@
         ],
       ];
 
-      // --- Custom Parser Logic ---
+      // --- Parsing Config Helpers ---
 
       function parseConfigBlock(text) {
         const getValue = (key, nextKeys) => {
@@ -421,16 +410,18 @@
 
       function parseConfigInput(text) {
         const data = parseConfigBlock(text);
-        if (data.name) store.newParser.name = data.name;
-        if (data.matchString) {
-          store.newParser.matchString = data.matchString;
-        }
-        if (data.metadataRegex) {
-          store.newParser.metadataRegex = data.metadataRegex;
-        }
-        if (data.tableRegex) {
-          store.newParser.tableRegex = data.tableRegex;
-        }
+        batch(() => {
+          if (data.name) setStore("newParser", "name", data.name);
+          if (data.matchString) {
+            setStore("newParser", "matchString", data.matchString);
+          }
+          if (data.metadataRegex) {
+            setStore("newParser", "metadataRegex", data.metadataRegex);
+          }
+          if (data.tableRegex) {
+            setStore("newParser", "tableRegex", data.tableRegex);
+          }
+        });
       }
 
       function addCustomParser() {
@@ -450,19 +441,26 @@
           return;
         }
 
-        store.customParsers.push({
-          name,
-          matchString: matchString.split(",").map((s) => s.trim()),
-          metadataRegex,
-          tableRegex,
-        });
+        setStore("customParsers", [
+          ...store.customParsers,
+          {
+            name,
+            matchString: matchString.split(",").map((s) => s.trim()),
+            metadataRegex,
+            tableRegex,
+          },
+        ]);
 
-        store.newParser.name = "";
-        store.newParser.matchString = "";
-        store.newParser.metadataRegex = "";
-        store.newParser.tableRegex = "";
-        store.newParser.configText = "";
-        store.isParserFormVisible = false;
+        batch(() => {
+          setStore("newParser", {
+            name: "",
+            matchString: "",
+            metadataRegex: "",
+            tableRegex: "",
+            configText: "",
+          });
+          setStore("isParserFormVisible", false);
+        });
 
         setStatus(
           `Custom parser "${name}" added successfully!`,
@@ -471,7 +469,9 @@
       }
 
       function removeCustomParser(index) {
-        store.customParsers.splice(index, 1);
+        const current = [...store.customParsers];
+        current.splice(index, 1);
+        setStore("customParsers", current);
       }
 
       function openTemplatesModal() {
@@ -482,8 +482,10 @@
             p.tableRegex || ""
           }`;
         }).join("\n\n---\n\n");
-        store.templatesText = text;
-        store.isTemplatesModalVisible = true;
+        batch(() => {
+          setStore("templatesText", text);
+          setStore("isTemplatesModalVisible", true);
+        });
       }
 
       function saveTemplates() {
@@ -511,33 +513,37 @@
             });
           }
         }
-        store.customParsers = newParsers;
-        store.isTemplatesModalVisible = false;
+        batch(() => {
+          setStore("customParsers", newParsers);
+          setStore("isTemplatesModalVisible", false);
+        });
         setStatus(
           `Updated ${newParsers.length} custom parsers.`,
           "success",
         );
       }
 
+      // --- File Handling & Processing ---
+
       function handleDragOver(e) {
         if (e) {
           e.preventDefault();
           e.stopPropagation();
         }
-        store.isDragging = true;
+        setStore("isDragging", true);
       }
       function handleDragLeave(e) {
         if (e) {
           e.preventDefault();
           e.stopPropagation();
         }
-        store.isDragging = false;
+        setStore("isDragging", false);
       }
       function handleDrop(e) {
         if (!e) return;
         e.preventDefault();
         e.stopPropagation();
-        store.isDragging = false;
+        setStore("isDragging", false);
         const dt = e.dataTransfer;
         const files = dt ? dt.files : null;
         if (files && files.length > 0) processFiles(files);
@@ -599,7 +605,7 @@
                   userResponse.password,
                 );
                 if (userResponse.useForSubsequent) {
-                  store.savedPassword = userResponse.password;
+                  setStore("savedPassword", userResponse.password);
                 }
                 return text;
               } catch (e3) {
@@ -614,58 +620,74 @@
 
       function promptForPassword(fileName) {
         return new Promise((resolve) => {
-          store.passwordModal.fileName = fileName;
-          store.passwordModal.passwordInput = "";
-          store.passwordModal.useForSubsequent = false;
-          store.passwordModal.resolve = resolve;
-          store.passwordModal.isOpen = true;
+          batch(() => {
+            setStore("passwordModal", "fileName", fileName);
+            setStore("passwordModal", "passwordInput", "");
+            setStore("passwordModal", "useForSubsequent", false);
+            setStore("passwordModal", "resolve", () => resolve); // Wrap in func to prevent immediate execution
+            setStore("passwordModal", "isOpen", true);
+          });
         });
       }
 
       function handlePasswordSubmit() {
         if (store.passwordModal.resolve) {
-          store.passwordModal.resolve({
+          store.passwordModal.resolve()({
             password: store.passwordModal.passwordInput,
             useForSubsequent: store.passwordModal.useForSubsequent,
             skip: false,
           });
-          store.passwordModal.isOpen = false;
-          store.passwordModal.resolve = null;
+          batch(() => {
+            setStore("passwordModal", "isOpen", false);
+            setStore("passwordModal", "resolve", null);
+          });
         }
       }
 
       function handlePasswordSkip() {
         if (store.passwordModal.resolve) {
-          store.passwordModal.resolve({ skip: true });
-          store.passwordModal.isOpen = false;
-          store.passwordModal.resolve = null;
+          store.passwordModal.resolve()({ skip: true });
+          batch(() => {
+            setStore("passwordModal", "isOpen", false);
+            setStore("passwordModal", "resolve", null);
+          });
         }
       }
 
       async function processFiles(fileList) {
         if (!fileList || fileList.length === 0) {
-          store.fileSummary = "";
-          store.isResultVisible = false;
-          clearStatus();
+          batch(() => {
+            setStore("fileSummary", "");
+            setStore("isResultVisible", false);
+            clearStatus();
+          });
           return;
         }
 
         const count = fileList.length;
-        store.fileSummary = count === 1
-          ? `File: ${fileList[0].name}`
-          : `${count} files selected`;
+        setStore(
+          "fileSummary",
+          count === 1
+            ? `File: ${fileList[0].name}`
+            : `${count} files selected`,
+        );
 
-        store.isResultVisible = false;
-        store.rawText = "";
-        store.allRows = [];
-        store.consolidatedMetadata = [];
-        store.consolidatedTables = [];
-        store.isTableVisible = true;
-        store.isRawTextVisible = false;
-        store.isConsolidatedVisible = false;
-        store.savedPassword = null;
+        batch(() => {
+          setStore("isResultVisible", false);
+          setStore("rawText", "");
+          setStore("allRows", []);
+          setStore("consolidatedMetadata", []);
+          setStore("consolidatedTables", []);
+          setStore("isTableVisible", true);
+          setStore("isRawTextVisible", false);
+          setStore("isConsolidatedVisible", false);
+          setStore("savedPassword", null);
+        });
 
         let successCount = 0;
+        let tempAllRows = [];
+        let tempRawText = "";
+        let tempMetadata = [];
 
         try {
           for (let i = 0; i < count; i++) {
@@ -684,7 +706,7 @@
             try {
               rawText = await extractTextWithPasswordHandling(file);
             } catch (extractionError) {
-              store.rawText +=
+              tempRawText +=
                 `\n--- SOURCE: ${file.name} (FAILED) ---\nError: ${extractionError.message}\n`;
               continue;
             }
@@ -704,13 +726,17 @@
               );
               if (isMatch) {
                 docType = parser.name + " (Custom)";
-                parsedData = genericParser(rawText, parser);
+                parsedData = generalDocumentParser(
+                  rawText,
+                  parser.metadataRegex,
+                  parser.tableRegex,
+                );
                 parserFound = true;
                 break;
               }
             }
 
-            // 2. Check BUILT-IN Parsers (Iterating Array)
+            // 2. Check BUILT-IN Parsers (Array iteration)
             if (!parserFound) {
               for (
                 const [name, matches, metaRx, tableRx, parserFn]
@@ -729,7 +755,7 @@
             }
 
             if (!parserFound) {
-              store.rawText +=
+              tempRawText +=
                 `\n--- SOURCE: ${file.name} (Unknown Type) ---\n${rawText}\n`;
               console.log(`Document type unknown for: ${file.name}`);
               continue;
@@ -739,14 +765,14 @@
               parsedData.metadataFields &&
               Object.keys(parsedData.metadataFields).length > 0
             ) {
-              store.consolidatedMetadata.push({
+              tempMetadata.push({
                 fileName: file.name,
                 docType: docType,
                 fields: parsedData.metadataFields,
               });
             }
 
-            store.rawText +=
+            tempRawText +=
               `\n--- SOURCE: ${file.name} (${docType}) ---\n${rawText}\n`;
 
             const fileLabelRow = [
@@ -758,574 +784,656 @@
               "",
               "",
             ];
-            if (store.allRows.length > 0) {
-              store.allRows.push(["", "", "", "", "", "", ""]);
+            if (tempAllRows.length > 0) {
+              tempAllRows.push(["", "", "", "", "", "", ""]);
             }
-            store.allRows.push(fileLabelRow);
-            store.allRows.push(...parsedData.allRows);
+            tempAllRows.push(fileLabelRow);
+            tempAllRows.push(...parsedData.allRows);
 
             successCount++;
           }
 
-          generateConsolidatedTables();
+          // Batch update state at the end
+          batch(() => {
+            setStore("allRows", tempAllRows);
+            setStore("rawText", tempRawText);
+            setStore("consolidatedMetadata", tempMetadata);
 
-          store.isResultVisible = true;
+            const tables = generateConsolidatedTables(tempMetadata);
+            setStore("consolidatedTables", tables);
 
-          if (
-            store.allRows.length === 0 &&
-            store.consolidatedMetadata.length === 0
-          ) {
-            setStatus(
-              "Processed files but found no recognized data.",
-              "info",
-            );
-          } else {
-            setStatus(
-              `Successfully processed ${successCount} files!`,
-              "success",
-            );
-          }
+            setStore("isResultVisible", true);
+
+            if (tempAllRows.length === 0 && tempMetadata.length === 0) {
+              setStatus(
+                "Processed files but found no recognized data.",
+                "info",
+              );
+            } else {
+              setStatus(
+                `Successfully processed ${successCount} files!`,
+                "success",
+              );
+            }
+          });
         } catch (error) {
           console.error(error);
           setStatus(`Error: ${error.message}`, "error");
-          store.isResultVisible = true;
+          setStore("isResultVisible", true);
         }
       }
 
-      // --- Templates ---
+      function generateConsolidatedTables(metadataList) {
+        const groups = {};
+        metadataList.forEach((item) => {
+          if (!groups[item.docType]) groups[item.docType] = [];
+          groups[item.docType].push(item);
+        });
 
-      const tableToggleClass = () =>
-        `flex-shrink-0 w-full md:w-auto px-4 py-2 text-white font-bold rounded-lg shadow transition duration-150 ${
-          store.isTableVisible
-            ? "bg-blue-500 hover:bg-blue-600"
-            : "bg-gray-500 hover:bg-gray-600"
-        }`;
-      const rawTextToggleClass = () =>
-        `px-3 py-1 text-sm text-white font-bold rounded shadow transition duration-150 ${
-          store.isRawTextVisible
-            ? "bg-blue-500 hover:bg-blue-600"
-            : "bg-gray-500 hover:bg-gray-600"
-        }`;
-      const consolidatedToggleClass = () =>
-        `flex-shrink-0 w-full md:w-auto px-4 py-2 text-white font-bold rounded-lg shadow transition duration-150 ${
-          store.isConsolidatedVisible
-            ? "bg-purple-500 hover:bg-purple-600"
-            : "bg-gray-500 hover:bg-gray-600"
-        }`;
+        return Object.keys(groups).map((type) => {
+          const items = groups[type];
+          const keys = new Set();
+          items.forEach((i) =>
+            Object.keys(i.fields).forEach((k) => keys.add(k))
+          );
+          const header = Array.from(keys);
 
-      const statusTemplate = html`
-        ${() => {
-          if (!store.status.message) return "";
-          const baseClasses = "p-4 rounded-lg text-sm mb-6";
-          const typeClasses = store.status.type === "error"
-            ? "bg-red-100 text-red-800"
-            : store.status.type === "success"
-            ? "bg-green-100 text-green-800"
-            : "bg-blue-100 text-blue-800";
-          return html`
-            <div class="${baseClasses} ${typeClasses}" role="alert">${store
-              .status.message}</div>
-          `;
-        }}
-      `;
+          const rows = items.map((item) => {
+            const rowData = [item.fileName];
+            header.forEach((h) => {
+              rowData.push(item.fields[h] || "");
+            });
+            return rowData;
+          });
 
-      const customParserTemplate = html`
-        <div class="mb-6 border rounded-lg overflow-hidden">
-          <button
-            class="w-full text-left px-6 py-4 bg-gray-100 font-semibold text-gray-700 hover:bg-gray-200 flex justify-between items-center"
-            @click="${() =>
-              store.isParserFormVisible = !store.isParserFormVisible}"
+          return {
+            title: type,
+            headers: ["Source File", ...header],
+            rows: rows,
+          };
+        });
+      }
+
+      function copyTable(tableId = "outputTable") {
+        const table = document.getElementById(tableId);
+        if (!table) return;
+        const rows = Array.from(table.rows).map((row) =>
+          Array.from(row.cells).map((cell) => cell.innerText).join("\t")
+        ).join("\n");
+        const tempTextArea = document.createElement("textarea");
+        tempTextArea.style.position = "fixed";
+        tempTextArea.style.opacity = "0";
+        tempTextArea.value = rows;
+        document.body.appendChild(tempTextArea);
+        tempTextArea.select();
+        try {
+          document.execCommand("copy");
+          setStatus("Table content copied to clipboard!", "success");
+        } catch (err) {
+          setStatus("Manual copy required.", "error");
+        } finally {
+          document.body.removeChild(tempTextArea);
+          setTimeout(() => clearStatus(), 3000);
+        }
+      }
+
+      // --- Templates (SolidJS) ---
+
+      const App = () => {
+        return html`
+          <div
+            class="container mx-auto bg-white shadow-xl rounded-xl p-6 md:p-10 relative"
           >
-            <span>🛠️ Configure Custom Parser</span>
-            <span>${() => store.isParserFormVisible ? "▲" : "▼"}</span>
-          </button>
+            <h1 class="text-3xl font-extrabold text-blue-800 mb-2">
+              Universal Data Extractor
+            </h1>
+            <p class="text-gray-600 mb-6">
+              Supports <strong>GST</strong>, <strong>Income Tax</strong>, and
+              various <strong>Bank Statements</strong>.
+              <br>Drag & drop PDFs or define your own <strong>Custom
+                Parser</strong> below.
+              </p>
 
-          ${() =>
-            store.isParserFormVisible
-              ? html`
-                <div class="p-6 bg-white border-t">
-                  ${() =>
-                    store.customParsers.length > 0
-                      ? html`
-                        <div class="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
-                          <div class="flex justify-between items-center mb-3">
-                            <h4 class="font-bold text-indigo-800">Active Custom Parsers:</h4>
-                            <!-- Edit / Export All Button -->
-                            <button
-                              @click="${openTemplatesModal}"
-                              class="text-xs bg-indigo-600 text-white px-2 py-1 rounded hover:bg-indigo-700"
-                            >
-                              Edit / Export All
-                            </button>
-                          </div>
-                          <ul class="space-y-2">
-                            ${store.customParsers.map((p, i) =>
-                              html`
-                                <li
-                                  class="flex justify-between items-center bg-white p-2 rounded shadow-sm"
-                                >
-                                  <div>
-                                    <span class="font-semibold text-gray-800">${p
-                                      .name}</span>
-                                    <span class="text-xs text-gray-500 ml-2">(Match: ${p
-                                      .matchString.join(", ")})</span>
-                                  </div>
+              <!-- Custom Parser Section -->
+              <div class="mb-6 border rounded-lg overflow-hidden">
+                <button
+                  class="w-full text-left px-6 py-4 bg-gray-100 font-semibold text-gray-700 hover:bg-gray-200 flex justify-between items-center"
+                  onClick="${() =>
+                    setStore(
+                      "isParserFormVisible",
+                      !store.isParserFormVisible,
+                    )}"
+                >
+                  <span>🛠️ Configure Custom Parser</span>
+                  <span>${store.isParserFormVisible ? "▲" : "▼"}</span>
+                </button>
+
+                ${() =>
+                  store.isParserFormVisible
+                    ? html`
+                      <div class="p-6 bg-white border-t">
+                        ${() =>
+                          store.customParsers.length > 0
+                            ? html`
+                              <div class="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+                                <div class="flex justify-between items-center mb-3">
+                                  <h4 class="font-bold text-indigo-800">Active Custom Parsers:</h4>
                                   <button
-                                    @click="${() =>
-                                      removeCustomParser(i)}"
-                                    class="text-red-500 hover:text-red-700 text-sm font-medium px-2"
+                                    onClick="${openTemplatesModal}"
+                                    class="text-xs bg-indigo-600 text-white px-2 py-1 rounded hover:bg-indigo-700"
                                   >
-                                    Remove
+                                    Edit / Export All
                                   </button>
-                                </li>
-                              `
-                            )}
-                          </ul>
-                        </div>
-                      `
-                      : ""}
-
-                  <!-- Quick Import Textarea -->
-                  <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-1"
-                    >Quick Import (Paste Config)</label>
-                    <textarea
-                      class="w-full h-24 rounded-md border-gray-300 shadow-sm border p-2 text-sm font-mono"
-                      placeholder="Name: My Parser,\\nmatchstring: invoice, bill,\\nMetadata: (?<Key>...)\\nTable: (?<Row>...)"
-                      value="${() => store.newParser.configText}"
-                      @input="${(e) => {
-                        store.newParser.configText = e.target.value;
-                        parseConfigInput(e.target.value);
-                      }}"
-                    ></textarea>
-                    <p class="text-xs text-gray-500 mt-1">
-                      Paste your parser configuration here to auto-populate the fields
-                      below.
-                    </p>
-                  </div>
-
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700"
-                      >Parser Name</label>
-                      <input
-                        type="text"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
-                        placeholder="e.g. My Custom Bank"
-                        value="${() => store.newParser.name}"
-                        @input="${(e) =>
-                          store.newParser.name = e.target.value}"
-                      >
-                    </div>
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700"
-                      >Match Strings (comma separated)</label>
-                      <input
-                        type="text"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
-                        placeholder="e.g. My Bank Ltd, Custom Statement"
-                        value="${() => store.newParser.matchString}"
-                        @input="${(e) =>
-                          store.newParser.matchString = e.target.value}"
-                      >
-                    </div>
-                  </div>
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700"
-                      >Metadata Regex (Named Groups recommended)</label>
-                      <input
-                        type="text"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
-                        placeholder="e.g. Account: (?<AccNo>\\d+)"
-                        value="${() => store.newParser.metadataRegex}"
-                        @input="${(e) =>
-                          store.newParser.metadataRegex =
-                            e.target.value}"
-                      >
-                    </div>
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700"
-                      >Table Regex (Optional)</label>
-                      <input
-                        type="text"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
-                        placeholder="e.g. (?<Date>\\d{2}-\\d{2}-\\d{4}) (?<Amt>\\d+)"
-                        value="${() => store.newParser.tableRegex}"
-                        @input="${(e) =>
-                          store.newParser.tableRegex = e.target.value}"
-                      >
-                    </div>
-                  </div>
-                  <button
-                    @click="${addCustomParser}"
-                    class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 font-medium"
-                  >
-                    Add Parser
-                  </button>
-                </div>
-              `
-              : ""}
-        </div>
-      `;
-
-      const consolidatedTemplate = html`
-        <div class="mt-8 border-t pt-8">
-          <h2 class="text-2xl font-bold text-gray-800 mb-4">
-            Consolidated Metadata Summary
-          </h2>
-          <p class="text-gray-600 mb-4">
-            A combined view of metadata across all processed files, grouped by
-            document type.
-          </p>
-
-          ${() =>
-            store.consolidatedTables.map((tbl, i) =>
-              html`
-                <div class="mb-8">
-                  <div class="flex justify-between items-center mb-3">
-                    <h3 class="text-lg font-semibold text-blue-700">${tbl
-                      .title}</h3>
-                    <button
-                      @click="${() => copyTable(`consTable-${i}`)}"
-                      class="px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded text-sm font-bold"
-                    >
-                      Copy Table
-                    </button>
-                  </div>
-                  <div class="overflow-x-auto border rounded-lg shadow-sm">
-                    <table id="consTable-${i}" class="data-table">
-                      <thead class="bg-gray-50">
-                        <tr>
-                          ${tbl.headers.map((h) =>
-                            html`
-                              <th class="font-bold text-gray-600">${h}</th>
-                            `
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${tbl.rows.map((row) =>
-                          html`
-                            <tr>
-                              ${row.map((cell) =>
-                                html`
-                                  <td>${cell}</td>
-                                `
-                              )}
-                            </tr>
-                          `
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              `
-            )}
-        </div>
-      `;
-
-      const resultsTemplate = html`
-        ${() => {
-          if (!store.isResultVisible) return "";
-          return html`
-            <div>
-              <h2 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">
-                Extracted Data
-              </h2>
-
-              <div
-                class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg"
-              >
-                <p class="text-sm font-medium text-yellow-800 mb-3 md:mb-0">
-                  <span class="font-bold">Instructions:</span> View detailed data
-                  below or toggle summary views.
-                </p>
-                <div class="flex flex-wrap gap-2 w-full md:w-auto">
-                  <button @click="${() =>
-                    store.isTableVisible = !store
-                      .isTableVisible}" class="${tableToggleClass}">
-                    ${() =>
-                      store.isTableVisible
-                        ? "Hide Details"
-                        : "Show Details"}
-                  </button>
-                  <button @click="${() =>
-                    store.isConsolidatedVisible = !store
-                      .isConsolidatedVisible}" class="${consolidatedToggleClass}">
-                    ${() =>
-                      store.isConsolidatedVisible
-                        ? "Hide Metadata Summary"
-                        : "Show Metadata Summary"}
-                  </button>
-                  <button
-                    @click="${() => copyTable("outputTable")}"
-                    class="flex-shrink-0 w-full md:w-auto px-4 py-2 bg-green-500 text-white font-bold rounded-lg shadow hover:bg-green-600 transition duration-150"
-                  >
-                    Copy Details
-                  </button>
-                </div>
-              </div>
-
-              ${() =>
-                store.isConsolidatedVisible
-                  ? consolidatedTemplate
-                  : ""} ${() =>
-                store.isTableVisible
-                  ? html`
-                    <div class="mt-6">
-                      <h3 class="text-lg font-bold text-gray-700 mb-2">
-                        Detailed Extraction
-                      </h3>
-                      <div class="overflow-x-auto border rounded-lg">
-                        <table id="outputTable" class="data-table">
-                          <tbody>
-                            ${store.allRows.map((row) => {
-                              const isSourceHeader = row[0] &&
-                                row[0].startsWith("Source:");
-                              let rowClass = "";
-                              if (isSourceHeader) rowClass = "file-row";
-
-                              return html`
-                                <tr class="${rowClass}">
-                                  ${row.map((cell) =>
+                                </div>
+                                <ul class="space-y-2">
+                                  ${store.customParsers.map((p, i) =>
                                     html`
-                                      <td>${cell}</td>
+                                      <li
+                                        class="flex justify-between items-center bg-white p-2 rounded shadow-sm"
+                                      >
+                                        <div>
+                                          <span class="font-semibold text-gray-800">${p
+                                            .name}</span>
+                                          <span class="text-xs text-gray-500 ml-2">(Match: ${p
+                                            .matchString.join(
+                                              ", ",
+                                            )})</span>
+                                        </div>
+                                        <button
+                                          onClick="${() =>
+                                            removeCustomParser(i)}"
+                                          class="text-red-500 hover:text-red-700 text-sm font-medium px-2"
+                                        >
+                                          Remove
+                                        </button>
+                                      </li>
                                     `
                                   )}
-                                </tr>
-                              `;
-                            })}
-                          </tbody>
-                        </table>
+                                </ul>
+                              </div>
+                            `
+                            : ""}
+
+                        <div class="mb-6">
+                          <label class="block text-sm font-medium text-gray-700 mb-1"
+                          >Quick Import (Paste Config)</label>
+                          <textarea
+                            class="w-full h-24 rounded-md border-gray-300 shadow-sm border p-2 text-sm font-mono"
+                            placeholder="Name: My Parser,\\nmatchstring: invoice, bill,\\nMetadata: (?<Key>...)\\nTable: (?<Row>...)"
+                            value="${store.newParser.configText}"
+                            onInput="${(e) => {
+                              setStore(
+                                "newParser",
+                                "configText",
+                                e.target.value,
+                              );
+                              parseConfigInput(e.target.value);
+                            }}"
+                          ></textarea>
+                          <p class="text-xs text-gray-500 mt-1">
+                            Paste your parser configuration here to auto-populate the fields
+                            below.
+                          </p>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <label class="block text-sm font-medium text-gray-700"
+                            >Parser Name</label>
+                            <input
+                              type="text"
+                              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
+                              placeholder="e.g. My Custom Bank"
+                              value="${store.newParser.name}"
+                              onInput="${(e) =>
+                                setStore(
+                                  "newParser",
+                                  "name",
+                                  e.target.value,
+                                )}"
+                            />
+                          </div>
+                          <div>
+                            <label class="block text-sm font-medium text-gray-700"
+                            >Match Strings (comma separated)</label>
+                            <input
+                              type="text"
+                              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
+                              placeholder="e.g. My Bank Ltd, Custom Statement"
+                              value="${store.newParser.matchString}"
+                              onInput="${(e) =>
+                                setStore(
+                                  "newParser",
+                                  "matchString",
+                                  e.target.value,
+                                )}"
+                            />
+                          </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <label class="block text-sm font-medium text-gray-700"
+                            >Metadata Regex (Named Groups recommended)</label>
+                            <input
+                              type="text"
+                              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
+                              placeholder="e.g. Account: (?<AccNo>\\d+)"
+                              value="${store.newParser.metadataRegex}"
+                              onInput="${(e) =>
+                                setStore(
+                                  "newParser",
+                                  "metadataRegex",
+                                  e.target.value,
+                                )}"
+                            />
+                          </div>
+                          <div>
+                            <label class="block text-sm font-medium text-gray-700"
+                            >Table Regex (Optional)</label>
+                            <input
+                              type="text"
+                              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
+                              placeholder="e.g. (?<Date>\\d{2}-\\d{2}-\\d{4}) (?<Amt>\\d+)"
+                              value="${store.newParser.tableRegex}"
+                              onInput="${(e) =>
+                                setStore(
+                                  "newParser",
+                                  "tableRegex",
+                                  e.target.value,
+                                )}"
+                            />
+                          </div>
+                        </div>
+                        <button
+                          onClick="${addCustomParser}"
+                          class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
+                        >
+                          Add Parser
+                        </button>
+                      </div>
+                    `
+                    : ""}
+              </div>
+
+              <!-- Drop Zone -->
+              <label
+                for="gstFileInput"
+                class="${`mb-8 p-10 border-2 border-dashed rounded-lg bg-blue-50 transition-all duration-200 flex flex-col items-center justify-center text-center cursor-pointer block ${
+                  store.isDragging ? "drag-active" : "border-blue-300"
+                }`}"
+                onDragOver="${handleDragOver}"
+                onDragLeave="${handleDragLeave}"
+                onDrop="${handleDrop}"
+              >
+                <svg
+                  class="w-12 h-12 text-blue-500 mb-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                  >
+                  </path>
+                </svg>
+
+                <span
+                  class="block text-lg font-medium text-blue-700 mb-2 cursor-pointer"
+                >
+                  ${store.isDragging
+                    ? "Drop files here"
+                    : "Click to Upload or Drag & Drop"}
+                </span>
+
+                <span class="block text-sm text-gray-500 mb-4"
+                >PDF files only (Multiple allowed)</span>
+                <span class="block text-sm font-semibold text-blue-600"
+                >${store.fileSummary}</span>
+
+                <input
+                  type="file"
+                  id="gstFileInput"
+                  onChange="${handleFileInput}"
+                  accept="application/pdf"
+                  class="hidden"
+                  multiple
+                />
+              </label>
+
+              <!-- Status -->
+              ${() =>
+                store.status.message
+                  ? html`
+                    <div class="${`p-4 rounded-lg text-sm mb-6 ${
+                      store.status.type === "error"
+                        ? "bg-red-100 text-red-800"
+                        : "bg-blue-100 text-blue-800"
+                    }`}" role="alert">
+                      ${store.status.message}
+                    </div>
+                  `
+                  : ""}
+
+              <!-- Results Section -->
+              ${() =>
+                store.isResultVisible
+                  ? html`
+                    <div>
+                      <h2 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">
+                        Extracted Data
+                      </h2>
+
+                      <div
+                        class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg"
+                      >
+                        <p class="text-sm font-medium text-yellow-800 mb-3 md:mb-0">
+                          <span class="font-bold">Instructions:</span> View detailed data
+                          below or toggle summary views.
+                        </p>
+                        <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                          <button onClick="${() =>
+                            setStore(
+                              "isTableVisible",
+                              !store.isTableVisible,
+                            )}" class="${`flex-shrink-0 w-full md:w-auto px-4 py-2 text-white font-bold rounded-lg shadow transition duration-150 ${
+                            store.isTableVisible
+                              ? "bg-blue-500 hover:bg-blue-600"
+                              : "bg-gray-500 hover:bg-gray-600"
+                          }`}">
+                            ${store.isTableVisible
+                              ? "Hide Details"
+                              : "Show Details"}
+                          </button>
+                          <button onClick="${() =>
+                            setStore(
+                              "isConsolidatedVisible",
+                              !store.isConsolidatedVisible,
+                            )}" class="${`flex-shrink-0 w-full md:w-auto px-4 py-2 text-white font-bold rounded-lg shadow transition duration-150 ${
+                            store.isConsolidatedVisible
+                              ? "bg-purple-500 hover:bg-purple-600"
+                              : "bg-gray-500 hover:bg-gray-600"
+                          }`}">
+                            ${store.isConsolidatedVisible
+                              ? "Hide Metadata Summary"
+                              : "Show Metadata Summary"}
+                          </button>
+                          <button
+                            onClick="${() => copyTable("outputTable")}"
+                            class="flex-shrink-0 w-full md:w-auto px-4 py-2 bg-green-500 text-white font-bold rounded-lg shadow hover:bg-green-600 transition duration-150"
+                          >
+                            Copy Details
+                          </button>
+                        </div>
+                      </div>
+
+                      ${() =>
+                        store.isConsolidatedVisible
+                          ? html`
+                            <div class="mt-8 border-t pt-8">
+                              <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                                Consolidated Metadata Summary
+                              </h2>
+                              <p class="text-gray-600 mb-4">
+                                A combined view of metadata across all processed files, grouped by
+                                document type.
+                              </p>
+
+                              ${store.consolidatedTables.map((tbl, i) =>
+                                html`
+                                  <div class="mb-8">
+                                    <div class="flex justify-between items-center mb-3">
+                                      <h3 class="text-lg font-semibold text-blue-700">${tbl
+                                        .title}</h3>
+                                      <button
+                                        onClick="${() =>
+                                          copyTable(`consTable-${i}`)}"
+                                        class="px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded text-sm font-bold"
+                                      >
+                                        Copy Table
+                                      </button>
+                                    </div>
+                                    <div class="overflow-x-auto border rounded-lg shadow-sm">
+                                      <table id="${`consTable-${i}`}" class="data-table">
+                                        <thead class="bg-gray-50">
+                                          <tr>
+                                            ${tbl.headers.map((h) =>
+                                              html`
+                                                <th class="font-bold text-gray-600">${h}</th>
+                                              `
+                                            )}
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          ${tbl.rows.map((row) =>
+                                            html`
+                                              <tr>
+                                                ${row.map((cell) =>
+                                                  html`
+                                                    <td>${cell}</td>
+                                                  `
+                                                )}
+                                              </tr>
+                                            `
+                                          )}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                `
+                              )}
+                            </div>
+                          `
+                          : ""} ${() =>
+                        store.isTableVisible
+                          ? html`
+                            <div class="mt-6">
+                              <h3 class="text-lg font-bold text-gray-700 mb-2">
+                                Detailed Extraction
+                              </h3>
+                              <div class="overflow-x-auto border rounded-lg">
+                                <table id="outputTable" class="data-table">
+                                  <tbody>
+                                    ${store.allRows.map((row) => {
+                                      const isSourceHeader = row[0] &&
+                                        row[0].startsWith("Source:");
+                                      let rowClass = "";
+                                      if (isSourceHeader) {
+                                        rowClass = "file-row";
+                                      }
+
+                                      return html`
+                                        <tr class="${rowClass}">
+                                          ${row.map((cell) =>
+                                            html`
+                                              <td>${cell}</td>
+                                            `
+                                          )}
+                                        </tr>
+                                      `;
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          `
+                          : html`
+                            <div class="p-8 text-center text-gray-500 border rounded-lg bg-white">
+                              The extracted data table is currently hidden.
+                            </div>
+                          `}
+
+                      <div class="mt-8">
+                        <div class="flex justify-between items-center mb-2">
+                          <h3 class="text-xl font-medium text-gray-700">
+                            Raw Extracted Text (For Debugging)
+                          </h3>
+                          <button onClick="${() =>
+                            setStore(
+                              "isRawTextVisible",
+                              !store.isRawTextVisible,
+                            )}" class="${`px-3 py-1 text-sm text-white font-bold rounded shadow transition duration-150 ${
+                            store.isRawTextVisible
+                              ? "bg-blue-500 hover:bg-blue-600"
+                              : "bg-gray-500 hover:bg-gray-600"
+                          }`}">
+                            ${store.isRawTextVisible
+                              ? "Hide Raw Text"
+                              : "Show Raw Text"}
+                          </button>
+                        </div>
+
+                        ${() =>
+                          store.isRawTextVisible
+                            ? html`
+                              <pre
+                                class="bg-gray-100 p-4 rounded-lg text-xs overflow-auto max-h-64 border"
+                              >${store.rawText}</pre>
+                            `
+                            : html`
+                              <div class="p-4 bg-gray-50 border rounded text-xs text-gray-500 italic">
+                                Raw text hidden.
+                              </div>
+                            `}
                       </div>
                     </div>
                   `
                   : ""}
 
-              <div class="mt-8">
-                <div class="flex justify-between items-center mb-2">
-                  <h3 class="text-xl font-medium text-gray-700">
-                    Raw Extracted Text (For Debugging)
-                  </h3>
-                  <button @click="${() =>
-                    store.isRawTextVisible = !store
-                      .isRawTextVisible}" class="${rawTextToggleClass}">
-                    ${() =>
-                      store.isRawTextVisible
-                        ? "Hide Raw Text"
-                        : "Show Raw Text"}
-                  </button>
-                </div>
+              <!-- Password Modal -->
+              ${() =>
+                store.passwordModal.isOpen
+                  ? html`
+                    <div
+                      class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop"
+                    >
+                      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4">
+                          Password Required
+                        </h3>
+                        <p class="text-sm text-gray-600 mb-2">
+                          The file <span class="font-bold text-blue-600">${store
+                            .passwordModal.fileName}</span>
+                          is encrypted.
+                        </p>
 
-                ${() =>
-                  store.isRawTextVisible
-                    ? html`
-                      <pre
-                        class="bg-gray-100 p-4 rounded-lg text-xs overflow-auto max-h-64 border"
-                      >${store.rawText}</pre>
-                    `
-                    : html`
-                      <div class="p-4 bg-gray-50 border rounded text-xs text-gray-500 italic">
-                        Raw text hidden.
+                        <div class="mb-4">
+                          <label class="block text-sm font-medium text-gray-700 mb-1"
+                          >Enter Password</label>
+                          <input
+                            type="text"
+                            class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Password"
+                            value="${store.passwordModal.passwordInput}"
+                            onInput="${(e) =>
+                              setStore(
+                                "passwordModal",
+                                "passwordInput",
+                                e.target.value,
+                              )}"
+                            onKeyDown="${(e) =>
+                              e.key === "Enter" &&
+                              handlePasswordSubmit()}"
+                          />
+                        </div>
+
+                        <div class="flex items-center mb-6">
+                          <input
+                            type="checkbox"
+                            id="useForSubsequent"
+                            class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            checked="${store.passwordModal
+                              .useForSubsequent}"
+                            onChange="${(e) =>
+                              setStore(
+                                "passwordModal",
+                                "useForSubsequent",
+                                e.target.checked,
+                              )}"
+                          />
+                          <label
+                            for="useForSubsequent"
+                            class="ml-2 block text-sm text-gray-700"
+                          >
+                            Use this password for subsequent files
+                          </label>
+                        </div>
+
+                        <div class="flex justify-end space-x-3">
+                          <button
+                            onClick="${handlePasswordSkip}"
+                            class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium text-sm"
+                          >
+                            Skip File
+                          </button>
+                          <button
+                            onClick="${handlePasswordSubmit}"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
+                          >
+                            Decrypt & Extract
+                          </button>
+                        </div>
                       </div>
-                    `}
-              </div>
+                    </div>
+                  `
+                  : ""}
+
+              <!-- Templates Management Modal -->
+              ${() =>
+                store.isTemplatesModalVisible
+                  ? html`
+                    <div
+                      class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop"
+                    >
+                      <div
+                        class="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4 flex flex-col max-h-[90vh]"
+                      >
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">
+                          Manage All Custom Parsers
+                        </h3>
+                        <p class="text-sm text-gray-600 mb-4">
+                          Edit all parsers below or paste a list to import multiple.
+                        </p>
+
+                        <textarea
+                          class="flex-grow w-full border border-gray-300 rounded-lg p-3 font-mono text-xs mb-4 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          rows="15"
+                          value="${store.templatesText}"
+                          onInput="${(e) =>
+                            setStore("templatesText", e.target.value)}"
+                        ></textarea>
+
+                        <div class="flex justify-end space-x-3">
+                          <button
+                            onClick="${() =>
+                              setStore(
+                                "isTemplatesModalVisible",
+                                false,
+                              )}"
+                            class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium text-sm"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick="${saveTemplates}"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
+                          >
+                            Save All Changes
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  `
+                  : ""}
             </div>
           `;
-        }}
-      `;
+        };
 
-      const dropZoneClass = () =>
-        `mb-8 p-10 border-2 border-dashed rounded-lg bg-blue-50 transition-all duration-200 flex flex-col items-center justify-center text-center cursor-pointer block ${
-          store.isDragging ? "drag-active" : "border-blue-300"
-        }`;
-
-      const mainTemplate = html`
-        <div
-          class="container mx-auto bg-white shadow-xl rounded-xl p-6 md:p-10 relative"
-        >
-          <h1 class="text-3xl font-extrabold text-blue-800 mb-2">
-            Universal Data Extractor
-          </h1>
-          <p class="text-gray-600 mb-6">
-            Supports <strong>GST</strong>, <strong>Income Tax</strong>, and
-            various <strong>Bank Statements</strong>.
-            <br>Drag & drop PDFs or define your own <strong>Custom
-              Parser</strong> below.
-            </p>
-
-            ${customParserTemplate}
-
-            <label
-              for="gstFileInput"
-              class="${dropZoneClass}"
-              @dragover="${handleDragOver}"
-              @dragleave="${handleDragLeave}"
-              @drop="${handleDrop}"
-            >
-              <svg
-                class="w-12 h-12 text-blue-500 mb-3"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                >
-                </path>
-              </svg>
-
-              <span
-                class="block text-lg font-medium text-blue-700 mb-2 cursor-pointer"
-              >
-                ${() =>
-                  store.isDragging
-                    ? "Drop files here"
-                    : "Click to Upload or Drag & Drop"}
-              </span>
-
-              <span class="block text-sm text-gray-500 mb-4"
-              >PDF files only (Multiple allowed)</span>
-              <span class="block text-sm font-semibold text-blue-600"
-              >${() => store.fileSummary}</span>
-
-              <input
-                type="file"
-                id="gstFileInput"
-                @change="${handleFileInput}"
-                accept="application/pdf"
-                class="hidden"
-                multiple
-              >
-            </label>
-
-            ${statusTemplate} ${resultsTemplate}
-
-            <!-- Password Modal -->
-            ${() =>
-              store.passwordModal.isOpen
-                ? html`
-                  <div
-                    class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop"
-                  >
-                    <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
-                      <h3 class="text-xl font-bold text-gray-800 mb-4">
-                        Password Required
-                      </h3>
-                      <p class="text-sm text-gray-600 mb-2">
-                        The file <span class="font-bold text-blue-600">${store
-                          .passwordModal.fileName}</span>
-                        is encrypted.
-                      </p>
-
-                      <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-1"
-                        >Enter Password</label>
-                        <input
-                          type="text"
-                          class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="Password"
-                          value="${() =>
-                            store.passwordModal.passwordInput}"
-                          @input="${(e) =>
-                            store.passwordModal.passwordInput =
-                              e.target.value}"
-                          @keydown="${(e) => e.key === "Enter" &&
-                            handlePasswordSubmit()}"
-                        >
-                      </div>
-
-                      <div class="flex items-center mb-6">
-                        <input
-                          type="checkbox"
-                          id="useForSubsequent"
-                          class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          checked="${() =>
-                            store.passwordModal.useForSubsequent}"
-                          @change="${(e) =>
-                            store.passwordModal.useForSubsequent =
-                              e.target.checked}"
-                        >
-                        <label
-                          for="useForSubsequent"
-                          class="ml-2 block text-sm text-gray-700"
-                        >
-                          Use this password for subsequent files
-                        </label>
-                      </div>
-
-                      <div class="flex justify-end space-x-3">
-                        <button
-                          @click="${handlePasswordSkip}"
-                          class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium text-sm"
-                        >
-                          Skip File
-                        </button>
-                        <button
-                          @click="${handlePasswordSubmit}"
-                          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
-                        >
-                          Decrypt & Extract
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                `
-                : ""}
-
-            <!-- Templates Management Modal -->
-            ${() =>
-              store.isTemplatesModalVisible
-                ? html`
-                  <div
-                    class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop"
-                  >
-                    <div
-                      class="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4 flex flex-col max-h-[90vh]"
-                    >
-                      <h3 class="text-xl font-bold text-gray-800 mb-2">
-                        Manage All Custom Parsers
-                      </h3>
-                      <p class="text-sm text-gray-600 mb-4">
-                        Edit all parsers below or paste a list to import multiple.
-                      </p>
-
-                      <textarea
-                        class="flex-grow w-full border border-gray-300 rounded-lg p-3 font-mono text-xs mb-4 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        rows="15"
-                        value="${() => store.templatesText}"
-                        @input="${(e) =>
-                          store.templatesText = e.target.value}"
-                      ></textarea>
-
-                      <div class="flex justify-end space-x-3">
-                        <button
-                          @click="${() =>
-                            store.isTemplatesModalVisible = false}"
-                          class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium text-sm"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          @click="${saveTemplates}"
-                          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
-                        >
-                          Save All Changes
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                `
-                : ""}
-          </div>
-        `;
-
-        mainTemplate(document.getElementById("app"));
+        // Mount application
+        render(App, document.getElementById("app"));
     </script>
   </body>
 </html>
