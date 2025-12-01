@@ -146,56 +146,18 @@
 
         // Standard parser configuration (moved out for cleaner code)
         const BUILT_IN_PARSERS = [
-            // ... (BUILT_IN_PARSERS array remains the same) ...
             [
                 "GST Challan",
                 ["GOODS AND SERVICES TAX PAYMENT RECEIPT"],
-                /Name:\s+(?<Name>.*?)\s+Address.*?GSTIN:\s+(?<GSTIN>\w+).*?Date :\s+(?<Date>\d\d\/\d\d\/\d{4}).*?(?<StateCode>\d+)\s+(?<StateName>[^\d]+?)\s+SGST/s,
-                /(?<name>\w+)\(.*?\)\s+(?<tax>-|\d+)\s+(?<interest>-|\d+)\s+(?<penalty>-|\d+)\s+(?<fees>-|\d+)\s+(?<others>-|\d+)\s+(?<total>-|\d+)\s+/g,
-                (text, metaRx, tableRx) => {
-                    // Custom logic for GST Challan (parseChallanWrapper)
-                    const metadataFields = {};
-                    const metaMatch = text.match(metaRx);
-                    if (metaMatch && metaMatch.groups) {
-                        Object.assign(metadataFields, metaMatch.groups);
-                        if (metaMatch.groups.StateCode && metaMatch.groups.StateName) {
-                            metadataFields.State = `${metaMatch.groups.StateCode} ${metaMatch.groups.StateName}`;
-                            delete metadataFields.StateCode;
-                            delete metadataFields.StateName;
-                        }
-                    }
-
-                    const metadataRows = Object.entries(metadataFields).map(([k,v]) => [k, v, '', '', '', '', '']);
-                    const matches = [...text.matchAll(tableRx)];
-                    const headers = ['Head', 'Tax', 'Interest', 'Penalty', 'Fees', 'Others', 'Total'];
-                    const dataRows = matches.map(m => [m.groups.name, m.groups.tax, m.groups.interest, m.groups.penalty, m.groups.fees, m.groups.others, m.groups.total]);
-                    
-                    const totalMatch = text.match(/Total Amount\s+([\d,]+)/);
-                    if (totalMatch && !matches.find(m => m.groups.name === 'Total')) {
-                        dataRows.push(['Grand Total', '-', '-', '-', '-', '-', totalMatch[1].replace(/,/g, '')]);
-                    }
-                    return { allRows: [...metadataRows, headers, ...dataRows], metadataFields };
-                }
-            ],
-            [
-                "GSTR-3B",
-                ["Form GSTR-3B", "See rule 61(5)"],
-                /Year (?<Year>[\d-]+)\s+Period\s+(.*)\s+GSTIN\s+of\s+the\s+supplier\s+(?<GSTIN>\w+)\s+2\(a\)\.\s+Legal\s+name\s+of\s+the\s+registered\s+person\s+(?<Name>.*)\s+2\(b\)/,
-                /\([a-e]\s?\) (?!and)(.*?) (\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+/g,
-                generalDocumentParser
-            ],
-            [
-                "Income Tax",
-                ["INCOME TAX DEPARTMENT", "Challan Receipt"],
-                /Nature of Payment : (?<Section_No>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<Amount>\d[\d,.]*).*(?<Deposit_Date>\d\d\-\s?\w{3}-\d{4})/g,
-                /Nature of Payment : (?<sectionNo>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<amt>\d[\d,.]*).*(?<depositDate>\d\d\-\s?\w{3}-\d{4})/g,
+                /Deposit Date : (?<DepositDate>.*?) .* GSTIN: (?<GSTIN>\w+) .* Name.*?: (?<Name>.*?) Address .* \d+  (?<State>.*?) SGST.*? Total Amount (?<TotalAmount>\d+)/s,
+                /(?<Head>\w+)\(.*?\)\s+(?<Tax>-|\d+)\s+(?<Interest>-|\d+)\s+(?<Penalty>-|\d+)\s+(?<Fees>-|\d+)\s+(?<Others>-|\d+)\s+(?<Total>-|\d+)\s+/g,
                 generalDocumentParser
             ],
             [
                 "IDBI Bank Statement",
                 ["IDBI Bank or other authorities"],
-                /^(?<Name>.*?) Address .* A\/C NO: (?<AccNo>\d+)/s,
-                /(?<date>\d\d\/\d\d\/\d{4})\s+(?<particular>.*?)\s+(?<type>Dr\.|Cr\.)\s+\w{3}\s+(?<Amt>[\d,]+\.\d{2})\s+\d\d\/\d\d\/\d{4}\s+\d\d:\d\d:\d\d\s+(?<serialNo>\d+)\s+(?<Bal>-?[\d,]+\.\d{2})/g,
+                /^(?<Name>.*?) Address .* A\/C NO: (?<AccountNo>\d+)/s,
+                /(?<Date>\d\d\/\d\d\/\d{4})\s+(?<Particular>.*?)\s+(?<Effect>Dr\.|Cr\.)\s+\w{3}\s+(?<Amount>[\d,]+\.\d{2})\s+\d\d\/\d\d\/\d{4}\s+\d\d:\d\d:\d\d\s+(?<SerialNo>\d+)\s+(?<Balance>-?[\d,]+\.\d{2})/g,
                 (text, metaRx, tableRx) => {
                     // Custom logic for IDBI Bank Statement (parseIDBIBankWrapper)
                     const metadataMatch = text.match(metaRx);
@@ -214,8 +176,43 @@
                     });
                     return { allRows: [...metadataRows, headers, ...dataRows], metadataFields };
                 }
-            ]
-            // Add other bank parsers here following the pattern...
+            ],
+            [
+                "GSTR-3B",
+                ["Form GSTR-3B", "See rule 61(5)"],
+                /Year (?<Year>[\d-]+)\s+Period\s+(.*)\s+GSTIN\s+of\s+the\s+supplier\s+(?<GSTIN>\w+)\s+2\(a\)\.\s+Legal\s+name\s+of\s+the\s+registered\s+person\s+(?<Name>.*)\s+2\(b\)/,
+                /\([a-e]\s?\) (?!and)(.*?) (\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+/g,
+                generalDocumentParser
+            ],
+            [
+                "TDS Challan",
+                ["INCOME TAX DEPARTMENT", "Challan Receipt"],
+                /Nature of Payment : (?<Section_No>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<Amount>\d[\d,.]*).*(?<Deposit_Date>\d\d\-\s?\w{3}-\d{4})/g,
+                undefined,
+                generalDocumentParser
+            ],
+            [
+                "Union Bank Statement",
+                ["Union Bank of India", "Statement of Account"],
+                /Statement of Account\s+(?<Account_Holder_Name>.*?)\s+.* Account No\s+(?<Account_Number>\d+)/is,
+                /(?<Date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<Particulars>.*?)\s+(?<Amount>[\d,]+\.\d\s?\d)\s+(?<Balance>-?\s?[\d,]+\.\d\s?\d)/g,
+                generalDocumentParser
+            ],
+            [
+                "Canara Bank Statement",
+                ["Canara Bank does not"],
+                /Account Number (?<Account_Number>\d+).* Opening Balance Rs\. (?<Opening_Balance>-?[\d,]+\.\d\d)\s+Closing Balance Rs\. (?<Closing_Balance>-?[\d,]+\.\d\d)/s,
+                /\s\s(?<Date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<Particulars>.*?)\s+(?<Amount>[\d+,]+\.\d\d)\s+(?<Balance>-?[\d+,]+\.\d\d)/g,
+                generalDocumentParser
+            ],
+            [
+                "RBL Bank Statement",
+                ["RBL BANK LTD"],
+                /Account Name: (?<Account_Name>.*?) Home Branch: .* in Account Number:\s+(?<Account_Number>\d+)\s+.* Opening Balance: ₹ (?<Opening_Balance>[\d,]+\.\d{2})\s+Count Of Debit: \d+\s+Closing Balance: ₹ (?<Closing_Balance>[\d,]+\.\d{2})/s,
+                /(?<Date>\d\d\/\d\d\/\d{4})\s+\d\d\/\d\d\/\d{4}\s+(?<Particular>.*?)\s+(?<Amount>[\d,]+\.\s?\d\s?\d)\s+(?<Balance>[\d,]+\s?\.\s?\d\s?\d)/g,
+                generalDocumentParser
+            ],
+           
         ];
         
         // --- Helper Actions and General Parser (functions remain the same) ---
@@ -1091,8 +1088,7 @@
                 loadCustomParsers(); // Load parsers on startup
             });
 
-            return html`
-                <div class="container mx-auto bg-white shadow-xl rounded-xl p-6 md:p-10 relative">
+            return html`<div class="container mx-auto bg-white shadow-xl rounded-xl p-6 md:p-10 relative">
                     <h1 class="text-3xl font-extrabold text-blue-800 mb-2">
                         Universal Data Extractor
                     </h1>
