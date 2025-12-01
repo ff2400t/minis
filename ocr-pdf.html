@@ -100,9 +100,12 @@
       <!-- Upload Section -->
       <div id="uploadSection" class="mb-8">
         <label
+          id="dropZone"
           class="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-slate-50 transition-all"
         >
-          <div class="flex flex-col items-center justify-center pt-5 pb-6">
+          <div
+            class="flex flex-col items-center justify-center pt-5 pb-6 pointer-events-none"
+          >
             <svg
               class="w-8 h-8 mb-3 text-slate-400"
               aria-hidden="true"
@@ -225,6 +228,7 @@
 
       // DOM Elements
       const fileInput = document.getElementById("fileInput");
+      const dropZone = document.getElementById("dropZone");
       const resultsContainer = document.getElementById(
         "resultsContainer",
       );
@@ -238,15 +242,37 @@
       const percentageText = document.getElementById("percentageText");
 
       // Initialization
-      fileInput.addEventListener("change", handleFileUpload);
+      fileInput.addEventListener("change", (e) => {
+        if (e.target.files[0]) processFile(e.target.files[0]);
+      });
+
+      // Drag and Drop Listeners
+      dropZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropZone.classList.add("border-blue-500", "bg-blue-50");
+      });
+
+      dropZone.addEventListener("dragleave", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("border-blue-500", "bg-blue-50");
+      });
+
+      dropZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("border-blue-500", "bg-blue-50");
+
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          processFile(e.dataTransfer.files[0]);
+        }
+      });
+
       downloadBtn.addEventListener("click", generateSearchablePDF);
       mobileDownloadBtn.addEventListener(
         "click",
         generateSearchablePDF,
       );
 
-      async function handleFileUpload(e) {
-        const file = e.target.files[0];
+      async function processFile(file) {
         if (!file || file.type !== "application/pdf") {
           alert("Please upload a valid PDF file.");
           return;
@@ -266,33 +292,35 @@
           const arrayBuffer = await file.arrayBuffer();
           pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
 
-          updateProgress(
-            5,
-            `PDF Loaded. Found ${pdfDoc.numPages} pages.`,
-          );
-
           // Process pages sequentially to manage memory and show progress
           for (let i = 1; i <= pdfDoc.numPages; i++) {
-            await processPage(i);
+            // Update progress BEFORE starting the page
             updateProgress(
-              Math.round((i / pdfDoc.numPages) * 100),
-              `Processed page ${i} of ${pdfDoc.numPages}`,
+              Math.round(((i - 1) / pdfDoc.numPages) * 100),
+              `Processing page ${i} of ${pdfDoc.numPages}...`,
             );
+
+            await processPage(i);
           }
 
-          updateProgress(100, "Done!");
+          updateProgress(
+            100,
+            `Done! Processed all ${pdfDoc.numPages} pages.`,
+          );
           enableDownload();
 
           // Hide progress bar after a delay
           setTimeout(() => {
-            updateProgress(100, "Complete");
-          }, 1000);
+            // Only hide if we aren't starting a new process
+            if (!isProcessing) showProgress(false);
+          }, 3000);
         } catch (err) {
           console.error(err);
           alert("Error processing PDF: " + err.message);
           showProgress(false);
         } finally {
           isProcessing = false;
+          fileInput.value = ""; // Reset input so same file can be selected again if needed
         }
       }
 
