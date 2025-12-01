@@ -118,6 +118,8 @@
             setConfigTextInput(store.newParser.configText);
         }
 
+        let globalResolveHandler = null;
+
         // --- Local Storage Handlers ---
 
         function loadCustomParsers() {
@@ -511,34 +513,34 @@
                     setStore('passwordModal', 'fileName', fileName);
                     setStore('passwordModal', 'passwordInput', '');
                     setStore('passwordModal', 'useForSubsequent', false);
-                    setStore('passwordModal', 'resolve', () => resolve); 
                     setStore('passwordModal', 'isOpen', true);
+                    globalResolveHandler = resolve
                 });
             });
         }
 
         function handlePasswordSubmit() {
-            if (store.passwordModal.resolve) {
-                store.passwordModal.resolve()({
+                globalResolveHandler({
                     password: store.passwordModal.passwordInput,
                     useForSubsequent: store.passwordModal.useForSubsequent,
                     skip: false
                 });
+                globalResolveHandler = null
                 batch(() => {
                     setStore('passwordModal', 'isOpen', false);
                     setStore('passwordModal', 'resolve', null);
                 });
-            }
         }
 
         function handlePasswordSkip() {
-            if (store.passwordModal.resolve) {
-                store.passwordModal.resolve()({ skip: true });
+            // if (store.passwordModal.resolve) {
+                globalResolveHandler({ skip: true });
+                globalResolveHandler = null;
                 batch(() => {
                     setStore('passwordModal', 'isOpen', false);
                     setStore('passwordModal', 'resolve', null);
                 });
-            }
+            
         }
 
         async function processFiles(fileList) {
