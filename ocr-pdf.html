@@ -147,8 +147,8 @@
           Processing Options
         </h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <!-- Page Selection -->
-          <div class="md:col-span-2">
+          <!-- 1. Page Selection -->
+          <div>
             <label class="block text-sm font-medium text-slate-700 mb-2"
             >Pages to OCR</label>
             <div class="flex items-center gap-4">
@@ -192,11 +192,32 @@
             </p>
           </div>
 
-          <!-- Toggle Display -->
-          <div class="md:col-span-1 border-l pl-6 border-slate-100">
+          <!-- 2. Worker Count -->
+          <div class="border-l pl-6 border-slate-100">
+            <label
+              for="workerCountInput"
+              class="block text-sm font-medium text-slate-700 mb-2"
+            >OCR Workers (Threads)</label>
+            <!-- Default to 4 or max 8, based on typical client concurrency -->
+            <input
+              id="workerCountInput"
+              type="number"
+              value="4"
+              min="1"
+              max="8"
+              class="block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2"
+              title="The number of parallel workers Tesseract will use for OCR. Recommended: 2-4"
+            >
+            <p class="text-xs text-slate-400 mt-1">
+              More workers = faster processing, higher memory use.
+            </p>
+          </div>
+
+          <!-- 3. Toggle Display -->
+          <div class="border-l pl-6 border-slate-100">
             <label
               for="showResultsToggle"
-              class="relative inline-flex items-center cursor-pointer"
+              class="relative inline-flex items-center cursor-pointer mb-2"
             >
               <input
                 type="checkbox"
@@ -306,6 +327,10 @@
       let processedPagesData = []; // Stores { imgData, words: [], width, height } for each page
       let isProcessing = false;
 
+      // Tesseract Scheduler State
+      let scheduler = null;
+      let currentWorkerCount = 0;
+
       // DOM Elements
       const fileInput = document.getElementById("fileInput");
       const dropZone = document.getElementById("dropZone");
@@ -321,7 +346,7 @@
       const statusText = document.getElementById("statusText");
       const percentageText = document.getElementById("percentageText");
 
-      // New DOM Elements for Options
+      // Options DOM Elements
       const optionsSection = document.getElementById("optionsSection");
       const totalPageCount = document.getElementById("totalPageCount");
       const allPagesRadio = document.getElementById("allPagesRadio");
@@ -332,6 +357,9 @@
       const pageRangeError = document.getElementById("pageRangeError");
       const showResultsToggle = document.getElementById(
         "showResultsToggle",
+      );
+      const workerCountInput = document.getElementById(
+        "workerCountInput",
       );
 
       // Event listener for page selection radios
@@ -441,7 +469,6 @@
           const maxPage = pdfDoc.numPages;
 
           if (allPagesRadio.checked) {
-            // Process all pages
             for (let i = 1; i <= maxPage; i++) {
               pagesToProcess.push(i);
             }
@@ -455,31 +482,73 @@
                 "Invalid page selection. Please check your range/list.",
               );
             }
-            pageRangeError.classList.add("hidden");
             pagesToProcess = parsedPages;
           }
 
-          // ----------------------------------
+          const totalJobs = pagesToProcess.length;
 
-          // Process pages sequentially to manage memory and show progress
-          for (let i = 0; i < pagesToProcess.length; i++) {
-            const pageNum = pagesToProcess[i];
+          // --- SCHEDULER SETUP & WORKER CREATION ---
+          const requestedWorkerCount = parseInt(
+            workerCountInput.value,
+            10,
+          );
 
-            // Update progress BEFORE starting the page
+          if (!scheduler) {
+            scheduler = Tesseract.createScheduler();
+          }
+
+          // If worker count changed, or we are running for the first time
+          if (
+            currentWorkerCount !== requestedWorkerCount ||
+            currentWorkerCount === 0
+          ) {
+            updateProgress(0, `Terminating old workers...`);
+            // Terminate existing workers to reset the pool size/language
+            if (currentWorkerCount > 0) {
+              await scheduler.terminate(); // Terminates workers added to the scheduler
+              scheduler = Tesseract.createScheduler(); // Create a new scheduler instance
+            }
+
             updateProgress(
-              Math.round((i / pagesToProcess.length) * 100),
-              `Processing page ${pageNum} (${
-                i + 1
-              } of ${pagesToProcess.length})...`,
+              0,
+              `Initializing ${requestedWorkerCount} OCR workers. This may take a moment...`,
             );
 
-            await processPage(pageNum, pagesToProcess.length);
+            // Add new workers
+            const workerPromises = [];
+            for (let i = 0; i < requestedWorkerCount; i++) {
+              // Create a worker and load the language (eng)
+              // This takes time and is the primary blocking step for scheduler setup
+              const workerPromise = Tesseract.createWorker("eng");
+              workerPromises.push(workerPromise);
+            }
+
+            const workers = await Promise.all(workerPromises);
+            workers.forEach((worker) => scheduler.addWorker(worker));
+            currentWorkerCount = requestedWorkerCount;
+          }
+
+          // --- RENDER & QUEUE JOBS ---
+          updateProgress(0, `Rendering pages for OCR...`);
+          const pageJobPromises = [];
+
+          for (let i = 0; i < totalJobs; i++) {
+            const pageNum = pagesToProcess[i];
+
+            // Render the page image and queue the OCR job
+            const jobPromise = processPage(pageNum, totalJobs, i);
+            pageJobPromises.push(jobPromise);
           }
 
           updateProgress(
-            100,
-            `Done! Processed ${pagesToProcess.length} pages.`,
+            0,
+            `All pages rendered. Starting parallel OCR on ${currentWorkerCount} workers...`,
           );
+
+          // Wait for all rendering/OCR jobs to complete in parallel
+          await Promise.all(pageJobPromises);
+
+          updateProgress(100, `Done! Processed ${totalJobs} pages.`);
           enableDownload();
 
           // Hide progress bar after a delay
@@ -488,6 +557,12 @@
           }, 3000);
         } catch (err) {
           console.error(err);
+          // Ensure scheduler is terminated if an error occurred during setup
+          if (scheduler) {
+            await scheduler.terminate();
+            scheduler = null;
+            currentWorkerCount = 0;
+          }
           alert("Error processing PDF: " + err.message);
           showProgress(false);
         } finally {
@@ -496,7 +571,7 @@
         }
       }
 
-      async function processPage(pageNum, totalPages) {
+      async function processPage(pageNum, totalJobs, jobIndex) {
         const showResults = showResultsToggle.checked;
 
         let canvas, textArea, statusDot, statusTextEl, pageCard;
@@ -516,7 +591,7 @@
           pageNumEl.textContent = `Page ${pageNum}`;
           statusDot.classList.replace("bg-slate-300", "bg-blue-500");
           statusDot.classList.add("animate-pulse");
-          statusTextEl.textContent = "Rendering & OCR...";
+          statusTextEl.textContent = "Rendering & OCR Queued...";
           statusTextEl.classList.add("text-blue-600");
 
           resultsContainer.appendChild(clone);
@@ -529,6 +604,13 @@
             copyBtn.textContent = "Copied!";
             setTimeout(() => copyBtn.textContent = originalText, 2000);
           });
+
+          // Scroll new element into view gently
+          pageCard.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        }
 
         // 2. Render PDF to Canvas (Always needed for image data)
         const page = await pdfDoc.getPage(pageNum);
@@ -547,12 +629,16 @@
 
         await page.render(renderContext).promise;
 
-        // 3. Perform OCR
-        const worker = await Tesseract.createWorker("eng");
+        // Get image data URL for OCR
         const imgData = renderCanvas.toDataURL("image/jpeg", 0.8);
 
-        const result = await worker.recognize(imgData);
-        await worker.terminate();
+        // 3. Perform OCR using the Global Scheduler
+        if (showResults) {
+          statusTextEl.textContent = "OCR Processing...";
+        }
+
+        // Add the recognition job to the global scheduler
+        const result = await scheduler.addJob("recognize", imgData);
 
         // 4. Update UI with text (Conditional)
         const text = result.data.text;
@@ -575,6 +661,14 @@
           height: viewport.height,
           words: result.data.words,
         });
+
+        // Update overall progress based on job completion (since they run in parallel)
+        updateProgress(
+          Math.round(((jobIndex + 1) / totalJobs) * 100),
+          `OCR complete for page ${pageNum} (${
+            jobIndex + 1
+          } of ${totalJobs})...`,
+        );
       }
 
       async function generateSearchablePDF() {
