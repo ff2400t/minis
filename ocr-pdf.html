@@ -138,6 +138,86 @@
         </label>
       </div>
 
+      <!-- Processing Options -->
+      <div
+        id="optionsSection"
+        class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8 hidden"
+      >
+        <h2 class="text-lg font-semibold text-slate-700 mb-4">
+          Processing Options
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <!-- Page Selection -->
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-slate-700 mb-2"
+            >Pages to OCR</label>
+            <div class="flex items-center gap-4">
+              <div class="flex items-center">
+                <input
+                  id="allPagesRadio"
+                  name="pageSelection"
+                  type="radio"
+                  checked
+                  class="h-4 w-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                  value="all"
+                >
+                <label
+                  for="allPagesRadio"
+                  class="ml-2 block text-sm text-slate-900"
+                >All Pages (<span id="totalPageCount">0</span>)</label>
+              </div>
+              <div class="flex items-center">
+                <input
+                  id="selectPagesRadio"
+                  name="pageSelection"
+                  type="radio"
+                  class="h-4 w-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                  value="select"
+                >
+                <label
+                  for="selectPagesRadio"
+                  class="ml-2 block text-sm text-slate-900"
+                >Select Range/List</label>
+              </div>
+            </div>
+            <input
+              id="pageRangeInput"
+              type="text"
+              disabled
+              placeholder="e.g., 1, 3-5, 8"
+              class="mt-2 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-400 text-sm p-2"
+            >
+            <p id="pageRangeError" class="mt-1 text-xs text-red-600 hidden">
+              Invalid page range format or page number out of bounds.
+            </p>
+          </div>
+
+          <!-- Toggle Display -->
+          <div class="md:col-span-1 border-l pl-6 border-slate-100">
+            <label
+              for="showResultsToggle"
+              class="relative inline-flex items-center cursor-pointer"
+            >
+              <input
+                type="checkbox"
+                id="showResultsToggle"
+                checked
+                class="sr-only peer"
+              >
+              <div
+                class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"
+              >
+              </div>
+              <span class="ml-3 text-sm font-medium text-slate-700"
+              >Show Live Page Results</span>
+            </label>
+            <p class="text-xs text-slate-400 mt-1">
+              Hide to speed up processing on very large PDFs.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <!-- Global Progress Bar -->
       <div id="globalProgress" class="hidden mb-8">
         <div class="flex justify-between mb-1">
@@ -241,6 +321,28 @@
       const statusText = document.getElementById("statusText");
       const percentageText = document.getElementById("percentageText");
 
+      // New DOM Elements for Options
+      const optionsSection = document.getElementById("optionsSection");
+      const totalPageCount = document.getElementById("totalPageCount");
+      const allPagesRadio = document.getElementById("allPagesRadio");
+      const selectPagesRadio = document.getElementById(
+        "selectPagesRadio",
+      );
+      const pageRangeInput = document.getElementById("pageRangeInput");
+      const pageRangeError = document.getElementById("pageRangeError");
+      const showResultsToggle = document.getElementById(
+        "showResultsToggle",
+      );
+
+      // Event listener for page selection radios
+      allPagesRadio.addEventListener("change", () => {
+        pageRangeInput.disabled = allPagesRadio.checked;
+        pageRangeError.classList.add("hidden"); // Clear error on radio change
+      });
+      selectPagesRadio.addEventListener("change", () => {
+        pageRangeInput.disabled = allPagesRadio.checked;
+      });
+
       // Initialization
       fileInput.addEventListener("change", (e) => {
         if (e.target.files[0]) processFile(e.target.files[0]);
@@ -272,6 +374,44 @@
         generateSearchablePDF,
       );
 
+      /**
+       * Parses a string like "1, 3-5, 8" into a sorted array of unique page numbers.
+       */
+      function parsePageRange(rangeStr, maxPage) {
+        const pages = new Set();
+        const parts = rangeStr.split(",").map((s) => s.trim()).filter(
+          (s) => s.length > 0
+        );
+
+        for (const part of parts) {
+          if (part.includes("-")) {
+            const [startStr, endStr] = part.split("-").map((s) =>
+              s.trim()
+            );
+            const start = parseInt(startStr, 10);
+            const end = parseInt(endStr, 10);
+
+            if (
+              isNaN(start) || isNaN(end) || start < 1 ||
+              end > maxPage || start > end
+            ) {
+              return null; // Invalid range or bounds
+            }
+
+            for (let i = start; i <= end; i++) {
+              pages.add(i);
+            }
+          } else {
+            const pageNum = parseInt(part, 10);
+            if (isNaN(pageNum) || pageNum < 1 || pageNum > maxPage) {
+              return null; // Invalid single page number
+            }
+            pages.add(pageNum);
+          }
+        }
+        return Array.from(pages).sort((a, b) => a - b);
+      }
+
       async function processFile(file) {
         if (!file || file.type !== "application/pdf") {
           alert("Please upload a valid PDF file.");
@@ -286,32 +426,64 @@
         processedPagesData = [];
         disableDownload();
         showProgress(true);
-        updateProgress(0, "Loading PDF...");
+        pageRangeError.classList.add("hidden"); // Clear previous error
 
         try {
           const arrayBuffer = await file.arrayBuffer();
           pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
 
+          // Show options and set max page count
+          optionsSection.classList.remove("hidden");
+          totalPageCount.textContent = pdfDoc.numPages;
+
+          // --- Determine Pages to Process ---
+          let pagesToProcess = [];
+          const maxPage = pdfDoc.numPages;
+
+          if (allPagesRadio.checked) {
+            // Process all pages
+            for (let i = 1; i <= maxPage; i++) {
+              pagesToProcess.push(i);
+            }
+          } else {
+            const rangeInput = pageRangeInput.value;
+            const parsedPages = parsePageRange(rangeInput, maxPage);
+
+            if (!parsedPages || parsedPages.length === 0) {
+              pageRangeError.classList.remove("hidden");
+              throw new Error(
+                "Invalid page selection. Please check your range/list.",
+              );
+            }
+            pageRangeError.classList.add("hidden");
+            pagesToProcess = parsedPages;
+          }
+
+          // ----------------------------------
+
           // Process pages sequentially to manage memory and show progress
-          for (let i = 1; i <= pdfDoc.numPages; i++) {
+          for (let i = 0; i < pagesToProcess.length; i++) {
+            const pageNum = pagesToProcess[i];
+
             // Update progress BEFORE starting the page
             updateProgress(
-              Math.round(((i - 1) / pdfDoc.numPages) * 100),
-              `Processing page ${i} of ${pdfDoc.numPages}...`,
+              Math.round((i / pagesToProcess.length) * 100),
+              `Processing page ${pageNum} (${
+                i + 1
+              } of ${pagesToProcess.length})...`,
             );
 
-            await processPage(i);
+            await processPage(pageNum, pagesToProcess.length);
           }
 
           updateProgress(
             100,
-            `Done! Processed all ${pdfDoc.numPages} pages.`,
+            `Done! Processed ${pagesToProcess.length} pages.`,
           );
           enableDownload();
 
           // Hide progress bar after a delay
           setTimeout(() => {
-            // Only hide if we aren't starting a new process
             if (!isProcessing) showProgress(false);
           }, 3000);
         } catch (err) {
@@ -324,36 +496,52 @@
         }
       }
 
-      async function processPage(pageNum) {
-        // 1. Create UI Element
-        const template = document.getElementById("pageTemplate");
-        const clone = template.content.cloneNode(true);
-        const pageCard = clone.querySelector("div"); // Root div
-        const canvas = clone.querySelector(".pdf-canvas");
-        const textArea = clone.querySelector(".extracted-text");
-        const pageNumEl = clone.querySelector(".page-number");
-        const statusDot = clone.querySelector(".status-dot");
-        const statusTextEl = clone.querySelector(".status-text");
-        const copyBtn = clone.querySelector(".copy-btn");
+      async function processPage(pageNum, totalPages) {
+        const showResults = showResultsToggle.checked;
 
-        pageNumEl.textContent = `Page ${pageNum}`;
-        statusDot.classList.replace("bg-slate-300", "bg-blue-500");
-        statusDot.classList.add("animate-pulse");
-        statusTextEl.textContent = "Rendering & OCR...";
-        statusTextEl.classList.add("text-blue-600");
+        let canvas, textArea, statusDot, statusTextEl, pageCard;
 
-        resultsContainer.appendChild(clone);
+        if (showResults) {
+          // 1. Create UI Element
+          const template = document.getElementById("pageTemplate");
+          const clone = template.content.cloneNode(true);
+          pageCard = clone.querySelector("div");
+          canvas = clone.querySelector(".pdf-canvas");
+          textArea = clone.querySelector(".extracted-text");
+          const pageNumEl = clone.querySelector(".page-number");
+          statusDot = clone.querySelector(".status-dot");
+          statusTextEl = clone.querySelector(".status-text");
+          const copyBtn = clone.querySelector(".copy-btn");
 
-        // 2. Render PDF to Canvas
+          pageNumEl.textContent = `Page ${pageNum}`;
+          statusDot.classList.replace("bg-slate-300", "bg-blue-500");
+          statusDot.classList.add("animate-pulse");
+          statusTextEl.textContent = "Rendering & OCR...";
+          statusTextEl.classList.add("text-blue-600");
+
+          resultsContainer.appendChild(clone);
+
+          // Copy functionality listener
+          copyBtn.addEventListener("click", () => {
+            textArea.select();
+            document.execCommand("copy");
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = "Copied!";
+            setTimeout(() => copyBtn.textContent = originalText, 2000);
+          });
+
+        // 2. Render PDF to Canvas (Always needed for image data)
         const page = await pdfDoc.getPage(pageNum);
         // Scale 2.0 provides better OCR results than 1.0, though slower
         const viewport = page.getViewport({ scale: 2.0 });
 
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
+        // Use the actual canvas if showing results, otherwise use a temporary one
+        const renderCanvas = canvas || document.createElement("canvas");
+        renderCanvas.height = viewport.height;
+        renderCanvas.width = viewport.width;
 
         const renderContext = {
-          canvasContext: canvas.getContext("2d"),
+          canvasContext: renderCanvas.getContext("2d"),
           viewport: viewport,
         };
 
@@ -361,46 +549,39 @@
 
         // 3. Perform OCR
         const worker = await Tesseract.createWorker("eng");
-
-        // Get image data URL for OCR
-        const imgData = canvas.toDataURL("image/jpeg", 0.8);
+        const imgData = renderCanvas.toDataURL("image/jpeg", 0.8);
 
         const result = await worker.recognize(imgData);
         await worker.terminate();
 
-        // 4. Update UI with text
+        // 4. Update UI with text (Conditional)
         const text = result.data.text;
-        textArea.value = text;
+        if (showResults) {
+          textArea.value = text;
 
-        // Update Status
-        statusDot.classList.remove("animate-pulse", "bg-blue-500");
-        statusDot.classList.add("bg-green-500");
-        statusTextEl.textContent = "Completed";
-        statusTextEl.classList.remove("text-blue-600");
-        statusTextEl.classList.add("text-green-600");
+          // Update Status
+          statusDot.classList.remove("animate-pulse", "bg-blue-500");
+          statusDot.classList.add("bg-green-500");
+          statusTextEl.textContent = "Completed";
+          statusTextEl.classList.remove("text-blue-600");
+          statusTextEl.classList.add("text-green-600");
+        }
 
-        // Copy functionality
-        copyBtn.addEventListener("click", () => {
-          textArea.select();
-          document.execCommand("copy");
-          const originalText = copyBtn.textContent;
-          copyBtn.textContent = "Copied!";
-          setTimeout(() => copyBtn.textContent = originalText, 2000);
-        });
-
-        // 5. Store data for PDF generation
-        // Store the dimensions and the words with their bounding boxes
+        // 5. Store data for PDF generation (Unconditional)
         processedPagesData.push({
           pageNum,
-          imgData: imgData, // The image of the page
+          imgData: imgData,
           width: viewport.width,
           height: viewport.height,
-          words: result.data.words, // Array of { text, bbox: {x0, y0, x1, y1}, ... }
+          words: result.data.words,
         });
       }
 
       async function generateSearchablePDF() {
         if (processedPagesData.length === 0) return;
+
+        // Sort data by page number to ensure PDF pages are in the correct order
+        processedPagesData.sort((a, b) => a.pageNum - b.pageNum);
 
         const btnText = downloadBtn.querySelector("span");
         const originalText = btnText.textContent;
@@ -408,17 +589,17 @@
 
         try {
           // Initialize jsPDF
-          // We will create pages dynamically based on image dimensions
+          // Use dimensions of the first processed page to set the initial format
+          const firstPage = processedPagesData[0];
           const doc = new jsPDF({
             orientation: "portrait",
             unit: "px",
-            format: [
-              processedPagesData[0].width,
-              processedPagesData[0].height,
-            ],
+            format: [firstPage.width, firstPage.height],
           });
 
           processedPagesData.forEach((pageData, index) => {
+            // Add a new page only if it's not the first one,
+            // and ensure the page size matches the current page's dimensions.
             if (index > 0) {
               doc.addPage([pageData.width, pageData.height]);
             }
@@ -430,53 +611,33 @@
             doc.addImage(pageData.imgData, "JPEG", 0, 0, width, height);
 
             // 2. Add invisible text overlay
-            // We need to set text color to transparent (invisible) but selectable
-            // jsPDF workaround for invisible text: set render mode to invisible
-            // However, standard setTextColor(255,255,255) with 0 opacity is easier for compatibility
+            doc.setFontSize(12);
+            doc.setTextColor(255, 255, 255); // White (Text Color is irrelevant when using mode 3)
 
-            doc.setFontSize(12); // Initial font size, will be scaled
-            doc.setTextColor(255, 255, 255); // White
-
-            // This is the "magic" for invisible text in jsPDF.
-            // We rely on the text rendering mode 3 (invisible) usually,
-            // but jsPDF basic API is limited.
-            // We will set the text color to fully transparent white using RGBA logic if supported,
-            // or just render it 'invisible' via specific PDF operator if we wanted to be hardcore.
-            // Simple approach: standard text, but invisible via rendering mode.
-
-            // Setting rendering mode to '3' (invisible) manually
-            doc.internal.write("3 Tr"); // Tr = Text Rendering Mode
+            // Setting rendering mode to '3' (invisible) manually for searchable text
+            doc.internal.write("3 Tr"); // Tr = Text Rendering Mode 3 (Invisible)
 
             pageData.words.forEach((word) => {
               const { text, bbox } = word;
-              // bbox: x0, y0, x1, y1 (in pixels relative to the canvas size)
 
-              const w = bbox.x1 - bbox.x0;
               const h = bbox.y1 - bbox.y0;
 
               // Calculate font size to match height roughly
-              // PDF font size is usually in points. 1px approx 0.75pt.
-              // We need to tweak this multiplier to fit the text box roughly.
               const fontSize = h * 0.9;
               doc.setFontSize(fontSize);
 
-              // Calculate position
-              // Tesseract baseline is slightly different, we adjust y.
-              // PDF text is placed by bottom-left usually, Tesseract is top-left.
-              const pdfY = bbox.y1;
-
-              // There is no easy "stretch" in jsPDF without advanced API to perfectly match width.
-              // But precise placement makes it searchable enough.
+              // PDF text is placed by bottom-left usually (baseline: 'bottom').
+              // Tesseract bbox.y1 is the bottom of the bounding box.
               doc.text(text, bbox.x0, bbox.y1, {
                 baseline: "bottom",
               });
             });
           });
 
-          doc.save("ocr-result.pdf");
+          doc.save("ocr-searchable-result.pdf");
         } catch (err) {
           console.error(err);
-          alert("Error creating PDF");
+          alert("Error creating PDF: " + err.message);
         } finally {
           btnText.textContent = originalText;
         }
