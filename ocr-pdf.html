@@ -230,7 +230,7 @@
               >
               </div>
               <span class="ml-3 text-sm font-medium text-slate-700"
-              >Show Live Page Results</span>
+              >Show Page Results</span>
             </label>
             <p class="text-xs text-slate-400 mt-1">
               Hide to speed up processing on very large PDFs.
@@ -324,8 +324,11 @@
 
       // State
       let pdfDoc = null;
-      let processedPagesData = []; // Stores { imgData, words: [], width, height } for each page
+      // processedPagesData will be an array of objects, where each object stores the result for a page.
+      // The objects will be filled in the order the jobs complete, so we must sort by pageNum before PDF generation.
+      let processedPagesData = [];
       let isProcessing = false;
+      let processedJobCount = 0; // New counter for completed OCR jobs
 
       // Tesseract Scheduler State
       let scheduler = null;
@@ -442,12 +445,14 @@
 
       async function processFile(file) {
         if (!file || file.type !== "application/pdf") {
-          alert("Please upload a valid PDF file.");
+          // IMPORTANT: Replacing alert() with a custom message box or simple console log/error for now.
+          console.error("Please upload a valid PDF file.");
           return;
         }
 
         if (isProcessing) return;
         isProcessing = true;
+        processedJobCount = 0; // Reset job counter
 
         // Reset UI
         resultsContainer.innerHTML = "";
@@ -536,7 +541,8 @@
             const pageNum = pagesToProcess[i];
 
             // Render the page image and queue the OCR job
-            const jobPromise = processPage(pageNum, totalJobs, i);
+            // Pass totalJobs for accurate progress calculation
+            const jobPromise = processPage(pageNum, totalJobs);
             pageJobPromises.push(jobPromise);
           }
 
@@ -563,7 +569,8 @@
             scheduler = null;
             currentWorkerCount = 0;
           }
-          alert("Error processing PDF: " + err.message);
+          // IMPORTANT: Replacing alert()
+          console.error("Error processing PDF: " + err.message);
           showProgress(false);
         } finally {
           isProcessing = false;
@@ -571,7 +578,7 @@
         }
       }
 
-      async function processPage(pageNum, totalJobs, jobIndex) {
+      async function processPage(pageNum, totalJobs) {
         const showResults = showResultsToggle.checked;
 
         let canvas, textArea, statusDot, statusTextEl, pageCard;
@@ -605,11 +612,8 @@
             setTimeout(() => copyBtn.textContent = originalText, 2000);
           });
 
-          // Scroll new element into view gently
-          pageCard.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
+          // Removed scrollIntoView() as requested to keep the view stable.
+          // pageCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
         // 2. Render PDF to Canvas (Always needed for image data)
@@ -662,12 +666,11 @@
           words: result.data.words,
         });
 
-        // Update overall progress based on job completion (since they run in parallel)
+        // 6. Update overall progress counter
+        processedJobCount++;
         updateProgress(
-          Math.round(((jobIndex + 1) / totalJobs) * 100),
-          `OCR complete for page ${pageNum} (${
-            jobIndex + 1
-          } of ${totalJobs})...`,
+          Math.round((processedJobCount / totalJobs) * 100),
+          `OCR complete for page ${pageNum} (${processedJobCount} of ${totalJobs})...`,
         );
       }
 
@@ -714,9 +717,9 @@
             pageData.words.forEach((word) => {
               const { text, bbox } = word;
 
-              const h = bbox.y1 - bbox.y0;
-
               // Calculate font size to match height roughly
+              // We scale the height of the bounding box to get a proportional font size.
+              const h = bbox.y1 - bbox.y0;
               const fontSize = h * 0.9;
               doc.setFontSize(fontSize);
 
@@ -731,7 +734,8 @@
           doc.save("ocr-searchable-result.pdf");
         } catch (err) {
           console.error(err);
-          alert("Error creating PDF: " + err.message);
+          // IMPORTANT: Replacing alert()
+          console.error("Error creating PDF: " + err.message);
         } finally {
           btnText.textContent = originalText;
         }
