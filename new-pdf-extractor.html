@@ -111,7 +111,7 @@
                 generalDocumentParser
             ],
             [
-                "Income Tax",
+                "TDS",
                 ["INCOME TAX DEPARTMENT", "Challan Receipt"],
                 /Nature of Payment : (?<Section_No>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<Amount>\d[\d,.]*).*(?<Deposit_Date>\d\d\-\s?\w{3}-\d{4})/g,
                 /Nature of Payment : (?<sectionNo>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<amt>\d[\d,.]*).*(?<depositDate>\d\d\-\s?\w{3}-\d{4})/g,
@@ -160,6 +160,39 @@
                     });
                     return { allRows: [...metadataRows, headers, ...dataRows], metadataFields };
                 }
+            ],
+            [
+                "PNB",
+                [`Stk Stmt: Stock Statement` , `Trf: Transfer`],
+                /Account Number (?<AccountNumber>\d+).*?Account Name: (?<Name>.*?) Customer Address/,
+                /(?<TxnNo>[A-Z]{1}\d+) (?<date>\d\d\/\d\d\/\d{4}) (?<description>.*?) (?<Amt>-?\s?\d[\d,.\s]+\d) (?<bal>\d[\d,.\s]+\d) (?<Effect>Cr|Dr)/,
+                generalDocumentParser,
+            ],
+            [
+                "ICICI",
+                ["PAN can be updated online or at the nearest ICICI Bank Branch ."],
+                /^.*?  (?<Name>.*?)  .* (?<OpeningDate>\d\d-\d\d-\d{4}) B\/F (?<OpeningBalance>[\d,.]+)/,
+                /(?<Date>\d\d-\d\d-\d{4}) (?<Particular>.*?) (?<Amount>[\d,]+\.\d\d) (?<Balance>[\d,.]+) /,
+                generalDocumentParser
+            ],
+            [
+                "PT Challan",
+                ["CHALLAN MTR Form Number-6"],
+                /Full Name (?<name>.*) Location.*From (?<period>.*) Flat.*TAX (?<amt>\d+\.\d{2}).*RBI Date (?<paymentDate>\d\d\/\d\d\/\d{4})/s,
+                /(?<date>\d\d\/\d\d\/\d{4})\s+\d\d\/\d\d\/\d{4}\s+(?<particular>.*?)\s+(?<amt>[\d,]+\.\s?\d\s?\d)\s+(?<bal>[\d,]+\s?\.\s?\d\s?\d)/g,
+                generalDocumentParser
+            ],
+            [
+                "PF Challan Receipts",
+                ["Payment Confirmation Receipt  TRRN No"],
+                /ID : (?<Name>.*) Establishment Name.*\s(?<WageMonth>\w+-\d{4}) Wage Month : (?<Amt>\d[\d,.]*).*Payment Date : (?<PaymentDate>\d{2}-\w+-\d{4})/,
+                generalDocumentParser
+            ]
+            [
+               "PF Challan",
+               "COMBINED CHALLAN OF A/C NO. 01, 02, 10, 21 & 22 (With EMPLOYEES' PROVIDENT FUND ORGANISATION",
+                /(?<Month>\w+) (?<Year>\d{4}) (?<TRRN>\d{13}) (?<Name>.*) Total Subscribers .* (?<Amt>[\d,]+) Grand Total :/s,
+                generalDocumentParser
             ]
         ];
         
@@ -723,7 +756,7 @@
 
                 const submitForm = (e) => {
                     e.preventDefault();
-                    const configInput = this.shadowRoot.querySelector('#configTextInput');
+                    const configInput = document.querySelector('#configTextInput');
                     if (configInput) addCustomParser(configInput.value);
                     configInput.value = ''; // Clear input after submission
                 };
@@ -836,12 +869,12 @@
                 if (!passwordModal.isOpen) return html``;
                 
                 const updatePassInput = (e) => {
-                    const useForSubsequent = this.shadowRoot.querySelector('#useForSubsequent').checked;
+                    const useForSubsequent = document.querySelector('#useForSubsequent').checked;
                     setPasswordModal(prev => ({ ...prev, passwordInput: e.target.value, useForSubsequent }));
                 };
 
                 const updateCheckbox = (e) => {
-                    const passwordInput = this.shadowRoot.querySelector('#passwordInput').value;
+                    const passwordInput = document.querySelector('#passwordInput').value;
                     setPasswordModal(prev => ({ ...prev, passwordInput, useForSubsequent: e.target.checked }));
                 };
 
@@ -1018,7 +1051,7 @@
                 if (!isTemplatesModalVisible) return html``;
 
                 const saveTemplates = () => {
-                    const raw = this.shadowRoot.querySelector('#templatesTextarea').value;
+                    const raw = document.querySelector('#templatesTextarea').value;
                     let blocks = [];
                     if (raw.includes('---')) {
                         blocks = raw.split('---');
