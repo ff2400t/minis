@@ -1,0 +1,8 @@
+{
+  "name": "minis",
+  "assets": {
+    "directory": "."
+  },
+  // "$schema": "./node_modules/wrangler/config-schema.json",
+  "compatibility_date": "2022-04-05"
+}

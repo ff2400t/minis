@@ -1,0 +1,7 @@
+# .gitignore
+node_modules/
+.npm/
+.pnpm/
+dist/
+build/
+.git/
