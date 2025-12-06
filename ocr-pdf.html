@@ -42,368 +42,25 @@
       .custom-scrollbar::-webkit-scrollbar-thumb:hover {
         background: #94a3b8;
       }
-      .loader {
-        border: 3px solid #f3f3f3;
-        border-radius: 50%;
-        border-top: 3px solid #3b82f6;
-        width: 24px;
-        height: 24px;
-        -webkit-animation: spin 1s linear infinite; /* Safari */
-        animation: spin 1s linear infinite;
-      }
-      @keyframes spin {
-        0% {
-          transform: rotate(0deg);
-        }
-        100% {
-          transform: rotate(360deg);
-        }
-      }
     </style>
   </head>
   <body class="bg-slate-50 text-slate-800 min-h-screen font-sans">
-    <!-- Header -->
-    <header class="bg-white border-b border-slate-200 sticky top-0 z-50">
-      <div
-        class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between"
-      >
-        <div class="flex items-center gap-2">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-8 w-8 text-blue-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            />
-          </svg>
-          <h1 class="text-xl font-bold text-slate-900">OCR Overlay Tool</h1>
-        </div>
-        <div class="flex gap-3">
-          <button
-            id="downloadBtn"
-            disabled
-            class="hidden sm:flex items-center gap-2 px-4 py-2 bg-slate-200 text-slate-400 rounded-lg font-medium cursor-not-allowed transition-colors"
-          >
-            <span>Download PDF</span>
-          </button>
-        </div>
-      </div>
-    </header>
+    <!-- Main Haunted Web Component -->
+    <ocr-app></ocr-app>
 
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <!-- Upload Section -->
-      <div id="uploadSection" class="mb-8">
-        <label
-          id="dropZone"
-          class="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-slate-50 transition-all"
-        >
-          <div
-            class="flex flex-col items-center justify-center pt-5 pb-6 pointer-events-none"
-          >
-            <svg
-              class="w-8 h-8 mb-3 text-slate-400"
-              aria-hidden="true"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 20 16"
-            >
-              <path
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
-              />
-            </svg>
-            <p class="text-sm text-slate-500">
-              <span class="font-semibold">Click to upload PDF</span> or drag and
-              drop
-            </p>
-            <p class="text-xs text-slate-400 mt-1">
-              PDF files only (Processing happens locally in your browser)
-            </p>
-          </div>
-          <input
-            id="fileInput"
-            type="file"
-            accept="application/pdf"
-            class="hidden"
-          />
-        </label>
-      </div>
-
-      <!-- Processing Options -->
-      <div
-        id="optionsSection"
-        class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8 hidden"
-      >
-        <h2 class="text-lg font-semibold text-slate-700 mb-4">
-          Processing Options
-        </h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <!-- 1. Page Selection -->
-          <div>
-            <label class="block text-sm font-medium text-slate-700 mb-2"
-            >Pages to OCR</label>
-            <div class="flex items-center gap-4">
-              <div class="flex items-center">
-                <input
-                  id="allPagesRadio"
-                  name="pageSelection"
-                  type="radio"
-                  checked
-                  class="h-4 w-4 text-blue-600 border-slate-300 focus:ring-blue-500"
-                  value="all"
-                >
-                <label
-                  for="allPagesRadio"
-                  class="ml-2 block text-sm text-slate-900"
-                >All Pages (<span id="totalPageCount">0</span>)</label>
-              </div>
-              <div class="flex items-center">
-                <input
-                  id="selectPagesRadio"
-                  name="pageSelection"
-                  type="radio"
-                  class="h-4 w-4 text-blue-600 border-slate-300 focus:ring-blue-500"
-                  value="select"
-                >
-                <label
-                  for="selectPagesRadio"
-                  class="ml-2 block text-sm text-slate-900"
-                >Select Range/List</label>
-              </div>
-            </div>
-            <input
-              id="pageRangeInput"
-              type="text"
-              disabled
-              placeholder="e.g., 1, 3-5, 8"
-              class="mt-2 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-400 text-sm p-2"
-            >
-            <p id="pageRangeError" class="mt-1 text-xs text-red-600 hidden">
-              Invalid page range format or page number out of bounds.
-            </p>
-          </div>
-
-          <!-- 2. Worker Count -->
-          <div class="border-l pl-6 border-slate-100">
-            <label
-              for="workerCountInput"
-              class="block text-sm font-medium text-slate-700 mb-2"
-            >OCR Workers (Threads)</label>
-            <!-- Default to 4 or max 8, based on typical client concurrency -->
-            <input
-              id="workerCountInput"
-              type="number"
-              value="4"
-              min="1"
-              max="8"
-              class="block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2"
-              title="The number of parallel workers Tesseract will use for OCR. Recommended: 2-4"
-            >
-            <p class="text-xs text-slate-400 mt-1">
-              More workers = faster processing, higher memory use.
-            </p>
-          </div>
-
-          <!-- 3. Toggle Display -->
-          <div class="border-l pl-6 border-slate-100">
-            <label
-              for="showResultsToggle"
-              class="relative inline-flex items-center cursor-pointer mb-2"
-            >
-              <input
-                type="checkbox"
-                id="showResultsToggle"
-                checked
-                class="sr-only peer"
-              >
-              <div
-                class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"
-              >
-              </div>
-              <span class="ml-3 text-sm font-medium text-slate-700"
-              >Show Page Results</span>
-            </label>
-            <p class="text-xs text-slate-400 mt-1">
-              Hide to speed up processing on very large PDFs.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Global Progress Bar -->
-      <div id="globalProgress" class="hidden mb-8">
-        <div class="flex justify-between mb-1">
-          <span id="statusText" class="text-sm font-medium text-blue-700"
-          >Initializing...</span>
-          <span id="percentageText" class="text-sm font-medium text-blue-700"
-          >0%</span>
-        </div>
-        <div class="w-full bg-slate-200 rounded-full h-2.5">
-          <div
-            id="progressBar"
-            class="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-            style="width: 0%"
-          >
-          </div>
-        </div>
-      </div>
-
-      <!-- Mobile Download Button (Visible only on mobile when ready) -->
-      <button
-        id="mobileDownloadBtn"
-        disabled
-        class="w-full mb-6 sm:hidden flex justify-center items-center gap-2 px-4 py-3 bg-slate-200 text-slate-400 rounded-lg font-medium cursor-not-allowed transition-colors"
-      >
-        Download PDF
-      </button>
-
-      <!-- Results Container -->
-      <div id="resultsContainer" class="space-y-12">
-        <!-- Pages will be injected here -->
-      </div>
-    </main>
-
-    <!-- Templates -->
-    <template id="pageTemplate">
-      <div
-        class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"
-      >
-        <div
-          class="border-b border-slate-100 bg-slate-50 px-4 py-3 flex justify-between items-center"
-        >
-          <h3 class="font-semibold text-slate-700 page-number">Page 1</h3>
-          <div
-            class="status-indicator flex items-center gap-2 text-xs font-medium text-slate-500"
-          >
-            <span class="status-dot w-2 h-2 rounded-full bg-slate-300"></span>
-            <span class="status-text">Pending</span>
-          </div>
-        </div>
-        <div
-          class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100"
-        >
-          <!-- Image Column -->
-          <div
-            class="p-4 bg-slate-50/50 flex items-start justify-center overflow-auto max-h-[600px] custom-scrollbar"
-          >
-            <canvas class="pdf-canvas shadow-lg max-w-full h-auto"></canvas>
-          </div>
-          <!-- Text Column -->
-          <div class="p-4 flex flex-col h-[600px]">
-            <div class="flex justify-between items-center mb-2">
-              <span
-                class="text-xs font-semibold text-slate-400 uppercase tracking-wider"
-              >Extracted Text</span>
-              <button
-                class="copy-btn text-xs text-blue-600 hover:text-blue-800 font-medium"
-              >
-                Copy Text
-              </button>
-            </div>
-            <textarea
-              class="extracted-text w-full flex-1 p-3 text-sm text-slate-700 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none custom-scrollbar font-mono leading-relaxed bg-white"
-              readonly
-              placeholder="Text will appear here after processing..."
-            ></textarea>
-          </div>
-        </div>
-      </div>
-    </template>
-
-    <script>
+    <script type="module">
+      // Load haunted and its dependencies from CDN
+      import { html, render } from "https://unpkg.com/lit-html?module";
+      import {
+        component,
+        useCallback,
+        useEffect,
+        useMemo,
+        useState,
+      } from "https://unpkg.com/haunted?module";
       const { jsPDF } = window.jspdf;
 
-      // State
-      let pdfDoc = null;
-      // processedPagesData will be an array of objects, where each object stores the result for a page.
-      // The objects will be filled in the order the jobs complete, so we must sort by pageNum before PDF generation.
-      let processedPagesData = [];
-      let isProcessing = false;
-      let processedJobCount = 0; // New counter for completed OCR jobs
-
-      // Tesseract Scheduler State
-      let scheduler = null;
-      let currentWorkerCount = 0;
-
-      // DOM Elements
-      const fileInput = document.getElementById("fileInput");
-      const dropZone = document.getElementById("dropZone");
-      const resultsContainer = document.getElementById(
-        "resultsContainer",
-      );
-      const downloadBtn = document.getElementById("downloadBtn");
-      const mobileDownloadBtn = document.getElementById(
-        "mobileDownloadBtn",
-      );
-      const globalProgress = document.getElementById("globalProgress");
-      const progressBar = document.getElementById("progressBar");
-      const statusText = document.getElementById("statusText");
-      const percentageText = document.getElementById("percentageText");
-
-      // Options DOM Elements
-      const optionsSection = document.getElementById("optionsSection");
-      const totalPageCount = document.getElementById("totalPageCount");
-      const allPagesRadio = document.getElementById("allPagesRadio");
-      const selectPagesRadio = document.getElementById(
-        "selectPagesRadio",
-      );
-      const pageRangeInput = document.getElementById("pageRangeInput");
-      const pageRangeError = document.getElementById("pageRangeError");
-      const showResultsToggle = document.getElementById(
-        "showResultsToggle",
-      );
-      const workerCountInput = document.getElementById(
-        "workerCountInput",
-      );
-
-      // Event listener for page selection radios
-      allPagesRadio.addEventListener("change", () => {
-        pageRangeInput.disabled = allPagesRadio.checked;
-        pageRangeError.classList.add("hidden"); // Clear error on radio change
-      });
-      selectPagesRadio.addEventListener("change", () => {
-        pageRangeInput.disabled = allPagesRadio.checked;
-      });
-
-      // Initialization
-      fileInput.addEventListener("change", (e) => {
-        if (e.target.files[0]) processFile(e.target.files[0]);
-      });
-
-      // Drag and Drop Listeners
-      dropZone.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        dropZone.classList.add("border-blue-500", "bg-blue-50");
-      });
-
-      dropZone.addEventListener("dragleave", (e) => {
-        e.preventDefault();
-        dropZone.classList.remove("border-blue-500", "bg-blue-50");
-      });
-
-      dropZone.addEventListener("drop", (e) => {
-        e.preventDefault();
-        dropZone.classList.remove("border-blue-500", "bg-blue-50");
-
-        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-          processFile(e.dataTransfer.files[0]);
-        }
-      });
-
-      downloadBtn.addEventListener("click", generateSearchablePDF);
-      mobileDownloadBtn.addEventListener(
-        "click",
-        generateSearchablePDF,
-      );
+      // --- GLOBAL UTILITIES ---
 
       /**
        * Parses a string like "1, 3-5, 8" into a sorted array of unique page numbers.
@@ -411,7 +68,7 @@
       function parsePageRange(rangeStr, maxPage) {
         const pages = new Set();
         const parts = rangeStr.split(",").map((s) => s.trim()).filter(
-          (s) => s.length > 0
+          (s) => s.length > 0,
         );
 
         for (const part of parts) {
@@ -443,365 +100,826 @@
         return Array.from(pages).sort((a, b) => a - b);
       }
 
-      async function processFile(file) {
-        if (!file || file.type !== "application/pdf") {
-          // IMPORTANT: Replacing alert() with a custom message box or simple console log/error for now.
-          console.error("Please upload a valid PDF file.");
-          return;
-        }
+      // --- HOOK: useAppState for centralized logic ---
 
-        if (isProcessing) return;
-        isProcessing = true;
-        processedJobCount = 0; // Reset job counter
-
-        // Reset UI
-        resultsContainer.innerHTML = "";
-        processedPagesData = [];
-        disableDownload();
-        showProgress(true);
-        pageRangeError.classList.add("hidden"); // Clear previous error
-
-        try {
-          const arrayBuffer = await file.arrayBuffer();
-          pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
-
-          // Show options and set max page count
-          optionsSection.classList.remove("hidden");
-          totalPageCount.textContent = pdfDoc.numPages;
-
-          // --- Determine Pages to Process ---
-          let pagesToProcess = [];
-          const maxPage = pdfDoc.numPages;
-
-          if (allPagesRadio.checked) {
-            for (let i = 1; i <= maxPage; i++) {
-              pagesToProcess.push(i);
-            }
-          } else {
-            const rangeInput = pageRangeInput.value;
-            const parsedPages = parsePageRange(rangeInput, maxPage);
-
-            if (!parsedPages || parsedPages.length === 0) {
-              pageRangeError.classList.remove("hidden");
-              throw new Error(
-                "Invalid page selection. Please check your range/list.",
-              );
-            }
-            pagesToProcess = parsedPages;
-          }
-
-          const totalJobs = pagesToProcess.length;
-
-          // --- SCHEDULER SETUP & WORKER CREATION ---
-          const requestedWorkerCount = parseInt(
-            workerCountInput.value,
-            10,
-          );
-
-          if (!scheduler) {
-            scheduler = Tesseract.createScheduler();
-          }
-
-          // If worker count changed, or we are running for the first time
-          if (
-            currentWorkerCount !== requestedWorkerCount ||
-            currentWorkerCount === 0
-          ) {
-            updateProgress(0, `Terminating old workers...`);
-            // Terminate existing workers to reset the pool size/language
-            if (currentWorkerCount > 0) {
-              await scheduler.terminate(); // Terminates workers added to the scheduler
-              scheduler = Tesseract.createScheduler(); // Create a new scheduler instance
-            }
-
-            updateProgress(
-              0,
-              `Initializing ${requestedWorkerCount} OCR workers. This may take a moment...`,
-            );
-
-            // Add new workers
-            const workerPromises = [];
-            for (let i = 0; i < requestedWorkerCount; i++) {
-              // Create a worker and load the language (eng)
-              // This takes time and is the primary blocking step for scheduler setup
-              const workerPromise = Tesseract.createWorker("eng");
-              workerPromises.push(workerPromise);
-            }
-
-            const workers = await Promise.all(workerPromises);
-            workers.forEach((worker) => scheduler.addWorker(worker));
-            currentWorkerCount = requestedWorkerCount;
-          }
-
-          // --- RENDER & QUEUE JOBS ---
-          updateProgress(0, `Rendering pages for OCR...`);
-          const pageJobPromises = [];
-
-          for (let i = 0; i < totalJobs; i++) {
-            const pageNum = pagesToProcess[i];
-
-            // Render the page image and queue the OCR job
-            // Pass totalJobs for accurate progress calculation
-            const jobPromise = processPage(pageNum, totalJobs);
-            pageJobPromises.push(jobPromise);
-          }
-
-          updateProgress(
-            0,
-            `All pages rendered. Starting parallel OCR on ${currentWorkerCount} workers...`,
-          );
-
-          // Wait for all rendering/OCR jobs to complete in parallel
-          await Promise.all(pageJobPromises);
-
-          updateProgress(100, `Done! Processed ${totalJobs} pages.`);
-          enableDownload();
-
-          // Hide progress bar after a delay
-          setTimeout(() => {
-            if (!isProcessing) showProgress(false);
-          }, 3000);
-        } catch (err) {
-          console.error(err);
-          // Ensure scheduler is terminated if an error occurred during setup
-          if (scheduler) {
-            await scheduler.terminate();
-            scheduler = null;
-            currentWorkerCount = 0;
-          }
-          // IMPORTANT: Replacing alert()
-          console.error("Error processing PDF: " + err.message);
-          showProgress(false);
-        } finally {
-          isProcessing = false;
-          fileInput.value = ""; // Reset input so same file can be selected again if needed
-        }
-      }
-
-      async function processPage(pageNum, totalJobs) {
-        const showResults = showResultsToggle.checked;
-
-        let canvas, textArea, statusDot, statusTextEl, pageCard;
-
-        if (showResults) {
-          // 1. Create UI Element
-          const template = document.getElementById("pageTemplate");
-          const clone = template.content.cloneNode(true);
-          pageCard = clone.querySelector("div");
-          canvas = clone.querySelector(".pdf-canvas");
-          textArea = clone.querySelector(".extracted-text");
-          const pageNumEl = clone.querySelector(".page-number");
-          statusDot = clone.querySelector(".status-dot");
-          statusTextEl = clone.querySelector(".status-text");
-          const copyBtn = clone.querySelector(".copy-btn");
-
-          pageNumEl.textContent = `Page ${pageNum}`;
-          statusDot.classList.replace("bg-slate-300", "bg-blue-500");
-          statusDot.classList.add("animate-pulse");
-          statusTextEl.textContent = "Rendering & OCR Queued...";
-          statusTextEl.classList.add("text-blue-600");
-
-          resultsContainer.appendChild(clone);
-
-          // Copy functionality listener
-          copyBtn.addEventListener("click", () => {
-            textArea.select();
-            document.execCommand("copy");
-            const originalText = copyBtn.textContent;
-            copyBtn.textContent = "Copied!";
-            setTimeout(() => copyBtn.textContent = originalText, 2000);
-          });
-
-          // Removed scrollIntoView() as requested to keep the view stable.
-          // pageCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-
-        // 2. Render PDF to Canvas (Always needed for image data)
-        const page = await pdfDoc.getPage(pageNum);
-        // Scale 2.0 provides better OCR results than 1.0, though slower
-        const viewport = page.getViewport({ scale: 2.0 });
-
-        // Use the actual canvas if showing results, otherwise use a temporary one
-        const renderCanvas = canvas || document.createElement("canvas");
-        renderCanvas.height = viewport.height;
-        renderCanvas.width = viewport.width;
-
-        const renderContext = {
-          canvasContext: renderCanvas.getContext("2d"),
-          viewport: viewport,
-        };
-
-        await page.render(renderContext).promise;
-
-        // Get image data URL for OCR
-        const imgData = renderCanvas.toDataURL("image/jpeg", 0.8);
-
-        // 3. Perform OCR using the Global Scheduler
-        if (showResults) {
-          statusTextEl.textContent = "OCR Processing...";
-        }
-
-        // Add the recognition job to the global scheduler
-        const result = await scheduler.addJob("recognize", imgData);
-
-        // 4. Update UI with text (Conditional)
-        const text = result.data.text;
-        if (showResults) {
-          textArea.value = text;
-
-          // Update Status
-          statusDot.classList.remove("animate-pulse", "bg-blue-500");
-          statusDot.classList.add("bg-green-500");
-          statusTextEl.textContent = "Completed";
-          statusTextEl.classList.remove("text-blue-600");
-          statusTextEl.classList.add("text-green-600");
-        }
-
-        // 5. Store data for PDF generation (Unconditional)
-        processedPagesData.push({
-          pageNum,
-          imgData: imgData,
-          width: viewport.width,
-          height: viewport.height,
-          words: result.data.words,
+      function useAppState() {
+        const [appMode, setAppMode] = useState("IDLE"); // 'IDLE', 'LOADED', 'PROCESSING', 'COMPLETED'
+        const [pdfDoc, setPdfDoc] = useState(null);
+        const [processedPagesData, setProcessedPagesData] = useState(
+          [],
+        );
+        const [processedJobCount, setProcessedJobCount] = useState(0);
+        const [scheduler, setScheduler] = useState(null);
+        const [currentWorkerCount, setCurrentWorkerCount] = useState(0);
+        const [maxPage, setMaxPage] = useState(0);
+        const [pagesToProcess, setPagesToProcess] = useState([]);
+        const [workerCount, setWorkerCount] = useState(4);
+        const [showResults, setShowResults] = useState(true);
+        const [pageRangeInput, setPageRangeInput] = useState("");
+        const [pageSelection, setPageSelection] = useState("all");
+        const [pageRangeError, setPageRangeError] = useState(false);
+        const [progress, setProgress] = useState({
+          percent: 0,
+          text: "Ready to upload file.",
         });
 
-        // 6. Update overall progress counter
-        processedJobCount++;
-        updateProgress(
-          Math.round((processedJobCount / totalJobs) * 100),
-          `OCR complete for page ${pageNum} (${processedJobCount} of ${totalJobs})...`,
-        );
-      }
+        const isProcessing = appMode === "PROCESSING";
 
-      async function generateSearchablePDF() {
-        if (processedPagesData.length === 0) return;
+        // --- Handlers ---
 
-        // Sort data by page number to ensure PDF pages are in the correct order
-        processedPagesData.sort((a, b) => a.pageNum - b.pageNum);
+        const handleFileSelect = useCallback(async (file) => {
+          if (
+            !file || file.type !== "application/pdf" || isProcessing
+          ) return;
 
-        const btnText = downloadBtn.querySelector("span");
-        const originalText = btnText.textContent;
-        btnText.textContent = "Generating PDF...";
+          setAppMode("PROCESSING");
+          setProcessedJobCount(0);
+          setProcessedPagesData([]);
+          setPageRangeError(false);
+          setPdfDoc(null);
+          setProgress({ percent: 0, text: "Loading PDF document..." });
 
-        try {
-          // Initialize jsPDF
-          // Use dimensions of the first processed page to set the initial format
-          const firstPage = processedPagesData[0];
-          const doc = new jsPDF({
-            orientation: "portrait",
-            unit: "px",
-            format: [firstPage.width, firstPage.height],
-          });
+          try {
+            const arrayBuffer = await file.arrayBuffer();
+            const doc = await pdfjsLib.getDocument(arrayBuffer).promise;
+            const numPages = doc.numPages;
 
-          processedPagesData.forEach((pageData, index) => {
-            // Add a new page only if it's not the first one,
-            // and ensure the page size matches the current page's dimensions.
-            if (index > 0) {
-              doc.addPage([pageData.width, pageData.height]);
+            setPdfDoc(doc);
+            setMaxPage(numPages);
+            setAppMode("LOADED");
+            setProgress({
+              percent: 0,
+              text: `PDF loaded. ${numPages} page(s) available.`,
+            });
+          } catch (err) {
+            console.error("Error loading PDF:", err);
+            setAppMode("IDLE");
+            setProgress({
+              percent: 0,
+              text: `Error loading file: ${err.message}`,
+            });
+          }
+        }, [isProcessing]);
+
+        const processPage = useCallback(
+          async (pageNum, totalJobs, doc, schedulerInstance) => {
+            const pageIndex = processedPagesData.findIndex((p) =>
+              p.pageNum === pageNum
+            );
+
+            // 1. Setup Canvas for Rendering
+            const page = await doc.getPage(pageNum);
+            const viewport = page.getViewport({ scale: 2.0 });
+
+            const renderCanvas = document.createElement("canvas");
+            renderCanvas.height = viewport.height;
+            renderCanvas.width = viewport.width;
+
+            const renderContext = {
+              canvasContext: renderCanvas.getContext("2d"),
+              viewport: viewport,
+            };
+
+            setProcessedPagesData((prev) => {
+              const newData = [...prev];
+              if (newData[pageIndex]) {
+                newData[pageIndex].status = "Rendering...";
+              }
+              return newData;
+            });
+
+            await page.render(renderContext).promise;
+            const imgData = renderCanvas.toDataURL("image/jpeg", 0.8);
+
+            // 2. Display Image on UI Canvas (Crucial side effect outside state)
+            if (showResults) {
+              const uiCanvas = document.getElementById(
+                `canvas-${pageNum}`,
+              );
+              if (uiCanvas) {
+                // Draw the image on the visible canvas
+                uiCanvas.height = viewport.height / 2;
+                uiCanvas.width = viewport.width / 2;
+                const ctx = uiCanvas.getContext("2d");
+                const img = new Image();
+                img.onload = () => {
+                  ctx.drawImage(
+                    img,
+                    0,
+                    0,
+                    uiCanvas.width,
+                    uiCanvas.height,
+                  );
+                };
+                img.src = imgData;
+              }
             }
 
-            const width = pageData.width;
-            const height = pageData.height;
-
-            // 1. Add the original image as background
-            doc.addImage(pageData.imgData, "JPEG", 0, 0, width, height);
-
-            // 2. Add invisible text overlay
-            doc.setFontSize(12);
-            doc.setTextColor(255, 255, 255); // White (Text Color is irrelevant when using mode 3)
-
-            // Setting rendering mode to '3' (invisible) manually for searchable text
-            doc.internal.write("3 Tr"); // Tr = Text Rendering Mode 3 (Invisible)
-
-            pageData.words.forEach((word) => {
-              const { text, bbox } = word;
-
-              // Calculate font size to match height roughly
-              // We scale the height of the bounding box to get a proportional font size.
-              const h = bbox.y1 - bbox.y0;
-              const fontSize = h * 0.9;
-              doc.setFontSize(fontSize);
-
-              // PDF text is placed by bottom-left usually (baseline: 'bottom').
-              // Tesseract bbox.y1 is the bottom of the bounding box.
-              doc.text(text, bbox.x0, bbox.y1, {
-                baseline: "bottom",
-              });
+            // 3. Perform OCR
+            setProcessedPagesData((prev) => {
+              const newData = [...prev];
+              if (newData[pageIndex]) {
+                newData[pageIndex].status = "OCR Processing...";
+              }
+              return newData;
             });
+
+            const result = await schedulerInstance.addJob(
+              "recognize",
+              imgData,
+            );
+            const { text, words } = result.data;
+
+            // 4. Store result
+            setProcessedPagesData((prev) => {
+              const newData = [...prev];
+              newData[pageIndex] = {
+                pageNum,
+                imgData: imgData,
+                width: viewport.width,
+                height: viewport.height,
+                words: words,
+                text: text,
+                status: "Completed",
+              };
+              return newData;
+            });
+
+            setProcessedJobCount((prev) => {
+              const newCount = prev + 1;
+              const percent = Math.round((newCount / totalJobs) * 100);
+              setProgress({
+                percent: percent,
+                text:
+                  `OCR complete for page ${pageNum} (${newCount} of ${totalJobs})...`,
+              });
+              return newCount;
+            });
+          },
+          [processedPagesData, showResults],
+        ); // Dependencies: processedPagesData, showResults
+
+        const startProcessing = useCallback(async () => {
+          if (appMode !== "LOADED" || !pdfDoc) return;
+
+          setAppMode("PROCESSING");
+          setProcessedJobCount(0);
+          setProcessedPagesData([]);
+          setPageRangeError(false);
+          setProgress({
+            percent: 0,
+            text: "Preparing processing job...",
           });
 
-          doc.save("ocr-searchable-result.pdf");
-        } catch (err) {
-          console.error(err);
-          // IMPORTANT: Replacing alert()
-          console.error("Error creating PDF: " + err.message);
-        } finally {
-          btnText.textContent = originalText;
-        }
+          try {
+            // 1. Determine Pages to Process
+            let selectedPages = [];
+            if (pageSelection === "all") {
+              for (let i = 1; i <= maxPage; i++) {
+                selectedPages.push(i);
+              }
+            } else {
+              const parsedPages = parsePageRange(
+                pageRangeInput,
+                maxPage,
+              );
+              if (!parsedPages || parsedPages.length === 0) {
+                setPageRangeError(true);
+                setAppMode("LOADED");
+                throw new Error("Invalid page selection.");
+              }
+              selectedPages = parsedPages;
+            }
+            setPagesToProcess(selectedPages);
+            const totalJobs = selectedPages.length;
+
+            // 2. Scheduler Setup & Worker Creation
+            let schedulerInstance = scheduler;
+            const requestedWorkerCount = workerCount;
+
+            if (
+              !schedulerInstance ||
+              currentWorkerCount !== requestedWorkerCount
+            ) {
+              if (schedulerInstance) {
+                setProgress({
+                  percent: 0,
+                  text: `Terminating old workers...`,
+                });
+                await schedulerInstance.terminate();
+                schedulerInstance = null;
+              }
+
+              setProgress({
+                percent: 0,
+                text:
+                  `Initializing ${requestedWorkerCount} OCR workers...`,
+              });
+              schedulerInstance = Tesseract.createScheduler();
+              const workerPromises = [];
+              for (let i = 0; i < requestedWorkerCount; i++) {
+                workerPromises.push(Tesseract.createWorker("eng"));
+              }
+
+              const workers = await Promise.all(workerPromises);
+              workers.forEach((worker) =>
+                schedulerInstance.addWorker(worker)
+              );
+              setScheduler(schedulerInstance);
+              setCurrentWorkerCount(requestedWorkerCount);
+            }
+
+            // 3. Initialize processedPagesData
+            setProcessedPagesData(selectedPages.map((pageNum) => ({
+              pageNum,
+              status: "Rendering & OCR Queued...",
+              text: "",
+            })));
+
+            // 4. Start concurrent page processing
+            setProgress({
+              percent: 0,
+              text: `Rendering pages for OCR...`,
+            });
+            const jobPromises = selectedPages.map((pageNum) =>
+              processPage(pageNum, totalJobs, pdfDoc, schedulerInstance)
+            );
+
+            await Promise.all(jobPromises);
+
+            // 5. Finalize
+            setAppMode("COMPLETED");
+            setProgress({
+              percent: 100,
+              text:
+                `Done! Processed ${totalJobs} page(s). Ready to download.`,
+            });
+          } catch (err) {
+            console.error("OCR Process Error:", err);
+            setAppMode("LOADED");
+            setProgress({
+              percent: 0,
+              text: `Error during processing: ${err.message}`,
+            });
+          }
+        }, [
+          appMode,
+          pdfDoc,
+          pageSelection,
+          maxPage,
+          pageRangeInput,
+          workerCount,
+          scheduler,
+          currentWorkerCount,
+          processPage,
+        ]);
+
+        const generateSearchablePDF = useCallback(async () => {
+          if (
+            appMode !== "COMPLETED" || processedPagesData.length === 0
+          ) return;
+
+          // Sort data by page number to ensure PDF pages are in the correct order
+          const sortedData = [...processedPagesData].sort((a, b) =>
+            a.pageNum - b.pageNum
+          );
+
+          setProgress({ percent: 100, text: "Generating PDF file..." });
+
+          try {
+            const firstPage = sortedData[0];
+            const doc = new jsPDF({
+              orientation: "portrait",
+              unit: "px",
+              format: [firstPage.width, firstPage.height],
+            });
+
+            sortedData.forEach((pageData, index) => {
+              if (index > 0) {
+                doc.addPage([pageData.width, pageData.height]);
+              }
+
+              const width = pageData.width;
+              const height = pageData.height;
+
+              // 1. Add the original image as background
+              doc.addImage(
+                pageData.imgData,
+                "JPEG",
+                0,
+                0,
+                width,
+                height,
+              );
+
+              // 2. Add invisible text overlay
+              doc.setFontSize(12);
+              doc.setTextColor(255, 255, 255);
+              doc.internal.write("3 Tr"); // Text Rendering Mode 3 (Invisible)
+
+              pageData.words.forEach((word) => {
+                const { text, bbox } = word;
+                // Calculate font size based on word height
+                const h = bbox.y1 - bbox.y0;
+                const fontSize = h * 0.9;
+                doc.setFontSize(fontSize);
+                // Adjust coordinates for PDF space (y-coordinates need adjustment for bottom baseline)
+                doc.text(text, bbox.x0, bbox.y1, {
+                  baseline: "bottom",
+                });
+              });
+            });
+
+            doc.save("ocr-searchable-result.pdf");
+            setProgress({
+              percent: 100,
+              text:
+                "PDF downloaded successfully! Upload a new file to start over.",
+            });
+          } catch (err) {
+            console.error(err);
+            setProgress({ percent: 100, text: "Error creating PDF." });
+          }
+        }, [appMode, processedPagesData]);
+
+        return {
+          appMode,
+          setAppMode,
+          processedPagesData,
+          progress,
+          isProcessing,
+          maxPage,
+          setMaxPage,
+          workerCount,
+          setWorkerCount,
+          showResults,
+          setShowResults,
+          pageRangeInput,
+          setPageRangeInput,
+          pageSelection,
+          setPageSelection,
+          pageRangeError,
+          setPageRangeError,
+          handleFileSelect,
+          startProcessing,
+          generateSearchablePDF,
+        };
       }
 
-      // --- Helper Functions ---
+      // --- COMPONENTS ---
 
-      function updateProgress(percent, text) {
-        progressBar.style.width = `${percent}%`;
-        percentageText.textContent = `${percent}%`;
-        if (text) statusText.textContent = text;
-      }
+      const Header = () =>
+        html`
+          <header class="bg-white border-b border-slate-200 sticky top-0 z-50">
+            <div
+              class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-center"
+            >
+              <div class="flex items-center gap-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-8 w-8 text-blue-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                <h1 class="text-xl font-bold text-slate-900">
+                  OCR Overlay Tool (Haunted Hooks)
+                </h1>
+              </div>
+            </div>
+          </header>
+        `;
 
-      function showProgress(show) {
-        if (show) {
-          globalProgress.classList.remove("hidden");
+      const UploadArea = ({ handleFileSelect, isProcessing }) =>
+        html`
+          <div id="uploadSection" class="mb-8">
+            <label
+              for="fileInput"
+              id="dropZone"
+              class="
+                flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-slate-50 transition-all
+                ${isProcessing ? "opacity-50 cursor-not-allowed" : ""}
+              "
+            >
+              <div
+                class="flex flex-col items-center justify-center pt-5 pb-6 pointer-events-none"
+              >
+                <svg
+                  class="w-8 h-8 mb-3 text-slate-400"
+                  aria-hidden="true"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 20 16"
+                >
+                  <path
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
+                  />
+                </svg>
+                <p class="text-sm text-slate-500">
+                  <span class="font-semibold">Click to upload PDF</span> or drag
+                  and drop
+                </p>
+                <p class="text-xs text-slate-400 mt-1">
+                  PDF files only (No external servers are used)
+                </p>
+              </div>
+              <input
+                id="fileInput"
+                type="file"
+                accept="application/pdf"
+                class="hidden"
+                @change="${(e) => handleFileSelect(e.target.files[0])}"
+                ?disabled="${isProcessing}"
+                @click="${(e) => {
+                  // Clear input if re-uploading the same file to trigger change event
+                  if (!isProcessing) e.target.value = null;
+                }}"
+              />
+            </label>
+          </div>
+        `;
+
+      const OptionsPanel = ({
+        appMode,
+        isProcessing,
+        maxPage,
+        workerCount,
+        setWorkerCount,
+        showResults,
+        setShowResults,
+        pageRangeInput,
+        setPageRangeInput,
+        pageSelection,
+        setPageSelection,
+        pageRangeError,
+        setPageRangeError,
+      }) => {
+        const isVisible = appMode !== "IDLE";
+
+        return html`
+          <div
+            class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8 ${isVisible
+              ? ""
+              : "hidden"}"
+          >
+            <h2 class="text-lg font-semibold text-slate-700 mb-4">
+              Processing Options
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <!-- 1. Page Selection -->
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-2"
+                >Pages to OCR</label>
+                <div class="flex items-center gap-4">
+                  <div class="flex items-center">
+                    <input
+                      id="allPagesRadio"
+                      name="pageSelection"
+                      type="radio"
+                      .checked="${pageSelection === "all"}"
+                      @change="${() => {
+                        setPageSelection("all");
+                        setPageRangeError(false);
+                      }}"
+                      class="h-4 w-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                      value="all"
+                      ?disabled="${isProcessing}"
+                    >
+                    <label
+                      for="allPagesRadio"
+                      class="ml-2 block text-sm text-slate-900"
+                    >All Pages (${maxPage})</label>
+                  </div>
+                  <div class="flex items-center">
+                    <input
+                      id="selectPagesRadio"
+                      name="pageSelection"
+                      type="radio"
+                      .checked="${pageSelection === "select"}"
+                      @change="${() => {
+                        setPageSelection("select");
+                        setPageRangeError(false);
+                      }}"
+                      class="h-4 w-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                      value="select"
+                      ?disabled="${isProcessing}"
+                    >
+                    <label
+                      for="selectPagesRadio"
+                      class="ml-2 block text-sm text-slate-900"
+                    >Select Range/List</label>
+                  </div>
+                </div>
+                <input
+                  id="pageRangeInput"
+                  type="text"
+                  .disabled="${pageSelection === "all" || isProcessing}"
+                  .value="${pageRangeInput}"
+                  @input="${(e) => {
+                    setPageRangeInput(e.target.value);
+                    setPageRangeError(false);
+                  }}"
+                  placeholder="e.g., 1, 3-5, 8 (Max: ${maxPage})"
+                  class="
+                    mt-2 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-400 text-sm p-2
+                    ${pageRangeError
+                      ? "border-red-500 ring-red-500"
+                      : ""}
+                  "
+                >
+                <p class="mt-1 text-xs text-red-600 ${pageRangeError
+                  ? ""
+                  : "hidden"}">
+                  Invalid page range format or page number out of bounds.
+                </p>
+              </div>
+
+              <!-- 2. Worker Count -->
+              <div class="border-l pl-6 border-slate-100">
+                <label
+                  for="workerCountInput"
+                  class="block text-sm font-medium text-slate-700 mb-2"
+                >OCR Workers (Threads)</label>
+                <input
+                  id="workerCountInput"
+                  type="number"
+                  .value="${workerCount}"
+                  @change="${(e) =>
+                    setWorkerCount(parseInt(e.target.value, 10))}"
+                  min="1"
+                  max="8"
+                  class="block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2"
+                  title="The number of parallel workers Tesseract will use for OCR. Recommended: 2-4"
+                  ?disabled="${isProcessing}"
+                >
+                <p class="text-xs text-slate-400 mt-1">
+                  More workers = faster processing, higher memory use.
+                </p>
+              </div>
+
+              <!-- 3. Toggle Display -->
+              <div class="border-l pl-6 border-slate-100">
+                <label
+                  for="showResultsToggle"
+                  class="relative inline-flex items-center cursor-pointer mb-2"
+                >
+                  <input
+                    type="checkbox"
+                    id="showResultsToggle"
+                    .checked="${showResults}"
+                    @change="${(e) => setShowResults(e.target.checked)}"
+                    class="sr-only peer"
+                  >
+                  <div
+                    class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"
+                  >
+                  </div>
+                  <span class="ml-3 text-sm font-medium text-slate-700"
+                  >Show Page Results</span>
+                </label>
+                <p class="text-xs text-slate-400 mt-1">
+                  Hide to speed up processing on very large PDFs.
+                </p>
+              </div>
+            </div>
+          </div>
+        `;
+      };
+
+      const MainActionButton = (
+        { appMode, startProcessing, generateSearchablePDF },
+      ) => {
+        let text = "";
+        let action = () => {};
+        let disabled = true;
+        let className =
+          "bg-slate-200 text-slate-400 cursor-not-allowed";
+
+        if (appMode === "LOADED") {
+          text = "Start Processing";
+          action = startProcessing;
+          disabled = false;
+          className =
+            "bg-blue-600 text-white hover:bg-blue-700 shadow-lg";
+        } else if (appMode === "PROCESSING") {
+          text = "Processing...";
+          disabled = true;
+          className = "bg-slate-400 text-white cursor-wait";
+        } else if (appMode === "COMPLETED") {
+          text = "Download Searchable PDF";
+          action = generateSearchablePDF;
+          disabled = false;
+          className =
+            "bg-green-600 text-white hover:bg-green-700 shadow-lg";
         } else {
-          globalProgress.classList.add("hidden");
+          return html`
+
+          `;
         }
+
+        return html`
+          <button
+            @click="${action}"
+            ?disabled="${disabled}"
+            class="w-full mb-8 flex justify-center items-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${className}"
+          >
+            ${text}
+          </button>
+        `;
+      };
+
+      const ProgressBar = ({ appMode, progress }) => {
+        const isVisible = appMode === "PROCESSING" ||
+          appMode === "COMPLETED";
+
+        return html`
+          <div id="globalProgress" class="mb-8 ${isVisible
+            ? ""
+            : "hidden"}">
+            <div class="flex justify-between mb-1">
+              <span id="statusText" class="text-sm font-medium text-blue-700"
+              >${progress.text}</span>
+              <span id="percentageText" class="text-sm font-medium text-blue-700"
+              >${progress.percent}%</span>
+            </div>
+            <div class="w-full bg-slate-200 rounded-full h-2.5">
+              <div
+                id="progressBar"
+                class="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                style="width: ${progress.percent}%"
+              >
+              </div>
+            </div>
+          </div>
+        `;
+      };
+
+      const PageResult = ({ page }) => {
+        const statusColor = page.status === "Completed"
+          ? "bg-green-500"
+          : "bg-blue-500 animate-pulse";
+        const statusTextClass = page.status === "Completed"
+          ? "text-green-600"
+          : "text-blue-600";
+
+        // Function must be defined here for the component's scope
+        const copyText = (e) => {
+          const textarea = e.target.closest(".p-4.flex.flex-col")
+            .querySelector("textarea");
+          textarea.select();
+          document.execCommand("copy");
+          const originalText = e.target.textContent;
+          e.target.textContent = "Copied!";
+          setTimeout(() => e.target.textContent = originalText, 2000);
+        };
+
+        return html`
+          <div
+            class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"
+          >
+            <div
+              class="border-b border-slate-100 bg-slate-50 px-4 py-3 flex justify-between items-center"
+            >
+              <h3 class="font-semibold text-slate-700">Page ${page
+                .pageNum}</h3>
+              <div
+                class="status-indicator flex items-center gap-2 text-xs font-medium text-slate-500"
+              >
+                <span class="status-dot w-2 h-2 rounded-full ${statusColor}"></span>
+                <span class="status-text ${statusTextClass}">${page
+                  .status}</span>
+              </div>
+            </div>
+            <div
+              class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100"
+            >
+              <!-- Image Column -->
+              <div
+                class="p-4 bg-slate-50/50 flex items-start justify-center overflow-auto max-h-[600px] custom-scrollbar"
+              >
+                <!-- Canvas ID must match the one referenced in the processPage hook logic -->
+                <canvas
+                  id="canvas-${page.pageNum}"
+                  class="pdf-canvas shadow-lg max-w-full h-auto"
+                ></canvas>
+              </div>
+              <!-- Text Column -->
+              <div class="p-4 flex flex-col h-[600px]">
+                <div class="flex justify-between items-center mb-2">
+                  <span
+                    class="text-xs font-semibold text-slate-400 uppercase tracking-wider"
+                  >Extracted Text</span>
+                  <button
+                    @click="${copyText}"
+                    class="copy-btn text-xs text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    Copy Text
+                  </button>
+                </div>
+                <textarea
+                  class="extracted-text w-full flex-1 p-3 text-sm text-slate-700 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none custom-scrollbar font-mono leading-relaxed bg-white"
+                  readonly
+                  placeholder="Text will appear here after processing..."
+                >${page.text}</textarea>
+              </div>
+            </div>
+          </div>
+        `;
+      };
+
+      const ResultsArea = (
+        { processedPagesData, showResults, appMode },
+      ) => {
+        const isVisible = showResults &&
+          (appMode === "PROCESSING" || appMode === "COMPLETED");
+
+        return html`
+          <div id="resultsContainer" class="space-y-12 ${isVisible
+            ? ""
+            : "hidden"}">
+            ${processedPagesData.map((page) =>
+              html`
+                <div class="page-result">${PageResult({ page })}</div>
+              `
+            )}
+          </div>
+        `;
+      };
+
+      // --- MAIN APP COMPONENT ---
+
+      function App() {
+        // Destructure all values and handlers from the custom hook
+        const {
+          appMode,
+          processedPagesData,
+          progress,
+          isProcessing,
+          maxPage,
+          workerCount,
+          setWorkerCount,
+          showResults,
+          setShowResults,
+          pageRangeInput,
+          setPageRangeInput,
+          pageSelection,
+          setPageSelection,
+          pageRangeError,
+          setPageRangeError,
+          handleFileSelect,
+          startProcessing,
+          generateSearchablePDF,
+        } = useAppState();
+
+        return html`
+          ${Header()}
+          <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            ${UploadArea({
+              handleFileSelect,
+              isProcessing,
+            })} ${OptionsPanel({
+              appMode,
+              isProcessing,
+              maxPage,
+              workerCount,
+              setWorkerCount,
+              showResults,
+              setShowResults,
+              pageRangeInput,
+              setPageRangeInput,
+              pageSelection,
+              setPageSelection,
+              pageRangeError,
+              setPageRangeError,
+            })} ${MainActionButton({
+              appMode,
+              startProcessing,
+              generateSearchablePDF,
+            })} ${ProgressBar({ appMode, progress })} ${ResultsArea({
+              processedPagesData,
+              showResults,
+              appMode,
+            })}
+          </main>
+        `;
       }
 
-      function enableDownload() {
-        downloadBtn.disabled = false;
-        downloadBtn.classList.remove(
-          "bg-slate-200",
-          "text-slate-400",
-          "cursor-not-allowed",
-        );
-        downloadBtn.classList.add(
-          "bg-blue-600",
-          "text-white",
-          "hover:bg-blue-700",
-          "shadow-sm",
-        );
-
-        mobileDownloadBtn.disabled = false;
-        mobileDownloadBtn.classList.remove(
-          "hidden",
-          "bg-slate-200",
-          "text-slate-400",
-          "cursor-not-allowed",
-        );
-        mobileDownloadBtn.classList.add(
-          "bg-blue-600",
-          "text-white",
-          "hover:bg-blue-700",
-        );
-      }
-
-      function disableDownload() {
-        downloadBtn.disabled = true;
-        downloadBtn.classList.add(
-          "bg-slate-200",
-          "text-slate-400",
-          "cursor-not-allowed",
-        );
-        downloadBtn.classList.remove(
-          "bg-blue-600",
-          "text-white",
-          "hover:bg-blue-700",
-          "shadow-sm",
-        );
-
-        mobileDownloadBtn.disabled = true;
-        mobileDownloadBtn.classList.add("hidden");
-      }
+      // Register the main application component
+      customElements.define(
+        "ocr-app",
+        component(App, { useShadowDOM: false }),
+      );
     </script>
   </body>
 </html>
