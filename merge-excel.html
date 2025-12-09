@@ -197,6 +197,8 @@
             const wbout = XLSX.write(outputWorkbook, {
               bookType: "xlsx",
               type: "array",
+              compression: true,
+              bookSST: true,
             });
             const blob = new Blob([wbout], {
               type: "application/octet-stream",
