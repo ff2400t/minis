@@ -1,0 +1,57 @@
+[{
+  "name": "GST Challan",
+  "text": "GOODS AND SERVICES TAX  PAYMENT RECEIPT  CPIN: 26090501122111 Deposit Date : 25/04/2022 Deposit Time : 16:23:07 e- Scroll : NA  Payment Particulars  CIN: UBIN26090501122111 Name of Bank: UNION BANK OF INDIA BRN: 775512348  Details of Taxpayer  GSTIN: 27AADBA2241G1Z1 E- mail Id:  sXXXXXXXXXXXXX@XXXXXXXin  Mobile No.: 9XXXXX3079  Name: ABC DEV Media LIMITED  Address : XXXXXXXXXX  Maharashtra,400051  Reason For Challan  Reason: Any other payment  Details of Deposit (All Amount in Rs.)  Government Major Head Minor Head  Tax Interest Penalty Fee Others Total  Government  of India  CGST(0005) 108000 - - - - 108000  IGST(0008) 247695 - - - - 247695  CESS(0009) - - - - - -  Sub- Total 355695 0 0 0 0 355695  Maharashtra SGST(0006) 108000 - - - - 108000  Total Amount 463695  Total Amount (in words) Rupees Four Lakhs Sixty- Three Thousand Six hundred Ninety- Five Only  Mode of Payment: Net Banking - UNION BANK OF INDIA  Notes:  1. Status of the transaction can be tracked under 'Track Payment Status' at GST website  2. Payment status will be set as 'Paid' for this transaction.  3. This is a system generated receipt. ",
+  "expected": {
+    "allRows": [
+      [
+        "Head",
+        "Tax",
+        "Interest",
+        "Penalty",
+        "Fees",
+        "Others",
+        "Total"
+      ],
+      ["CGST", "108000", "-", "-", "-", "-", "108000"],
+      ["IGST", "247695", "-", "-", "-", "-", "247695"],
+      [
+        "CESS",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-",
+        "-"
+      ],
+      ["SGST", "108000", "-", "-", "-", "-", "108000"],
+      ["Grand Total", "-", "-", "-", "-", "-", "463695"]
+    ],
+    "metadataFields": {}
+  }
+}, {
+  "name": "PT Challan",
+  "text": "CHALLAN MTR Form Number-6 (See Rule 11, 11C, 17, 20, 22(4) and 27B of the Professions Tax Rules, 1975) Account Head 00280012  GRN MH007039490202526E BARCODE Date 13/08/2025-10:49:40 Form ID IIIB  Department Commissioner of Sales Tax Payer Details Type of Payment  Profession Tax - PTRC Maharashtra Profession Tax PTRC  TAX ID / TAN (If Any) 27230757246P  PAN No.(If Applicable) ADIPC2483L  Office Name Commr Sales Tax Mazgaon Full Name IRB INFRASTRUCTURE DEVELOPERS LIMIT  Location MUMBAI  Year 2025-2026 From 01/04/2025 To 31/03/2026 Flat/Block No. Premises/Building Account Head Details Amount In Rs.  AMOUNT OF TAX 5000.00 Road/Street  Area/Locality  Town/City/District  PIN  Remarks (If Any)  IIIB  Amount In Five Thousand Rupees Only  Total 5,000.00 Words  Payment Details UNION BANK OF INDIA FOR USE IN RECEIVING BANK Cheque-DD Details Bank CIN Ref. No. 02901792025081354171 532229233 Cheque/DD No. Bank Date RBI Date 13/08/2025-10:51:35 Not Verified with RBI Name of Bank Bank-Branch UNION BANK OF INDIA Name of Branch Scroll No. , Date Not Verified with Scroll Department ID : URN10023942047TR Mobile No. : 9320355563  Page 1/1 Print Date 13-08-2025 10:51:46 ",
+  "expected": {
+    "allRows": [
+      [
+        "name",
+        "IRB INFRASTRUCTURE DEVELOPERS LIMIT",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      ["period", "01/04/2025 To 31/03/2026", "", "", "", "", ""],
+      ["amt", "5000.00", "", "", "", "", ""],
+      ["paymentDate", "13/08/2025", "", "", "", "", ""],
+      []
+    ],
+    "metadataFields": {
+      "name": "IRB INFRASTRUCTURE DEVELOPERS LIMIT",
+      "period": "01/04/2025 To 31/03/2026",
+      "amt": "5000.00",
+      "paymentDate": "13/08/2025"
+    }
+  }
+}]

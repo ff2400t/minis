@@ -55,6 +55,7 @@
         // Load haunted and its dependencies from CDN
         import { html, render } from 'https://unpkg.com/lit-html?module';
         import { component, useState, useEffect, useCallback, useMemo } from 'https://unpkg.com/haunted?module';
+        import {  BUILT_IN_PARSERS, generalDocumentParser } from '/data-extractor.js';
 
         // Set the workerSrc for PDF.js
         if (typeof pdfjsLib !== 'undefined') {
@@ -71,192 +72,7 @@
             useForSubsequent: false,
             fileToProcess: null, 
         };
-
-        const BUILT_IN_PARSERS = [
-            // [Name, Match Strings, Metadata Regex, Table Regex, Parser Function]
-            [
-                "GST Challan",
-                ["GOODS AND SERVICES TAX PAYMENT RECEIPT"],
-                /Name:\s+(?<Name>.*?)\s+Address.*?GSTIN:\s+(?<GSTIN>\w+).*?Date :\s+(?<Date>\d\d\/\d\d\/\d{4}).*?(?<StateCode>\d+)\s+(?<StateName>[^\d]+?)\s+SGST/s,
-                /(?<name>\w+)\(.*?\)\s+(?<tax>-|\d+)\s+(?<interest>-|\d+)\s+(?<penalty>-|\d+)\s+(?<fees>-|\d+)\s+(?<others>-|\d+)\s+(?<total>-|\d+)\s+/g,
-                (text, metaRx, tableRx) => {
-                    const metadataFields = {};
-                    const metaMatch = text.match(metaRx);
-                    if (metaMatch && metaMatch.groups) {
-                        Object.assign(metadataFields, metaMatch.groups);
-                        if (metaMatch.groups.StateCode && metaMatch.groups.StateName) {
-                            metadataFields.State = `${metaMatch.groups.StateCode} ${metaMatch.groups.StateName}`;
-                            delete metadataFields.StateCode;
-                            delete metadataFields.StateName;
-                        }
-                    }
-
-                    const metadataRows = Object.entries(metadataFields).map(([k,v]) => [k, v, '', '', '', '', '']);
-                    const matches = [...text.matchAll(tableRx)];
-                    const headers = ['Head', 'Tax', 'Interest', 'Penalty', 'Fees', 'Others', 'Total'];
-                    const dataRows = matches.map(m => [m.groups.name, m.groups.tax, m.groups.interest, m.groups.penalty, m.groups.fees, m.groups.others, m.groups.total]);
-                    
-                    const totalMatch = text.match(/Total Amount\s+([\d,]+)/);
-                    if (totalMatch && !matches.find(m => m.groups.name === 'Total')) {
-                        dataRows.push(['Grand Total', '-', '-', '-', '-', '-', totalMatch[1].replace(/,/g, '')]);
-                    }
-                    return { allRows: [...metadataRows, headers, ...dataRows], metadataFields };
-                }
-            ],
-            [
-                "GSTR-3B",
-                ["Form GSTR-3B", "See rule 61(5)"],
-                /Year (?<Year>[\d-]+)\s+Period\s+(.*)\s+GSTIN\s+of\s+the\s+supplier\s+(?<GSTIN>\w+)\s+2\(a\)\.\s+Legal\s+name\s+of\s+the\s+registered\s+person\s+(?<Name>.*)\s+2\(b\)/,
-                /\([a-e]\s?\) (?!and)(.*?) (\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+/g,
-                generalDocumentParser
-            ],
-            [
-                "TDS",
-                ["INCOME TAX DEPARTMENT", "Challan Receipt"],
-                /Nature of Payment : (?<Section_No>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<Amount>\d[\d,.]*).*(?<Deposit_Date>\d\d\-\s?\w{3}-\d{4})/g,
-                /Nature of Payment : (?<sectionNo>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<amt>\d[\d,.]*).*(?<depositDate>\d\d\-\s?\w{3}-\d{4})/g,
-                generalDocumentParser
-            ],
-            [
-                "Union Bank Statement",
-                ["Union Bank of India", "Statement of Account"],
-                /Statement of Account\s+(?<Account_Holder_Name>.*?)\s+.* Account No\s+(?<Account_Number>\d+)/is,
-                /(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d,]+\.\d\s?\d)\s+(?<bal>-?\s?[\d,]+\.\d\s?\d)/g,
-                generalDocumentParser
-            ],
-            [
-                "Canara Bank Statement",
-                ["Canara Bank does not"],
-                /Account Number (?<Account_Number>\d+).* Opening Balance Rs\. (?<Opening_Balance>-?[\d,]+\.\d\d)\s+Closing Balance Rs\. (?<Closing_Balance>-?[\d,]+\.\d\d)/s,
-                /\s\s(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d+,]+\.\d\d)\s+(?<bal>-?[\d+,]+\.\d\d)/g,
-                generalDocumentParser
-            ],
-            [
-                "RBL Bank Statement",
-                ["RBL BANK LTD"],
-                /Account Name: (?<Account_Name>.*?) Home Branch: .* in Account Number:\s+(?<Account_Number>\d+)\s+.* Opening Balance: ₹ (?<Opening_Balance>[\d,]+\.\d{2})\s+Count Of Debit: \d+\s+Closing Balance: ₹ (?<Closing_Balance>[\d,]+\.\d{2})/s,
-                /(?<date>\d\d\/\d\d\/\d{4})\s+\d\d\/\d\d\/\d{4}\s+(?<particular>.*?)\s+(?<amt>[\d,]+\.\s?\d\s?\d)\s+(?<bal>[\d,]+\s?\.\s?\d\s?\d)/g,
-                generalDocumentParser
-            ],
-            [
-                "IDBI Bank Statement",
-                ["IDBI Bank or other authorities"],
-                /^(?<Name>.*?) Address .* A\/C NO: (?<AccNo>\d+)/s,
-                /(?<date>\d\d\/\d\d\/\d{4})\s+(?<particular>.*?)\s+(?<type>Dr\.|Cr\.)\s+\w{3}\s+(?<Amt>[\d,]+\.\d{2})\s+\d\d\/\d\d\/\d{4}\s+\d\d:\d\d:\d\d\s+(?<serialNo>\d+)\s+(?<Bal>-?[\d,]+\.\d{2})/g,
-                (text, metaRx, tableRx) => {
-                    const metadataMatch = text.match(metaRx);
-                    const metadataFields = {
-                        'Account Name': metadataMatch?.groups?.Name?.trim() || 'N/A',
-                        'Account Number': metadataMatch?.groups?.AccNo || 'N/A'
-                    };
-                    const metadataRows = Object.entries(metadataFields).map(([k,v]) => [k, v, '', '', '', '', '']);
-
-                    const matches = [...text.matchAll(tableRx)];
-                    const headers = ['Date', 'Particulars/Description', 'Type', 'Amount', 'Serial No', 'Balance', ''];
-                    const dataRows = matches.map(m => {
-                        const g = m.groups;
-                        const amount = g.type === 'Dr.' ? `-${g.Amt}` : g.Amt;
-                        return [g.date, g.particular.trim(), g.type, amount.replace(/,/g, ''), g.serialNo, g.Bal.replace(/,/g, ''), ''];
-                    });
-                    return { allRows: [...metadataRows, headers, ...dataRows], metadataFields };
-                }
-            ],
-            [
-                "PNB",
-                [`Stk Stmt: Stock Statement` , `Trf: Transfer`],
-                /Account Number (?<AccountNumber>\d+).*?Account Name: (?<Name>.*?) Customer Address/,
-                /(?<TxnNo>[A-Z]{1}\d+) (?<date>\d\d\/\d\d\/\d{4}) (?<description>.*?) (?<Amt>-?\s?\d[\d,.\s]+\d) (?<bal>\d[\d,.\s]+\d) (?<Effect>Cr|Dr)/,
-                generalDocumentParser,
-            ],
-            [
-                "ICICI",
-                ["PAN can be updated online or at the nearest ICICI Bank Branch ."],
-                /^.*?  (?<Name>.*?)  .* (?<OpeningDate>\d\d-\d\d-\d{4}) B\/F (?<OpeningBalance>[\d,.]+)/,
-                /(?<Date>\d\d-\d\d-\d{4}) (?<Particular>.*?) (?<Amount>[\d,]+\.\d\d) (?<Balance>[\d,.]+) /,
-                generalDocumentParser
-            ],
-            [
-                "PT Challan",
-                ["CHALLAN MTR Form Number-6"],
-                /Full Name (?<name>.*) Location.*From (?<period>.*) Flat.*TAX (?<amt>\d+\.\d{2}).*RBI Date (?<paymentDate>\d\d\/\d\d\/\d{4})/s,
-                /(?<date>\d\d\/\d\d\/\d{4})\s+\d\d\/\d\d\/\d{4}\s+(?<particular>.*?)\s+(?<amt>[\d,]+\.\s?\d\s?\d)\s+(?<bal>[\d,]+\s?\.\s?\d\s?\d)/g,
-                generalDocumentParser
-            ],
-            [
-                "PF Challan Receipts",
-                ["Payment Confirmation Receipt  TRRN No"],
-                /ID : (?<Name>.*) Establishment Name.*\s(?<WageMonth>\w+-\d{4}) Wage Month : (?<Amt>\d[\d,.]*).*Payment Date : (?<PaymentDate>\d{2}-\w+-\d{4})/,
-                generalDocumentParser
-            ]
-            [
-               "PF Challan",
-               "COMBINED CHALLAN OF A/C NO. 01, 02, 10, 21 & 22 (With EMPLOYEES' PROVIDENT FUND ORGANISATION",
-                /(?<Month>\w+) (?<Year>\d{4}) (?<TRRN>\d{13}) (?<Name>.*) Total Subscribers .* (?<Amt>[\d,]+) Grand Total :/s,
-                generalDocumentParser
-            ]
-        ];
         
-        // --- Core Parser Function ---
-        function generalDocumentParser(text, metadataRegex, tableRegex, fieldsToExtract) {
-            let metadataRows = [];
-            let metadataFields = {};
-            
-            // 1. Metadata Extraction
-            if (metadataRegex) {
-                try {
-                    const metaMatch = text.match(metadataRegex);
-                    if (metaMatch && metaMatch.groups) {
-                        for (const [key, value] of Object.entries(metaMatch.groups)) {
-                            const val = value ? value.trim() : '';
-                            metadataFields[key] = val;
-                            metadataRows.push([key, val, '', '', '', '', '']);
-                        }
-                    } else if (metaMatch) {
-                        for (let i = 1; i < metaMatch.length; i++) {
-                             const val = metaMatch[i] ? metaMatch[i].trim() : '';
-                             const key = fieldsToExtract && fieldsToExtract[i-1] ? fieldsToExtract[i-1] : `Meta ${i}`;
-                             metadataFields[key] = val;
-                             metadataRows.push([key, val, '', '', '', '', '']);
-                        }
-                    }
-                } catch (e) { console.error("Metadata Regex Error", e); }
-            }
-
-            // 2. Table Extraction
-            let headers = [];
-            let dataRows = [];
-            
-            if (tableRegex) {
-                try {
-                    const effectiveTableRegex = typeof tableRegex === 'string' ? new RegExp(tableRegex, 'g') : tableRegex;
-                    
-                    const matches = [...text.matchAll(effectiveTableRegex)];
-                    if (matches.length > 0) {
-                        const firstMatch = matches[0];
-                        if (firstMatch.groups) {
-                            headers = Object.keys(firstMatch.groups).map(k => k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, ' '));
-                        } else {
-                            headers = Array.from({length: firstMatch.length - 1}, (_, i) => `Col ${i+1}`);
-                        }
-                        
-                        while (headers.length < 7) headers.push('');
-                        if (headers.length > 7) headers = headers.slice(0, 7);
-
-                        dataRows = matches.map(m => {
-                            let row = [];
-                            if (m.groups) row = Object.values(m.groups).map(val => val ? val.trim().replace(/,/g, '') : '');
-                            else row = m.slice(1).map(val => val ? val.trim().replace(/,/g, '') : '');
-                            
-                            while (row.length < 7) row.push('');
-                            return row.slice(0, 7);
-                        });
-                    }
-                } catch (e) { console.error("Table Regex Error", e); }
-            }
-
-            return { allRows: [...metadataRows, headers, ...dataRows], metadataFields };
-        }
-
         // --- Utility Functions ---
 
         function parseConfigBlock(text) {
@@ -532,7 +348,7 @@
                 const allParsers = [...customParsers.map(p => [p.name + " (Custom)", p.matchString, p.metadataRegex, p.tableRegex, generalDocumentParser]), ...BUILT_IN_PARSERS];
 
                 for (const [name, matches, metaRx, tableRx, parserFn] of allParsers) {
-                    const isMatch = matches.some(s => cleanCheckText.toLowerCase().includes(s.toLowerCase()));
+                    const isMatch = matches.every(s => cleanCheckText.toLowerCase().includes(s.toLowerCase()));
                     if (isMatch) {
                         docType = name;
                         
