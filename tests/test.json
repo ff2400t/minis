@@ -30,12 +30,12 @@
   }
 }, {
   "name": "PT Challan",
-  "text": "CHALLAN MTR Form Number-6 (See Rule 11, 11C, 17, 20, 22(4) and 27B of the Professions Tax Rules, 1975) Account Head 00280012  GRN MH007039490202526E BARCODE Date 13/08/2025-10:49:40 Form ID IIIB  Department Commissioner of Sales Tax Payer Details Type of Payment  Profession Tax - PTRC Maharashtra Profession Tax PTRC  TAX ID / TAN (If Any) 27230757246P  PAN No.(If Applicable) ADIPC2483L  Office Name Commr Sales Tax Mazgaon Full Name IRB INFRASTRUCTURE DEVELOPERS LIMIT  Location MUMBAI  Year 2025-2026 From 01/04/2025 To 31/03/2026 Flat/Block No. Premises/Building Account Head Details Amount In Rs.  AMOUNT OF TAX 5000.00 Road/Street  Area/Locality  Town/City/District  PIN  Remarks (If Any)  IIIB  Amount In Five Thousand Rupees Only  Total 5,000.00 Words  Payment Details UNION BANK OF INDIA FOR USE IN RECEIVING BANK Cheque-DD Details Bank CIN Ref. No. 02901792025081354171 532229233 Cheque/DD No. Bank Date RBI Date 13/08/2025-10:51:35 Not Verified with RBI Name of Bank Bank-Branch UNION BANK OF INDIA Name of Branch Scroll No. , Date Not Verified with Scroll Department ID : URN10023942047TR Mobile No. : 9320355563  Page 1/1 Print Date 13-08-2025 10:51:46 ",
+  "text": "CHALLAN MTR Form Number-6 (See Rule 11, 11C, 17, 20, 22(4) and 27B of the Professions Tax Rules, 1975) Account Head 00280012  GRN MH007039490202526E BARCODE Date 13/08/2025-10:49:40 Form ID IIIB  Department Commissioner of Sales Tax Payer Details Type of Payment  Profession Tax - PTRC Maharashtra Profession Tax PTRC  TAX ID / TAN (If Any) 27230757246P  PAN No.(If Applicable) ADIPC2483L  Office Name Commr Sales Tax Mazgaon Full Name ABC Corp  Location MUMBAI  Year 2025-2026 From 01/04/2025 To 31/03/2026 Flat/Block No. Premises/Building Account Head Details Amount In Rs.  AMOUNT OF TAX 5000.00 Road/Street  Area/Locality  Town/City/District  PIN  Remarks (If Any)  IIIB  Amount In Five Thousand Rupees Only  Total 5,000.00 Words  Payment Details UNION BANK OF INDIA FOR USE IN RECEIVING BANK Cheque-DD Details Bank CIN Ref. No. 02901792025081354171 532229233 Cheque/DD No. Bank Date RBI Date 13/08/2025-10:51:35 Not Verified with RBI Name of Bank Bank-Branch UNION BANK OF INDIA Name of Branch Scroll No. , Date Not Verified with Scroll Department ID : URN10023942047TR Mobile No. : 9320355563  Page 1/1 Print Date 13-08-2025 10:51:46 ",
   "expected": {
     "allRows": [
       [
         "name",
-        "IRB INFRASTRUCTURE DEVELOPERS LIMIT",
+        "ABC Corp",
         "",
         "",
         "",
@@ -48,10 +48,26 @@
       []
     ],
     "metadataFields": {
-      "name": "IRB INFRASTRUCTURE DEVELOPERS LIMIT",
+      "name": "ABC Corp",
       "period": "01/04/2025 To 31/03/2026",
       "amt": "5000.00",
       "paymentDate": "13/08/2025"
+    }
+  }
+}, {
+  "name": "TDS",
+  "text": "INCOME TAX DEPARTMENT  Challan Receipt  ITNS No. : 281  TAN : MUMD10213A  Name : ABC Corp  Assessment Year : 2026-27  Financial Year : 2025-26  Major Head : Income Tax (Other than Companies) (0021)  Minor Head : TDS/ TCS Payable by Taxpayer (200)  Nature of Payment : 92B  Amount (in Rs.) : ₹ 1,19,36,249  Amount (in words) : Rupees One Crore Nineteen Lakh Thirty Six Thousand Two Hundred And Forty Nine Only  CIN : 25080700586855UBIN  Mode of Payment : Net Banking  Bank Name : Union Bank Of India  Bank Reference Number : 532152436  Date of Deposit : 07- Aug-2025  BSR code : 0290071  Challan No : 10871  Tender Date : 07/08/2025  Tax Breakup Details (Amount In ₹)  A Tax ₹ 1,19,36,249  B Surcharge ₹ 0  C Cess ₹ 0  D Interest ₹ 0  E Penalty ₹ 0  F Fee under section 234E ₹ 0  Total (A+B+C+D+E+F) ₹ 1,19,36,249  Total (In Words) Rupees One Crore Nineteen Lakh Thirty Six Thousand Two Hundred  And Forty Nine Only  Thanks for being a committed taxpayer!  Please print this challan receipt only if absolutely required. Save Paper, Save Environment.  Congrats! Here’s what you have just achieved by choosing to pay online:  Time Paper e- Receipt  Quick and Seamless Save Environment Easy Access ",
+  "expected": {
+    "allRows": [
+      ["Section_No", "92B", "", "", "", "", ""],
+      ["Amount", "1,19,36,249", "", "", "", "", ""],
+      ["Deposit_Date", "07- Aug-2025", "", "", "", "", ""],
+      []
+    ],
+    "metadataFields": {
+      "Section_No": "92B",
+      "Amount": "1,19,36,249",
+      "Deposit_Date": "07- Aug-2025"
     }
   }
 }]

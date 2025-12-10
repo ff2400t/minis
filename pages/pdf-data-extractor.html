@@ -347,15 +347,14 @@
 
                 const allParsers = [...customParsers.map(p => [p.name + " (Custom)", p.matchString, p.metadataRegex, p.tableRegex, generalDocumentParser]), ...BUILT_IN_PARSERS];
 
-                for (const [name, matches, metaRx, tableRx, parserFn] of allParsers) {
-                    const isMatch = matches.every(s => cleanCheckText.toLowerCase().includes(s.toLowerCase()));
+                for (const {name, match, metaRegex, tableRegex, func} of allParsers) {
+                    const isMatch = match.every(s => cleanCheckText.toLowerCase().includes(s.toLowerCase()));
                     if (isMatch) {
                         docType = name;
-                        
-                        let effectiveMetaRx = typeof metaRx === 'string' ? new RegExp(metaRx, 's') : metaRx;
-                        let effectiveTableRx = typeof tableRx === 'string' ? new RegExp(tableRx, 'g') : tableRx;
+                        let effectiveMetaRx = typeof metaRegex === 'string' ? new RegExp(metaRegex, 's') : metaRegex;
+                        let effectiveTableRx = typeof tableRegex === 'string' ? new RegExp(tableRegex, 'g') : tableRegex;
 
-                        parsedData = parserFn(rawText, effectiveMetaRx, effectiveTableRx);
+                        parsedData = func(rawText, effectiveMetaRx, effectiveTableRx);
                         parserFound = true;
                         break;
                     }

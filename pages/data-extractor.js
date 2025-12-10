@@ -1,11 +1,12 @@
 export const BUILT_IN_PARSERS = [
-  // [Name, Match Strings, Metadata Regex, Table Regex, Parser Function]
-  [
-    "GST Challan",
-    ["GOODS AND SERVICES TAX  PAYMENT RECEIPT"],
-    /Name:\s+(?<Name>.*?)\s+Address.*?GSTIN:\s+(?<GSTIN>\w+).*?Date :\s+(?<Date>\d\d\/\d\d\/\d{4}).*?(?<StateCode>\d+)\s+(?<StateName>[^\d]+?)\s+SGST/s,
-    /(?<name>\w+)\(.*?\)\s+(?<tax>-|\d+)\s+(?<interest>-|\d+)\s+(?<penalty>-|\d+)\s+(?<fees>-|\d+)\s+(?<others>-|\d+)\s+(?<total>-|\d+)\s+/g,
-    (text, metaRx, tableRx) => {
+  {
+    name: "GST Challan",
+    match: ["GOODS AND SERVICES TAX  PAYMENT RECEIPT"],
+    metaRegex:
+      /Name:\s+(?<Name>.*?)\s+Address.*?GSTIN:\s+(?<GSTIN>\w+).*?Date :\s+(?<Date>\d\d\/\d\d\/\d{4}).*?(?<StateCode>\d+)\s+(?<StateName>[^\d]+?)\s+SGST/s,
+    tableRegex:
+      /(?<name>\w+)\(.*?\)\s+(?<tax>-|\d+)\s+(?<interest>-|\d+)\s+(?<penalty>-|\d+)\s+(?<fees>-|\d+)\s+(?<others>-|\d+)\s+(?<total>-|\d+)\s+/g,
+    func: (text, metaRx, tableRx) => {
       const metadataFields = {};
       const metaMatch = text.match(metaRx);
       if (metaMatch && metaMatch.groups) {
@@ -60,48 +61,57 @@ export const BUILT_IN_PARSERS = [
         metadataFields,
       };
     },
-  ],
-  [
-    "GSTR-3B",
-    ["Form GSTR-3B", "See rule 61(5)"],
-    /Year (?<Year>[\d-]+)\s+Period\s+(.*)\s+GSTIN\s+of\s+the\s+supplier\s+(?<GSTIN>\w+)\s+2\(a\)\.\s+Legal\s+name\s+of\s+the\s+registered\s+person\s+(?<Name>.*)\s+2\(b\)/,
-    /\([a-e]\s?\) (?!and)(.*?) (\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+/g,
-    generalDocumentParser,
-  ],
-  [
-    "TDS",
-    ["INCOME TAX DEPARTMENT", "Challan Receipt"],
-    /Nature of Payment : (?<Section_No>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<Amount>\d[\d,.]*).*(?<Deposit_Date>\d\d\-\s?\w{3}-\d{4})/g,
-    /Nature of Payment : (?<sectionNo>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<amt>\d[\d,.]*).*(?<depositDate>\d\d\-\s?\w{3}-\d{4})/g,
-    generalDocumentParser,
-  ],
-  [
-    "Union Bank Statement",
-    ["Union Bank of India", "Statement of Account"],
-    /Statement of Account\s+(?<Account_Holder_Name>.*?)\s+.* Account No\s+(?<Account_Number>\d+)/is,
-    /(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d,]+\.\d\s?\d)\s+(?<bal>-?\s?[\d,]+\.\d\s?\d)/g,
-    generalDocumentParser,
-  ],
-  [
-    "Canara Bank Statement",
-    ["Canara Bank does not"],
-    /Account Number (?<Account_Number>\d+).* Opening Balance Rs\. (?<Opening_Balance>-?[\d,]+\.\d\d)\s+Closing Balance Rs\. (?<Closing_Balance>-?[\d,]+\.\d\d)/s,
-    /\s\s(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d+,]+\.\d\d)\s+(?<bal>-?[\d+,]+\.\d\d)/g,
-    generalDocumentParser,
-  ],
-  [
-    "RBL Bank Statement",
-    ["RBL BANK LTD"],
-    /Account Name: (?<Account_Name>.*?) Home Branch: .* in Account Number:\s+(?<Account_Number>\d+)\s+.* Opening Balance: ₹ (?<Opening_Balance>[\d,]+\.\d{2})\s+Count Of Debit: \d+\s+Closing Balance: ₹ (?<Closing_Balance>[\d,]+\.\d{2})/s,
-    /(?<date>\d\d\/\d\d\/\d{4})\s+\d\d\/\d\d\/\d{4}\s+(?<particular>.*?)\s+(?<amt>[\d,]+\.\s?\d\s?\d)\s+(?<bal>[\d,]+\s?\.\s?\d\s?\d)/g,
-    generalDocumentParser,
-  ],
-  [
-    "IDBI Bank Statement",
-    ["IDBI Bank or other authorities"],
-    /^(?<Name>.*?) Address .* A\/C NO: (?<AccNo>\d+)/s,
-    /(?<date>\d\d\/\d\d\/\d{4})\s+(?<particular>.*?)\s+(?<type>Dr\.|Cr\.)\s+\w{3}\s+(?<Amt>[\d,]+\.\d{2})\s+\d\d\/\d\d\/\d{4}\s+\d\d:\d\d:\d\d\s+(?<serialNo>\d+)\s+(?<Bal>-?[\d,]+\.\d{2})/g,
-    (text, metaRx, tableRx) => {
+  },
+  {
+    name: "GSTR-3B",
+    match: ["Form GSTR-3B", "See rule 61(5)"],
+    metaRegex:
+      /Year (?<Year>[\d-]+)\s+Period\s+(.*)\s+GSTIN\s+of\s+the\s+supplier\s+(?<GSTIN>\w+)\s+2\(a\)\.\s+Legal\s+name\s+of\s+the\s+registered\s+person\s+(?<Name>.*)\s+2\(b\)/,
+    tableRegex:
+      /\([a-e]\s?\) (?!and)(.*?) (\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+/g,
+    func: generalDocumentParser,
+  },
+  {
+    name: "TDS",
+    match: ["INCOME TAX DEPARTMENT", "Challan Receipt"],
+    metaRegex:
+      /Nature of Payment : (?<Section_No>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<Amount>\d[\d,.]*).*(?<Deposit_Date>\d\d\-\s?\w{3}-\d{4})/,
+    func: generalDocumentParser,
+  },
+  {
+    name: "Union Bank Statement",
+    match: ["Union Bank of India", "Statement of Account"],
+    metaRegex:
+      /Statement of Account\s+(?<Account_Holder_Name>.*?)\s+.* Account No\s+(?<Account_Number>\d+)/is,
+    tableReegx:
+      /(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d,]+\.\d\s?\d)\s+(?<bal>-?\s?[\d,]+\.\d\s?\d)/g,
+    func: generalDocumentParser,
+  },
+  {
+    name: "Canara Bank Statement",
+    match: ["Canara Bank does not"],
+    metaRegex:
+      /Account Number (?<Account_Number>\d+).* Opening Balance Rs\. (?<Opening_Balance>-?[\d,]+\.\d\d)\s+Closing Balance Rs\. (?<Closing_Balance>-?[\d,]+\.\d\d)/s,
+    tableReegx:
+      /\s\s(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d+,]+\.\d\d)\s+(?<bal>-?[\d+,]+\.\d\d)/g,
+    func: generalDocumentParser,
+  },
+  {
+    name: "RBL Bank Statement",
+    match: ["RBL BANK LTD"],
+    metaRegex:
+      /Account Name: (?<Account_Name>.*?) Home Branch: .* in Account Number:\s+(?<Account_Number>\d+)\s+.* Opening Balance: ₹ (?<Opening_Balance>[\d,]+\.\d{2})\s+Count Of Debit: \d+\s+Closing Balance: ₹ (?<Closing_Balance>[\d,]+\.\d{2})/s,
+    tableReegx:
+      /(?<date>\d\d\/\d\d\/\d{4})\s+\d\d\/\d\d\/\d{4}\s+(?<particular>.*?)\s+(?<amt>[\d,]+\.\s?\d\s?\d)\s+(?<bal>[\d,]+\s?\.\s?\d\s?\d)/g,
+    func: generalDocumentParser,
+  },
+  {
+    name: "IDBI Bank Statement",
+    match: ["IDBI Bank or other authorities"],
+    metaRegex: /^(?<Name>.*?) Address .* A\/C NO: (?<AccNo>\d+)/s,
+    tableRegex:
+      /(?<date>\d\d\/\d\d\/\d{4})\s+(?<particular>.*?)\s+(?<type>Dr\.|Cr\.)\s+\w{3}\s+(?<Amt>[\d,]+\.\d{2})\s+\d\d\/\d\d\/\d{4}\s+\d\d:\d\d:\d\d\s+(?<serialNo>\d+)\s+(?<Bal>-?[\d,]+\.\d{2})/g,
+    func: (text, metaRx, tableRx) => {
       const metadataMatch = text.match(metaRx);
       const metadataFields = {
         "Account Name": metadataMatch?.groups?.Name?.trim() || "N/A",
@@ -139,42 +149,47 @@ export const BUILT_IN_PARSERS = [
         metadataFields,
       };
     },
-  ],
-  [
-    "PNB",
-    [`Stk Stmt: Stock Statement`, `Trf: Transfer`],
-    /Account Number (?<AccountNumber>\d+).*?Account Name: (?<Name>.*?) Customer Address/,
-    /(?<TxnNo>[A-Z]{1}\d+) (?<date>\d\d\/\d\d\/\d{4}) (?<description>.*?) (?<Amt>-?\s?\d[\d,.\s]+\d) (?<bal>\d[\d,.\s]+\d) (?<Effect>Cr|Dr)/,
-    generalDocumentParser,
-  ],
-  [
-    "ICICI",
-    ["PAN can be updated online or at the nearest ICICI Bank Branch ."],
-    /^.*?  (?<Name>.*?)  .* (?<OpeningDate>\d\d-\d\d-\d{4}) B\/F (?<OpeningBalance>[\d,.]+)/,
-    /(?<Date>\d\d-\d\d-\d{4}) (?<Particular>.*?) (?<Amount>[\d,]+\.\d\d) (?<Balance>[\d,.]+) /,
-    generalDocumentParser,
-  ],
-  [
-    "PT Challan",
-    ["CHALLAN MTR Form Number-6"],
-    /Full Name (?<name>.*) Location.*From (?<period>.*) Flat.*TAX (?<amt>\d+\.\d{2}).*RBI Date (?<paymentDate>\d\d\/\d\d\/\d{4})/s,
-    ,
-    generalDocumentParser,
-  ],
-  [
-    "PF Challan Receipts",
-    ["Payment Confirmation Receipt  TRRN No"],
-    /ID : (?<Name>.*) Establishment Name.*\s(?<WageMonth>\w+-\d{4}) Wage Month : (?<Amt>\d[\d,.]*).*Payment Date : (?<PaymentDate>\d{2}-\w+-\d{4})/,
-    ,
-    generalDocumentParser,
-  ],
-  [
-    "PF Challan",
-    "COMBINED CHALLAN OF A/C NO. 01, 02, 10, 21 & 22 (With EMPLOYEES' PROVIDENT FUND ORGANISATION",
-    /(?<Month>\w+) (?<Year>\d{4}) (?<TRRN>\d{13}) (?<Name>.*) Total Subscribers .* (?<Amt>[\d,]+) Grand Total :/s,
-    ,
-    generalDocumentParser,
-  ],
+  },
+  {
+    name: "PNB",
+    match: [`Stk Stmt: Stock Statement`, `Trf: Transfer`],
+    metaRegex:
+      /Account Number (?<AccountNumber>\d+).*?Account Name: (?<Name>.*?) Customer Address/,
+    tableRegex:
+      /(?<TxnNo>[A-Z]{1}\d+) (?<date>\d\d\/\d\d\/\d{4}) (?<description>.*?) (?<Amt>-?\s?\d[\d,.\s]+\d) (?<bal>\d[\d,.\s]+\d) (?<Effect>Cr|Dr)/,
+    func: generalDocumentParser,
+  },
+  {
+    name: "ICICI",
+    match: ["PAN can be updated online or at the nearest ICICI Bank Branch ."],
+    metaRegex:
+      /^.*?  (?<Name>.*?)  .* (?<OpeningDate>\d\d-\d\d-\d{4}) B\/F (?<OpeningBalance>[\d,.]+)/,
+    tableRegex:
+      /(?<Date>\d\d-\d\d-\d{4}) (?<Particular>.*?) (?<Amount>[\d,]+\.\d\d) (?<Balance>[\d,.]+) /,
+    func: generalDocumentParser,
+  },
+  {
+    name: "PT Challan",
+    match: ["CHALLAN MTR Form Number-6"],
+    metaRegex:
+      /Full Name (?<name>.*) Location.*From (?<period>.*) Flat.*TAX (?<amt>\d+\.\d{2}).*RBI Date (?<paymentDate>\d\d\/\d\d\/\d{4})/s,
+    func: generalDocumentParser,
+  },
+  {
+    name: "PF Challan Receipts",
+    match: ["Payment Confirmation Receipt  TRRN No"],
+    metaRegex:
+      /ID : (?<Name>.*) Establishment Name.*\s(?<WageMonth>\w+-\d{4}) Wage Month : (?<Amt>\d[\d,.]*).*Payment Date : (?<PaymentDate>\d{2}-\w+-\d{4})/,
+    func: generalDocumentParser,
+  },
+  {
+    name: "PF Challan",
+    match:
+      "COMBINED CHALLAN OF A/C NO. 01, 02, 10, 21 & 22 (With EMPLOYEES' PROVIDENT FUND ORGANISATION",
+    metaRegex:
+      /(?<Month>\w+) (?<Year>\d{4}) (?<TRRN>\d{13}) (?<Name>.*) Total Subscribers .* (?<Amt>[\d,]+) Grand Total :/s,
+    func: generalDocumentParser,
+  },
 ];
 
 // --- Core Parser Function ---
@@ -182,7 +197,6 @@ export function generalDocumentParser(
   text,
   metadataRegex,
   tableRegex,
-  fieldsToExtract,
 ) {
   let metadataRows = [];
   let metadataFields = {};
@@ -191,22 +205,13 @@ export function generalDocumentParser(
   if (metadataRegex) {
     try {
       const metaMatch = text.match(metadataRegex);
-      if (metaMatch && metaMatch.groups) {
+      if (metaMatch) {
         for (const [key, value] of Object.entries(metaMatch.groups)) {
           const val = value ? value.trim() : "";
           metadataFields[key] = val;
           metadataRows.push([key, val, "", "", "", "", ""]);
         }
-      } else if (metaMatch) {
-        for (let i = 1; i < metaMatch.length; i++) {
-          const val = metaMatch[i] ? metaMatch[i].trim() : "";
-          const key = fieldsToExtract && fieldsToExtract[i - 1]
-            ? fieldsToExtract[i - 1]
-            : `Meta ${i}`;
-          metadataFields[key] = val;
-          metadataRows.push([key, val, "", "", "", "", ""]);
-        }
-      }
+      } 
     } catch (e) {
       console.error("Metadata Regex Error", e);
     }
