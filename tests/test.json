@@ -22,7 +22,7 @@
     }
   }
 }, {
-  "name": "PT Challan",
+  "name": "Professional Tax Challan",
   "text": "CHALLAN MTR Form Number-6 (See Rule 11, 11C, 17, 20, 22(4) and 27B of the Professions Tax Rules, 1975) Account Head 00280012  GRN MH007039490202526E BARCODE Date 13/08/2025-10:49:40 Form ID IIIB  Department Commissioner of Sales Tax Payer Details Type of Payment  Profession Tax - PTRC Maharashtra Profession Tax PTRC  TAX ID / TAN (If Any) 27230757246P  PAN No.(If Applicable) ADIPC2483L  Office Name Commr Sales Tax Mazgaon Full Name ABC Corp  Location MUMBAI  Year 2025-2026 From 01/04/2025 To 31/03/2026 Flat/Block No. Premises/Building Account Head Details Amount In Rs.  AMOUNT OF TAX 5000.00 Road/Street  Area/Locality  Town/City/District  PIN  Remarks (If Any)  IIIB  Amount In Five Thousand Rupees Only  Total 5,000.00 Words  Payment Details UNION BANK OF INDIA FOR USE IN RECEIVING BANK Cheque-DD Details Bank CIN Ref. No. 02901792025081354171 532229233 Cheque/DD No. Bank Date RBI Date 13/08/2025-10:51:35 Not Verified with RBI Name of Bank Bank-Branch UNION BANK OF INDIA Name of Branch Scroll No. , Date Not Verified with Scroll Department ID : URN10023942047TR Mobile No. : 9320355563  Page 1/1 Print Date 13-08-2025 10:51:46 ",
   "expected": {
     "allRows": [
@@ -105,6 +105,24 @@
       "Year": "2025-26",
       "GSTIN": "27SHIBU150YA1ZA",
       "Name": "Gojo Inc"
+    }
+  }
+}, {
+  "name": "Provident Fund Challan Receipts",
+  "text": "Payment Confirmation Receipt  TRRN No : 3010639182508 Payment Confirmed Challan Status : 22-AUG-2025 18:34:29 Challan Generated On : GHGHA0201140000 Establishment ID : GOJO INC Corp. Establishment Name : Monthly Contribution Challan Challan Type : 30 Total Members : JUL-2025 Wage Month : 29,72,489 Total Amount (Rs) : 28,78,192 Account-1 Amount (Rs) : 55,889 Account-2 Amount (Rs) : 36,173 Account-10 Amount (Rs) : 2,235 Account-21 Amount (Rs) : 0 Account-22 Amount (Rs) : Payment Confirmation Bank : Union Bank of India 002861326180825 CRN : Payment Date : 13-AUG-2025 Payment Confirmation Date : 13-AUG-2025 13/08/2025 10: Generated On  0 Total PMRPY Benefit : Page 1 of 1 ",
+  "expected": {
+    "allRows": [
+      ["Name", "GOJO INC Corp.", "", "", "", "", ""],
+      ["WageMonth", "JUL-2025", "", "", "", "", ""],
+      ["Amt", "29,72,489", "", "", "", "", ""],
+      ["PaymentDate", "13-AUG-2025", "", "", "", "", ""],
+      []
+    ],
+    "metadataFields": {
+      "Name": "GOJO INC Corp.",
+      "WageMonth": "JUL-2025",
+      "Amt": "29,72,489",
+      "PaymentDate": "13-AUG-2025"
     }
   }
 }]

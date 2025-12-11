@@ -183,21 +183,21 @@ export const BUILT_IN_PARSERS = [
     func: generalDocumentParser,
   },
   {
-    name: "PT Challan",
+    name: "Professional Tax Challan",
     match: ["CHALLAN MTR Form Number-6"],
     metaRegex:
       /Full Name (?<name>.*) Location.*From (?<period>.*) Flat.*TAX (?<amt>\d+\.\d{2}).*RBI Date (?<paymentDate>\d\d\/\d\d\/\d{4})/s,
     func: generalDocumentParser,
   },
   {
-    name: "PF Challan Receipts",
-    match: ["Payment Confirmation Receipt  TRRN No"],
+    name: "Provident Fund Challan Receipts",
+    match: ["Payment Confirmation Receipt","TRRN No"],
     metaRegex:
       /ID : (?<Name>.*) Establishment Name.*\s(?<WageMonth>\w+-\d{4}) Wage Month : (?<Amt>\d[\d,.]*).*Payment Date : (?<PaymentDate>\d{2}-\w+-\d{4})/,
     func: generalDocumentParser,
   },
   {
-    name: "PF Challan",
+    name: "Provident Fund Challan",
     match: [
       "COMBINED CHALLAN OF A/C NO. 01, 02, 10, 21 & 22 (With EMPLOYEES' PROVIDENT FUND ORGANISATION",
     ],

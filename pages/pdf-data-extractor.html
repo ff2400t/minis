@@ -355,6 +355,7 @@
                         let effectiveTableRx = typeof tableRegex === 'string' ? new RegExp(tableRegex, 'g') : tableRegex;
 
                         parsedData = func(rawText, effectiveMetaRx, effectiveTableRx);
+                        console.debug(JSON.stringify(parsedData))
                         parserFound = true;
                         break;
                     }
