@@ -1,32 +1,25 @@
 [{
   "name": "GST Challan",
-  "text": "GOODS AND SERVICES TAX  PAYMENT RECEIPT  CPIN: 26090501122111 Deposit Date : 25/04/2022 Deposit Time : 16:23:07 e- Scroll : NA  Payment Particulars  CIN: UBIN26090501122111 Name of Bank: UNION BANK OF INDIA BRN: 775512348  Details of Taxpayer  GSTIN: 27AADBA2241G1Z1 E- mail Id:  sXXXXXXXXXXXXX@XXXXXXXin  Mobile No.: 9XXXXX3079  Name: ABC DEV Media LIMITED  Address : XXXXXXXXXX  Maharashtra,400051  Reason For Challan  Reason: Any other payment  Details of Deposit (All Amount in Rs.)  Government Major Head Minor Head  Tax Interest Penalty Fee Others Total  Government  of India  CGST(0005) 108000 - - - - 108000  IGST(0008) 247695 - - - - 247695  CESS(0009) - - - - - -  Sub- Total 355695 0 0 0 0 355695  Maharashtra SGST(0006) 108000 - - - - 108000  Total Amount 463695  Total Amount (in words) Rupees Four Lakhs Sixty- Three Thousand Six hundred Ninety- Five Only  Mode of Payment: Net Banking - UNION BANK OF INDIA  Notes:  1. Status of the transaction can be tracked under 'Track Payment Status' at GST website  2. Payment status will be set as 'Paid' for this transaction.  3. This is a system generated receipt. ",
+  "text": "GOODS AND SERVICES TAX  PAYMENT RECEIPT  CPIN: 280402711170033 Deposit Date : 20/01/2023 Deposit Time : 16:23:07 e- Scroll : NA  Payment Particulars  CIN: UBIN25082700331117 Name of Bank: UNION BANK OF INDIA BRN: 776630910  Details of Taxpayer  GSTIN: 27EREWRE1AA51Z1 E- mail Id:  sXXXXXXXXXXXXX@XXXXXXXin  Mobile No.: 8XXXXX5719  Name: IRB INFRASTRUCTURE  DEVELOPERS LIMITED  Address : XXXXXXXXXX  Maharashtra,400091  Reason For Challan  Reason: Any other payment  Details of Deposit (All Amount in Rs.)  Government Major Head Minor Head  Tax Interest Penalty Fee Others Total  Government  of India  CGST(0005) 108000 - - - - 108000  IGST(0008) 247695 - - - - 247695  CESS(0009) - - - - - -  Sub- Total 355695 0 0 0 0 355695  Maharashtra SGST(0006) 108000 - - - - 108000  Total Amount 463695  Total Amount (in words) Rupees Four Lakhs Sixty- Three Thousand Six hundred Ninety- Five Only  Mode of Payment: Net Banking - UNION BANK OF INDIA  Notes:  1. Status of the transaction can be tracked under 'Track Payment Status' at GST website  2. Payment status will be set as 'Paid' for this transaction.  3. This is a system generated receipt.",
   "expected": {
     "allRows": [
-      [
-        "Head",
-        "Tax",
-        "Interest",
-        "Penalty",
-        "Fees",
-        "Others",
-        "Total"
-      ],
+      ["DepositDate", "20/01/2023", "", "", "", "", ""],
+      ["GSTIN", "27EREWRE1AA51Z1", "", "", "", "", ""],
+      ["Name", "IRB INFRASTRUCTURE  DEVELOPERS LIMITED ", "", "", "", "", ""],
+      ["StateName", "Maharashtra", "", "", "", "", ""],
+      ["Head", "Tax", "Interest", "Penalty", "Fees", "Others", "Total"],
       ["CGST", "108000", "-", "-", "-", "-", "108000"],
       ["IGST", "247695", "-", "-", "-", "-", "247695"],
-      [
-        "CESS",
-        "-",
-        "-",
-        "-",
-        "-",
-        "-",
-        "-"
-      ],
+      ["CESS", "-", "-", "-", "-", "-", "-"],
       ["SGST", "108000", "-", "-", "-", "-", "108000"],
       ["Grand Total", "-", "-", "-", "-", "-", "463695"]
     ],
-    "metadataFields": {}
+    "metadataFields": {
+      "DepositDate": "20/01/2023",
+      "GSTIN": "27EREWRE1AA51Z1",
+      "Name": "IRB INFRASTRUCTURE  DEVELOPERS LIMITED ",
+      "StateName": "Maharashtra"
+    }
   }
 }, {
   "name": "PT Challan",
@@ -68,6 +61,50 @@
       "Section_No": "92B",
       "Amount": "1,19,36,249",
       "Deposit_Date": "07- Aug-2025"
+    }
+  }
+}, {
+  "name": "GSTR-3B",
+  "text": "Form GSTR-3B  [See rule 61(5)]  Year 2025-26  Period August  GSTIN of the supplier 27SHIBU150YA1ZA  2(a). Legal name of the registered person Gojo Inc  2(b). Trade name, if any Unparalled One  2(c). ARN AB27124566386O  2(d). Date of ARN 20/09/2025  (Amount in ₹ for all tables)  3.1 Details of Outward supplies and inward supplies liable to reverse charge  Nature of Supplies Total taxable  value  Integrated  tax  Central  tax  State/ UT  tax  Cess  (a) Outward taxable supplies (other than zero rated, nil rated and  exempted)  0.00 0.00 0.00 0.00 0.00  (b) Outward taxable supplies (zero rated) 32887123.00 0.00 - - 0.00  (c ) Other outward supplies (nil rated, exempted) 0.00 - - - -  (d) Inward supplies (liable to reverse charge) 0.00 0.00 0.00 0.00 0.00  (e) Non- GST outward supplies 0.00 - - - -  3.2 Out of supplies made in 3.1 (a) above, details of inter- state supplies made  Nature of Supplies Total taxable value Integrated tax  Supplies made to Unregistered Persons 0.00 0.00  Supplies made to Composition Taxable  Persons  0.00 0.00  Supplies made to UIN holders 0.00 0.00  4. Eligible ITC  Details Integrated tax Central tax State/ UT tax Cess  A. ITC Available (whether in full or part)  (1) Import of goods 0.00 0.00 0.00 0.00  (2) Import of services 0.00 0.00 0.00 0.00  (3) Inward supplies liable to reverse charge (other than 1 & 2 above) 0.00 0.00 0.00 0.00  (4) Inward supplies from ISD 0.00 0.00 0.00 0.00  (5) All other ITC 29001.39 0.00 0.00 0.00  B. ITC Reversed  (1) As per rules 38,42 & 43 of CGST Rules and section 17(5) 0.00 0.00 0.00 0.00  (2) Others 0.00 0.00 0.00 0.00  C. Net ITC available (A- B) 29001.39 0.00 0.00 0.00  (D) Other Details 0.00 0.00 0.00 0.00  (1) ITC reclaimed which was reversed under Table 4(B) (2) in earlier tax  period  0.00 0.00 0.00 0.00  (2) Ineligible ITC under section 16(4) & ITC restricted due to PoS rules 0.00 0.00 0.00 0.00  FILED 5 Values of exempt, nil- rated and non- GST inward supplies  Nature of Supplies Inter- State supplies Intra- State supplies  From a supplier under composition scheme, Exempt, Nil rated supply 29140327.00 4914237.00  Non GST supply 0.00 0.00  5.1 Interest and Late fee for previous tax period  Details Integrated tax Central tax State/ UT tax Cess  System computed  Interest  - - - -  Interest Paid 0.00 0.00 0.00 0.00  Late fee - 0.00 0.00 -  6.1 Payment of tax  Descripti  on  Tax  payable  Adjustment  of  negative  liability of  previous  tax period  Net Tax  Payable  Tax paid through ITC Tax paid  in cash  Interest  paid in  cash  Late fee  paid in  cash  Integrated  tax  Central  tax  State/ UT  tax  Cess  (A) Other than reverse charge  Integrated  tax  0.00 0.00 0.00 0.00 0.00 0.00 - 0.00 0.00 -  Central  tax  0.00 0.00 0.00 0.00 0.00 - - 0.00 0.00 0.00  State/ UT  tax  0.00 0.00 0.00 0.00 - 0.00 - 0.00 0.00 0.00  Cess 0.00 0.00 0.00 - - - 0.00 0.00 0.00 -  (B) Reverse charge and supplies made u/ s 9(5)  Integrated  tax  0.00 0.00 0.00 - - - - 0.00 - -  Central  tax  0.00 0.00 0.00 - - - - 0.00 - -  State/ UT  tax  0.00 0.00 0.00 - - - - 0.00 - -  Cess 0.00 0.00 0.00 - - - - 0.00 - -  Breakup of tax liability declared (for interest computation)  Period Integrated tax Central tax State/ UT tax Cess  August 2025 0.00 0.00 0.00 0.00  Verification:  I hereby solemnly affirm and declare that the information given herein above is true and correct to the best of my knowledge and belief and  nothing has been concealed there from.  Date: 20/09/2025 Name of Authorized Signatory  Gojo Satou  Designation / Status  Director  FILED ",
+  "expected": {
+    "allRows": [
+      ["Year", "2025-26", "", "", "", "", ""],
+      ["GSTIN", "27SHIBU150YA1ZA", "", "", "", "", ""],
+      ["Name", "Gojo Inc", "", "", "", "", ""],
+      ["Col 1", "Col 2", "Col 3", "Col 4", "Col 5", "Col 6", ""],
+      [
+        "Outward taxable supplies (zero rated)",
+        "32887123.00",
+        "0.00",
+        "-",
+        "-",
+        "0.00",
+        ""
+      ],
+      [
+        "Other outward supplies (nil rated exempted)",
+        "0.00",
+        "-",
+        "-",
+        "-",
+        "-",
+        ""
+      ],
+      [
+        "Inward supplies (liable to reverse charge)",
+        "0.00",
+        "0.00",
+        "0.00",
+        "0.00",
+        "0.00",
+        ""
+      ],
+      ["Non- GST outward supplies", "0.00", "-", "-", "-", "-", ""]
+    ],
+    "metadataFields": {
+      "Year": "2025-26",
+      "GSTIN": "27SHIBU150YA1ZA",
+      "Name": "Gojo Inc"
     }
   }
 }]

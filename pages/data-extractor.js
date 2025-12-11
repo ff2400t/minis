@@ -1,9 +1,22 @@
+/**
+ * @typedef {Object} Parser
+ * @property {string} name 
+ * @property {string[]} match - Array of keywords to match
+ * @property {RegExp} metaRegex - The regular expression used to extract metadata from the text.
+ * @property {RegExp} tableRegex - The regular expression used to match table data from the text.
+ * @property {function(string, RegExp, RegExp): { allRows: (string[]|Object[]), metadataFields: Object }} func - A function that processes the text and applies regex patterns to extract metadata and table data.
+ */
+
+/*
+ * @type {Parser[]}
+ */
 export const BUILT_IN_PARSERS = [
   {
     name: "GST Challan",
-    match: ["GOODS AND SERVICES TAX  PAYMENT RECEIPT"],
+    match: ["GOODS AND SERVICES TAX", "PAYMENT RECEIPT"],
     metaRegex:
-      /Name:\s+(?<Name>.*?)\s+Address.*?GSTIN:\s+(?<GSTIN>\w+).*?Date :\s+(?<Date>\d\d\/\d\d\/\d{4}).*?(?<StateCode>\d+)\s+(?<StateName>[^\d]+?)\s+SGST/s,
+      // /Name:\s+(?<Name>.*?)\s+Address.*?GSTIN:\s+(?<GSTIN>\w+).*?Date :\s+(?<Date>\d\d\/\d\d\/\d{4}).*?(?<StateCode>\d+)\s+(?<StateName>[^\d]+?)\s+SGST/s,
+      /Date : (?<DepositDate>\d\d[\/-]\d\d[\/-]\d{4}) .* GSTIN: (?<GSTIN>.*?) .* Name:\s+(?<Name>.*?) Address.* \s+(?<StateName>[^\d]+?)\s+SGST/s,
     tableRegex:
       /(?<name>\w+)\(.*?\)\s+(?<tax>-|\d+)\s+(?<interest>-|\d+)\s+(?<penalty>-|\d+)\s+(?<fees>-|\d+)\s+(?<others>-|\d+)\s+(?<total>-|\d+)\s+/g,
     func: (text, metaRx, tableRx) => {
@@ -67,8 +80,9 @@ export const BUILT_IN_PARSERS = [
     match: ["Form GSTR-3B", "See rule 61(5)"],
     metaRegex:
       /Year (?<Year>[\d-]+)\s+Period\s+(.*)\s+GSTIN\s+of\s+the\s+supplier\s+(?<GSTIN>\w+)\s+2\(a\)\.\s+Legal\s+name\s+of\s+the\s+registered\s+person\s+(?<Name>.*)\s+2\(b\)/,
+      // the {5,50} is just a hack to so that .* doesn't go haywire and select more than is required.
     tableRegex:
-      /\([a-e]\s?\) (?!and)(.*?) (\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+/g,
+      /\([a-e]\s?\) (.{5,50}) (\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+/g,
     func: generalDocumentParser,
   },
   {
@@ -184,8 +198,9 @@ export const BUILT_IN_PARSERS = [
   },
   {
     name: "PF Challan",
-    match:
+    match: [
       "COMBINED CHALLAN OF A/C NO. 01, 02, 10, 21 & 22 (With EMPLOYEES' PROVIDENT FUND ORGANISATION",
+    ],
     metaRegex:
       /(?<Month>\w+) (?<Year>\d{4}) (?<TRRN>\d{13}) (?<Name>.*) Total Subscribers .* (?<Amt>[\d,]+) Grand Total :/s,
     func: generalDocumentParser,
@@ -211,7 +226,7 @@ export function generalDocumentParser(
           metadataFields[key] = val;
           metadataRows.push([key, val, "", "", "", "", ""]);
         }
-      } 
+      }
     } catch (e) {
       console.error("Metadata Regex Error", e);
     }
