@@ -3,10 +3,12 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF/Image OCR & Text Overlay Tool</title>
+    <title>PDF/Image OCR & Text Overlay Tool (Haunted Hooks)</title>
 
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
+    <!-- PDF.js -->
     <script
       src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
     ></script>
@@ -106,7 +108,7 @@
       function useAppState() {
         const [appMode, setAppMode] = useState("IDLE"); // 'IDLE', 'LOADED', 'PROCESSING', 'COMPLETED'
         const [pdfDoc, setPdfDoc] = useState(null);
-        const [sourceImageData, setSourceImageData] = useState(null); // Persist source image data
+        const [sourceImages, setSourceImages] = useState([]); // Array of strings (DataURLs) for images
         const [processedPagesData, setProcessedPagesData] = useState(
           [],
         );
@@ -124,7 +126,7 @@
           percent: 0,
           text: "Ready to upload file.",
         });
-        const [inputType, setInputType] = useState("NONE"); // 'NONE', 'PDF', 'IMAGE'
+        const [inputType, setInputType] = useState("NONE"); // 'NONE', 'PDF', 'IMAGES'
 
         // Single shared canvas for rendering PDF pages to avoid memory leaks
         const renderCanvasRef = useRef(
@@ -135,33 +137,36 @@
 
         // --- Handlers ---
 
-        const handleFileSelect = useCallback(async (file) => {
-          if (!file || isProcessing) return;
-
-          const mimeType = file.type;
-          const isPdf = mimeType === "application/pdf";
-          const isImage = mimeType.startsWith("image/");
-
-          if (!isPdf && !isImage) return;
+        const handleFileSelect = useCallback(async (fileList) => {
+          if (!fileList || fileList.length === 0 || isProcessing) {
+            return;
+          }
 
           // Reset state
           setAppMode("PROCESSING");
-          setInputType(isPdf ? "PDF" : "IMAGE");
           setProcessedJobCount(0);
           setProcessedPagesData([]);
-          setSourceImageData(null);
+          setSourceImages([]);
           setPageRangeError(false);
           setPdfDoc(null);
           setMaxPage(0);
-          setProgress({
-            percent: 0,
-            text: `Loading ${isPdf ? "PDF" : "Image"} file...`,
-          });
 
-          try {
-            if (isPdf) {
-              // PDF Loading Logic
-              const arrayBuffer = await file.arrayBuffer();
+          const files = Array.from(fileList);
+          const firstFile = files[0];
+
+          // --- PDF HANDLING (Single File) ---
+          if (firstFile.type === "application/pdf") {
+            if (files.length > 1) {
+              alert("For PDFs, please select only one file at a time.");
+              setAppMode("IDLE");
+              return;
+            }
+
+            setInputType("PDF");
+            setProgress({ percent: 0, text: `Loading PDF file...` });
+
+            try {
+              const arrayBuffer = await firstFile.arrayBuffer();
               const doc = await pdfjsLib.getDocument(arrayBuffer)
                 .promise;
               const numPages = doc.numPages;
@@ -173,41 +178,94 @@
                 percent: 0,
                 text: `PDF loaded. ${numPages} page(s) available.`,
               });
-            } else if (isImage) {
-              // Image Loading Logic
-              const arrayBuffer = await file.arrayBuffer();
-              const blob = new Blob([arrayBuffer], { type: mimeType });
-              const imgData = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
+            } catch (err) {
+              console.error("Error loading PDF:", err);
+              setAppMode("IDLE");
+              setProgress({
+                percent: 0,
+                text: `Error loading file: ${err.message}`,
+              });
+            }
+          } // --- IMAGE HANDLING (Multiple Files) ---
+          else if (firstFile.type.startsWith("image/")) {
+            setInputType("IMAGES");
+            setProgress({
+              percent: 0,
+              text: `Loading ${files.length} image(s)...`,
+            });
+
+            try {
+              // Filter for images only
+              const imageFiles = files.filter((f) =>
+                f.type.startsWith("image/")
+              );
+              if (imageFiles.length === 0) {
+                throw new Error("No valid images selected.");
+              }
+
+              // Sort by name to ensure consistent order (e.g. page1.jpg, page2.jpg)
+              imageFiles.sort((a, b) =>
+                a.name.localeCompare(b.name, undefined, {
+                  numeric: true,
+                  sensitivity: "base",
+                })
+              );
+
+              const imagePromises = imageFiles.map((file) => {
+                return new Promise((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onload = () =>
+                    resolve({
+                      name: file.name,
+                      data: reader.result,
+                    });
+                  reader.onerror = reject;
+                  reader.readAsDataURL(file);
+                });
               });
 
-              setSourceImageData(imgData);
+              const loadedImages = await Promise.all(imagePromises);
+              const imageDataArray = loadedImages.map((img) =>
+                img.data
+              );
 
-              // Set preview immediately
-              setProcessedPagesData([{
-                pageNum: 1,
+              setSourceImages(imageDataArray);
+              setMaxPage(imageDataArray.length);
+
+              // Pre-populate processedPagesData so user sees the images immediately
+              const initialData = imageDataArray.map((
+                imgData,
+                index,
+              ) => ({
+                pageNum: index + 1,
                 imgData: imgData,
                 status: "Image loaded. Ready for OCR.",
                 text: "",
                 width: 0,
                 height: 0,
-              }]);
-              setMaxPage(1);
+              }));
+              setProcessedPagesData(initialData);
+
               setAppMode("LOADED");
               setProgress({
                 percent: 0,
-                text: `Image loaded. Ready to process 1 page.`,
+                text:
+                  `${imageDataArray.length} image(s) loaded. Ready to join and process.`,
+              });
+            } catch (err) {
+              console.error("Error loading images:", err);
+              setAppMode("IDLE");
+              setProgress({
+                percent: 0,
+                text: `Error loading images: ${err.message}`,
               });
             }
-          } catch (err) {
-            console.error("Error loading file:", err);
+          } else {
             setAppMode("IDLE");
             setProgress({
               percent: 0,
-              text: `Error loading file: ${err.message}`,
+              text:
+                "Unsupported file type. Please upload PDF or Images.",
             });
           }
         }, [isProcessing]);
@@ -224,42 +282,79 @@
           });
 
           try {
-            // 1. Determine Pages to Process
+            // 1. Determine Pages/Images to Process
             let selectedPages = [];
-            if (inputType === "IMAGE") {
-              selectedPages = [1];
-            } else if (pageSelection === "all") {
-              for (let i = 1; i <= maxPage; i++) {
-                selectedPages.push(i);
+
+            if (inputType === "IMAGES") {
+              // For images, "All Pages" means all loaded images.
+              // Page range selection for multiple images maps 1-based index to the array.
+              if (pageSelection === "all") {
+                for (let i = 1; i <= maxPage; i++) {
+                  selectedPages.push(i);
+                }
+              } else {
+                const parsedPages = parsePageRange(
+                  pageRangeInput,
+                  maxPage,
+                );
+                if (!parsedPages || parsedPages.length === 0) {
+                  throw new Error("Invalid selection.");
+                }
+                selectedPages = parsedPages;
               }
-            } else {
-              const parsedPages = parsePageRange(
-                pageRangeInput,
-                maxPage,
-              );
-              if (!parsedPages || parsedPages.length === 0) {
-                setPageRangeError(true);
-                setAppMode("LOADED");
-                throw new Error("Invalid page selection.");
+            } else if (inputType === "PDF") {
+              if (pageSelection === "all") {
+                for (let i = 1; i <= maxPage; i++) {
+                  selectedPages.push(i);
+                }
+              } else {
+                const parsedPages = parsePageRange(
+                  pageRangeInput,
+                  maxPage,
+                );
+                if (!parsedPages || parsedPages.length === 0) {
+                  throw new Error("Invalid selection.");
+                }
+                selectedPages = parsedPages;
               }
-              selectedPages = parsedPages;
             }
+
             setPagesToProcess(selectedPages);
             const totalJobs = selectedPages.length;
 
-            // 2. Initialize State with Placeholders
-            // This ensures the UI has cards to show immediately
-            const initialData = selectedPages.map((pageNum) => ({
-              pageNum,
-              status: "Pending...",
-              text: "",
-              words: [],
-              // If it's image mode, we technically have data, but we'll re-process flow for consistency
-              imgData: inputType === "IMAGE" ? sourceImageData : null,
-              width: 0,
-              height: 0,
-            }));
-            setProcessedPagesData(initialData);
+            // 2. Initialize/Reset Status
+            // Re-initialize to ensure status is fresh
+            setProcessedPagesData((prev) => {
+              // For images, we want to keep the imgData if we already have it
+              if (inputType === "IMAGES") {
+                return sourceImages.map((imgData, i) => {
+                  const pageNum = i + 1;
+                  if (selectedPages.includes(pageNum)) {
+                    return {
+                      pageNum,
+                      imgData,
+                      status: "Pending...",
+                      text: "",
+                      words: [],
+                      width: 0,
+                      height: 0,
+                    };
+                  }
+                  return null; // Should filter this out later or handle visualization of skipped pages
+                }).filter((p) => p !== null);
+              }
+
+              // For PDF, we initialize empty placeholders
+              return selectedPages.map((pageNum) => ({
+                pageNum,
+                status: "Pending...",
+                text: "",
+                words: [],
+                imgData: null,
+                width: 0,
+                height: 0,
+              }));
+            });
 
             // 3. Scheduler Setup
             let schedulerInstance = scheduler;
@@ -298,10 +393,8 @@
             }
 
             // 4. Sequential Rendering & Parallel OCR
-            // We render pages one by one to reuse the canvas, but fire OCR jobs off to run in parallel.
-
             const ocrPromises = [];
-            const canvas = renderCanvasRef.current; // Reuse this canvas
+            const canvas = renderCanvasRef.current;
 
             for (const pageNum of selectedPages) {
               let pageImgData, width, height;
@@ -315,29 +408,25 @@
                 )
               );
 
-              // B. Render
+              // B. Render / Prepare Image
               if (inputType === "PDF") {
                 const page = await pdfDoc.getPage(pageNum);
-                // Scale 2.0 for OCR quality
                 const viewport = page.getViewport({ scale: 2.0 });
 
                 canvas.width = viewport.width;
                 canvas.height = viewport.height;
-
                 const ctx = canvas.getContext("2d");
-                // Clear canvas
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
                 await page.render({ canvasContext: ctx, viewport })
                   .promise;
-
-                // Capture data immediately
                 pageImgData = canvas.toDataURL("image/jpeg", 0.8);
                 width = viewport.width;
                 height = viewport.height;
               } else {
-                // Image Mode
-                pageImgData = sourceImageData;
+                // IMAGES mode
+                // sourceImages is 0-indexed, pageNum is 1-indexed
+                pageImgData = sourceImages[pageNum - 1];
                 const img = new Image();
                 await new Promise((r) => {
                   img.onload = r;
@@ -347,8 +436,7 @@
                 height = img.height;
               }
 
-              // C. Update State with Image Data (Saved to hook memory now)
-              // This ensures that even if we reuse the canvas, we have a copy of the data.
+              // C. Update State with Image Data
               setProcessedPagesData((prev) =>
                 prev.map((p) =>
                   p.pageNum === pageNum
@@ -370,7 +458,6 @@
               )
                 .then((result) => {
                   const { text, words } = result.data;
-                  // Update state with result
                   setProcessedPagesData((prev) =>
                     prev.map((p) =>
                       p.pageNum === pageNum
@@ -390,22 +477,23 @@
                 });
 
               ocrPromises.push(job);
-
-              // E. Small delay to prevent UI freezing between heavy renders
+              // E. Small delay to unblock UI
               await new Promise((r) => setTimeout(r, 20));
             }
 
-            // 5. Wait for all OCR to finish
+            // 5. Wait for all OCR
             await Promise.all(ocrPromises);
 
             setAppMode("COMPLETED");
             setProgress({
               percent: 100,
-              text: `Done! Processed ${totalJobs} page(s).`,
+              text: `Done! Processed ${totalJobs} page(s)/image(s).`,
             });
           } catch (err) {
             console.error("OCR Process Error:", err);
             setAppMode("LOADED");
+            // Re-enable page range input on error
+            if (pageRangeError) setPageRangeError(true);
             setProgress({
               percent: 0,
               text: `Error during processing: ${err.message}`,
@@ -414,7 +502,7 @@
         }, [
           appMode,
           pdfDoc,
-          sourceImageData,
+          sourceImages,
           pageSelection,
           maxPage,
           pageRangeInput,
@@ -497,8 +585,8 @@
               }
             });
 
-            const fileName = inputType === "IMAGE"
-              ? "ocr-image-to-pdf.pdf"
+            const fileName = inputType === "IMAGES"
+              ? "ocr-joined-images.pdf"
               : "ocr-searchable-pdf.pdf";
             doc.save(fileName);
             setProgress({
@@ -539,23 +627,19 @@
       // --- DROP ZONE WEB COMPONENT ---
 
       function DropZone() {
-        // Get properties passed to the custom element
         const { disabled } = this;
 
-        // Handle file selection from the input element
         const handleFileChange = (e) => {
-          const file = e.target.files?.[0];
-          if (file && !disabled) {
-            // Dispatch custom event with the file object
-            this.dispatchEvent(
-              new CustomEvent("file-selected", { detail: file }),
-            );
-          }
-          // Clear input value so selecting the same file triggers change again
+          if (disabled) return;
+          // Pass the FileList directly
+          this.dispatchEvent(
+            new CustomEvent("file-selected", {
+              detail: e.target.files,
+            }),
+          );
           e.target.value = null;
         };
 
-        // Drag and Drop Handlers
         const handleDragOver = (e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -583,15 +667,16 @@
         const handleDrop = (e) => {
           e.preventDefault();
           e.stopPropagation();
-          handleDragLeave(e); // Remove highlight
+          handleDragLeave(e);
 
           if (disabled) return;
 
-          const file = e.dataTransfer.files?.[0];
-          if (file) {
-            // Dispatch custom event with the dropped file object
+          // Pass dataTransfer.files (FileList)
+          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             this.dispatchEvent(
-              new CustomEvent("file-selected", { detail: file }),
+              new CustomEvent("file-selected", {
+                detail: e.dataTransfer.files,
+              }),
             );
           }
         };
@@ -630,11 +715,11 @@
                   />
                 </svg>
                 <p class="text-sm text-slate-500">
-                  <span class="font-semibold">Click to upload PDF or Image</span>
+                  <span class="font-semibold">Click to upload PDF or Images</span>
                   or drag and drop
                 </p>
                 <p class="text-xs text-slate-400 mt-1">
-                  PDF, JPG, PNG files only
+                  PDF, JPG, PNG files (Multiple images allowed)
                 </p>
               </div>
               <input
@@ -642,6 +727,7 @@
                 type="file"
                 accept="application/pdf,image/jpeg,image/png"
                 class="hidden"
+                multiple
                 @change="${handleFileChange}"
                 ?disabled="${disabled}"
               />
@@ -649,7 +735,6 @@
           </div>
         `;
       }
-      // Register the new custom element. 'disabled' property allows control from parent.
       customElements.define(
         "drop-zone",
         component(DropZone, {
@@ -661,7 +746,6 @@
       // --- MAIN APP COMPONENT ---
 
       function App() {
-        // Destructure all values and handlers from the custom hook
         const {
           appMode,
           processedPagesData,
@@ -687,7 +771,6 @@
         return html`
           ${Header()}
           <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <!-- Updated to use the new <drop-zone> component -->
             <drop-zone
               .disabled="${isProcessing}"
               @file-selected="${(e) => handleFileSelect(e.detail)}"
@@ -779,12 +862,13 @@
               Processing Options
             </h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <!-- 1. Page Selection (Hidden for Image Input) -->
-              <div class="${inputType === "IMAGE"
-                ? "hidden"
-                : "block"}">
-                <label class="block text-sm font-medium text-slate-700 mb-2"
-                >Pages to OCR</label>
+              <!-- 1. Page/Image Selection -->
+              <div class="block">
+                <label class="block text-sm font-medium text-slate-700 mb-2">
+                  ${inputType === "IMAGES"
+                    ? "Images to Process"
+                    : "Pages to OCR"}
+                </label>
                 <div class="flex items-center gap-4">
                   <div class="flex items-center">
                     <input
@@ -803,7 +887,9 @@
                     <label
                       for="allPagesRadio"
                       class="ml-2 block text-sm text-slate-900"
-                    >All Pages (${maxPage})</label>
+                    >
+                      All (${maxPage})
+                    </label>
                   </div>
                   <div class="flex items-center">
                     <input
@@ -822,7 +908,7 @@
                     <label
                       for="selectPagesRadio"
                       class="ml-2 block text-sm text-slate-900"
-                    >Select Range/List</label>
+                    >Select Range</label>
                   </div>
                 </div>
                 <input
@@ -845,20 +931,7 @@
                 <p class="mt-1 text-xs text-red-600 ${pageRangeError
                   ? ""
                   : "hidden"}">
-                  Invalid page range format or page number out of bounds.
-                </p>
-              </div>
-
-              <!-- Page Selection for Images (Filler) -->
-              <div class="${inputType === "IMAGE"
-                ? "block"
-                : "hidden"}">
-                <label class="block text-sm font-medium text-slate-700 mb-2"
-                >Pages to OCR</label>
-                <p
-                  class="mt-2 block w-full rounded-md border border-slate-200 bg-slate-500/5 text-slate-600 text-sm p-2"
-                >
-                  Single image processed as Page 1.
+                  Invalid selection range.
                 </p>
               </div>
 
@@ -887,7 +960,7 @@
                 </p>
               </div>
 
-              <!-- 3. Show Results Toggle (Always visible when loaded) -->
+              <!-- 3. Show Results Toggle -->
               <div class="pl-6 border-l border-slate-100">
                 <label
                   for="showResultsToggle"
@@ -936,10 +1009,7 @@
           disabled = true;
           className = "bg-slate-400 text-white cursor-wait";
         } else if (appMode === "COMPLETED") {
-          // Now only one output mode: New Searchable PDF
-          text = inputType === "IMAGE"
-            ? "Download Searchable PDF"
-            : "Download Searchable PDF";
+          text = "Download Searchable PDF";
           action = generateFinalPDF;
           disabled = false;
           className =
@@ -995,7 +1065,6 @@
           ? "text-green-600"
           : "text-blue-600";
 
-        // Function must be defined here for the component's scope
         const copyText = (e) => {
           const textarea = e.target.closest(".p-4.flex.flex-col")
             .querySelector("textarea");
