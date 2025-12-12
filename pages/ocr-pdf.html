@@ -3,12 +3,10 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF OCR & Text Overlay Tool</title>
+    <title>PDF/Image OCR & Text Overlay Tool</title>
 
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- PDF.js -->
     <script
       src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
     ></script>
@@ -22,7 +20,7 @@
       src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"
     ></script>
 
-    <!-- jsPDF -->
+    <!-- jsPDF (for image-based output) -->
     <script
       src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
     ></script>
@@ -51,13 +49,16 @@
     <script type="module">
       // Load haunted and its dependencies from CDN
       import { html, render } from "https://unpkg.com/lit-html?module";
+      // Import useRef explicitly
       import {
         component,
         useCallback,
         useEffect,
         useMemo,
+        useRef,
         useState,
       } from "https://unpkg.com/haunted?module";
+      // Access jsPDF from the global window object
       const { jsPDF } = window.jspdf;
 
       // --- GLOBAL UTILITIES ---
@@ -105,6 +106,7 @@
       function useAppState() {
         const [appMode, setAppMode] = useState("IDLE"); // 'IDLE', 'LOADED', 'PROCESSING', 'COMPLETED'
         const [pdfDoc, setPdfDoc] = useState(null);
+        const [sourceImageData, setSourceImageData] = useState(null); // Persist source image data
         const [processedPagesData, setProcessedPagesData] = useState(
           [],
         );
@@ -122,37 +124,86 @@
           percent: 0,
           text: "Ready to upload file.",
         });
+        const [inputType, setInputType] = useState("NONE"); // 'NONE', 'PDF', 'IMAGE'
+
+        // Single shared canvas for rendering PDF pages to avoid memory leaks
+        const renderCanvasRef = useRef(
+          document.createElement("canvas"),
+        );
 
         const isProcessing = appMode === "PROCESSING";
 
         // --- Handlers ---
 
         const handleFileSelect = useCallback(async (file) => {
-          if (
-            !file || file.type !== "application/pdf" || isProcessing
-          ) return;
+          if (!file || isProcessing) return;
 
+          const mimeType = file.type;
+          const isPdf = mimeType === "application/pdf";
+          const isImage = mimeType.startsWith("image/");
+
+          if (!isPdf && !isImage) return;
+
+          // Reset state
           setAppMode("PROCESSING");
+          setInputType(isPdf ? "PDF" : "IMAGE");
           setProcessedJobCount(0);
           setProcessedPagesData([]);
+          setSourceImageData(null);
           setPageRangeError(false);
           setPdfDoc(null);
-          setProgress({ percent: 0, text: "Loading PDF document..." });
+          setMaxPage(0);
+          setProgress({
+            percent: 0,
+            text: `Loading ${isPdf ? "PDF" : "Image"} file...`,
+          });
 
           try {
-            const arrayBuffer = await file.arrayBuffer();
-            const doc = await pdfjsLib.getDocument(arrayBuffer).promise;
-            const numPages = doc.numPages;
+            if (isPdf) {
+              // PDF Loading Logic
+              const arrayBuffer = await file.arrayBuffer();
+              const doc = await pdfjsLib.getDocument(arrayBuffer)
+                .promise;
+              const numPages = doc.numPages;
 
-            setPdfDoc(doc);
-            setMaxPage(numPages);
-            setAppMode("LOADED");
-            setProgress({
-              percent: 0,
-              text: `PDF loaded. ${numPages} page(s) available.`,
-            });
+              setPdfDoc(doc);
+              setMaxPage(numPages);
+              setAppMode("LOADED");
+              setProgress({
+                percent: 0,
+                text: `PDF loaded. ${numPages} page(s) available.`,
+              });
+            } else if (isImage) {
+              // Image Loading Logic
+              const arrayBuffer = await file.arrayBuffer();
+              const blob = new Blob([arrayBuffer], { type: mimeType });
+              const imgData = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+              });
+
+              setSourceImageData(imgData);
+
+              // Set preview immediately
+              setProcessedPagesData([{
+                pageNum: 1,
+                imgData: imgData,
+                status: "Image loaded. Ready for OCR.",
+                text: "",
+                width: 0,
+                height: 0,
+              }]);
+              setMaxPage(1);
+              setAppMode("LOADED");
+              setProgress({
+                percent: 0,
+                text: `Image loaded. Ready to process 1 page.`,
+              });
+            }
           } catch (err) {
-            console.error("Error loading PDF:", err);
+            console.error("Error loading file:", err);
             setAppMode("IDLE");
             setProgress({
               percent: 0,
@@ -161,110 +212,11 @@
           }
         }, [isProcessing]);
 
-        const processPage = useCallback(
-          async (pageNum, totalJobs, doc, schedulerInstance) => {
-            const pageIndex = processedPagesData.findIndex((p) =>
-              p.pageNum === pageNum
-            );
-
-            // 1. Setup Canvas for Rendering
-            const page = await doc.getPage(pageNum);
-            const viewport = page.getViewport({ scale: 2.0 });
-
-            const renderCanvas = document.createElement("canvas");
-            renderCanvas.height = viewport.height;
-            renderCanvas.width = viewport.width;
-
-            const renderContext = {
-              canvasContext: renderCanvas.getContext("2d"),
-              viewport: viewport,
-            };
-
-            setProcessedPagesData((prev) => {
-              const newData = [...prev];
-              if (newData[pageIndex]) {
-                newData[pageIndex].status = "Rendering...";
-              }
-              return newData;
-            });
-
-            await page.render(renderContext).promise;
-            const imgData = renderCanvas.toDataURL("image/jpeg", 0.8);
-
-            // 2. Display Image on UI Canvas (Crucial side effect outside state)
-            if (showResults) {
-              const uiCanvas = document.getElementById(
-                `canvas-${pageNum}`,
-              );
-              if (uiCanvas) {
-                // Draw the image on the visible canvas
-                uiCanvas.height = viewport.height / 2;
-                uiCanvas.width = viewport.width / 2;
-                const ctx = uiCanvas.getContext("2d");
-                const img = new Image();
-                img.onload = () => {
-                  ctx.drawImage(
-                    img,
-                    0,
-                    0,
-                    uiCanvas.width,
-                    uiCanvas.height,
-                  );
-                };
-                img.src = imgData;
-              }
-            }
-
-            // 3. Perform OCR
-            setProcessedPagesData((prev) => {
-              const newData = [...prev];
-              if (newData[pageIndex]) {
-                newData[pageIndex].status = "OCR Processing...";
-              }
-              return newData;
-            });
-
-            const result = await schedulerInstance.addJob(
-              "recognize",
-              imgData,
-            );
-            const { text, words } = result.data;
-
-            // 4. Store result
-            setProcessedPagesData((prev) => {
-              const newData = [...prev];
-              newData[pageIndex] = {
-                pageNum,
-                imgData: imgData,
-                width: viewport.width,
-                height: viewport.height,
-                words: words,
-                text: text,
-                status: "Completed",
-              };
-              return newData;
-            });
-
-            setProcessedJobCount((prev) => {
-              const newCount = prev + 1;
-              const percent = Math.round((newCount / totalJobs) * 100);
-              setProgress({
-                percent: percent,
-                text:
-                  `OCR complete for page ${pageNum} (${newCount} of ${totalJobs})...`,
-              });
-              return newCount;
-            });
-          },
-          [processedPagesData, showResults],
-        ); // Dependencies: processedPagesData, showResults
-
         const startProcessing = useCallback(async () => {
-          if (appMode !== "LOADED" || !pdfDoc) return;
+          if (appMode !== "LOADED") return;
 
           setAppMode("PROCESSING");
           setProcessedJobCount(0);
-          setProcessedPagesData([]);
           setPageRangeError(false);
           setProgress({
             percent: 0,
@@ -274,7 +226,9 @@
           try {
             // 1. Determine Pages to Process
             let selectedPages = [];
-            if (pageSelection === "all") {
+            if (inputType === "IMAGE") {
+              selectedPages = [1];
+            } else if (pageSelection === "all") {
               for (let i = 1; i <= maxPage; i++) {
                 selectedPages.push(i);
               }
@@ -293,7 +247,21 @@
             setPagesToProcess(selectedPages);
             const totalJobs = selectedPages.length;
 
-            // 2. Scheduler Setup & Worker Creation
+            // 2. Initialize State with Placeholders
+            // This ensures the UI has cards to show immediately
+            const initialData = selectedPages.map((pageNum) => ({
+              pageNum,
+              status: "Pending...",
+              text: "",
+              words: [],
+              // If it's image mode, we technically have data, but we'll re-process flow for consistency
+              imgData: inputType === "IMAGE" ? sourceImageData : null,
+              width: 0,
+              height: 0,
+            }));
+            setProcessedPagesData(initialData);
+
+            // 3. Scheduler Setup
             let schedulerInstance = scheduler;
             const requestedWorkerCount = workerCount;
 
@@ -329,30 +297,111 @@
               setCurrentWorkerCount(requestedWorkerCount);
             }
 
-            // 3. Initialize processedPagesData
-            setProcessedPagesData(selectedPages.map((pageNum) => ({
-              pageNum,
-              status: "Rendering & OCR Queued...",
-              text: "",
-            })));
+            // 4. Sequential Rendering & Parallel OCR
+            // We render pages one by one to reuse the canvas, but fire OCR jobs off to run in parallel.
 
-            // 4. Start concurrent page processing
-            setProgress({
-              percent: 0,
-              text: `Rendering pages for OCR...`,
-            });
-            const jobPromises = selectedPages.map((pageNum) =>
-              processPage(pageNum, totalJobs, pdfDoc, schedulerInstance)
-            );
+            const ocrPromises = [];
+            const canvas = renderCanvasRef.current; // Reuse this canvas
 
-            await Promise.all(jobPromises);
+            for (const pageNum of selectedPages) {
+              let pageImgData, width, height;
 
-            // 5. Finalize
+              // A. Update Status to Rendering
+              setProcessedPagesData((prev) =>
+                prev.map((p) =>
+                  p.pageNum === pageNum
+                    ? { ...p, status: "Rendering..." }
+                    : p
+                )
+              );
+
+              // B. Render
+              if (inputType === "PDF") {
+                const page = await pdfDoc.getPage(pageNum);
+                // Scale 2.0 for OCR quality
+                const viewport = page.getViewport({ scale: 2.0 });
+
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+
+                const ctx = canvas.getContext("2d");
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                await page.render({ canvasContext: ctx, viewport })
+                  .promise;
+
+                // Capture data immediately
+                pageImgData = canvas.toDataURL("image/jpeg", 0.8);
+                width = viewport.width;
+                height = viewport.height;
+              } else {
+                // Image Mode
+                pageImgData = sourceImageData;
+                const img = new Image();
+                await new Promise((r) => {
+                  img.onload = r;
+                  img.src = pageImgData;
+                });
+                width = img.width;
+                height = img.height;
+              }
+
+              // C. Update State with Image Data (Saved to hook memory now)
+              // This ensures that even if we reuse the canvas, we have a copy of the data.
+              setProcessedPagesData((prev) =>
+                prev.map((p) =>
+                  p.pageNum === pageNum
+                    ? {
+                      ...p,
+                      imgData: pageImgData,
+                      width,
+                      height,
+                      status: "OCR Processing...",
+                    }
+                    : p
+                )
+              );
+
+              // D. Schedule OCR Job
+              const job = schedulerInstance.addJob(
+                "recognize",
+                pageImgData,
+              )
+                .then((result) => {
+                  const { text, words } = result.data;
+                  // Update state with result
+                  setProcessedPagesData((prev) =>
+                    prev.map((p) =>
+                      p.pageNum === pageNum
+                        ? { ...p, text, words, status: "Completed" }
+                        : p
+                    )
+                  );
+                  setProcessedJobCount((prev) => {
+                    const newCount = prev + 1;
+                    setProgress({
+                      percent: Math.round((newCount / totalJobs) * 100),
+                      text:
+                        `OCR processed page ${pageNum} (${newCount} of ${totalJobs}).`,
+                    });
+                    return newCount;
+                  });
+                });
+
+              ocrPromises.push(job);
+
+              // E. Small delay to prevent UI freezing between heavy renders
+              await new Promise((r) => setTimeout(r, 20));
+            }
+
+            // 5. Wait for all OCR to finish
+            await Promise.all(ocrPromises);
+
             setAppMode("COMPLETED");
             setProgress({
               percent: 100,
-              text:
-                `Done! Processed ${totalJobs} page(s). Ready to download.`,
+              text: `Done! Processed ${totalJobs} page(s).`,
             });
           } catch (err) {
             console.error("OCR Process Error:", err);
@@ -365,31 +414,39 @@
         }, [
           appMode,
           pdfDoc,
+          sourceImageData,
           pageSelection,
           maxPage,
           pageRangeInput,
           workerCount,
           scheduler,
           currentWorkerCount,
-          processPage,
+          inputType,
         ]);
 
-        const generateSearchablePDF = useCallback(async () => {
+        // --- PDF OUTPUT FUNCTION ---
+
+        const generateFinalPDF = useCallback(async () => {
           if (
             appMode !== "COMPLETED" || processedPagesData.length === 0
           ) return;
 
-          // Sort data by page number to ensure PDF pages are in the correct order
+          // Sort data by page number
           const sortedData = [...processedPagesData].sort((a, b) =>
             a.pageNum - b.pageNum
           );
 
-          setProgress({ percent: 100, text: "Generating PDF file..." });
+          setProgress({
+            percent: 100,
+            text: "Generating Searchable PDF file...",
+          });
 
           try {
             const firstPage = sortedData[0];
             const doc = new jsPDF({
-              orientation: "portrait",
+              orientation: firstPage.width > firstPage.height
+                ? "landscape"
+                : "portrait",
               unit: "px",
               format: [firstPage.width, firstPage.height],
             });
@@ -403,44 +460,56 @@
               const height = pageData.height;
 
               // 1. Add the original image as background
-              doc.addImage(
-                pageData.imgData,
-                "JPEG",
-                0,
-                0,
-                width,
-                height,
-              );
+              if (
+                pageData.imgData &&
+                typeof pageData.imgData === "string" &&
+                pageData.imgData.startsWith("data:")
+              ) {
+                doc.addImage(
+                  pageData.imgData,
+                  "JPEG",
+                  0,
+                  0,
+                  width,
+                  height,
+                );
+              } else {
+                console.warn(
+                  `Skipping image add for page ${pageData.pageNum} due to missing data.`,
+                );
+              }
 
               // 2. Add invisible text overlay
               doc.setFontSize(12);
-              doc.setTextColor(255, 255, 255);
+              doc.setTextColor(255, 255, 255); // White text
               doc.internal.write("3 Tr"); // Text Rendering Mode 3 (Invisible)
 
-              pageData.words.forEach((word) => {
-                const { text, bbox } = word;
-                // Calculate font size based on word height
-                const h = bbox.y1 - bbox.y0;
-                const fontSize = h * 0.9;
-                doc.setFontSize(fontSize);
-                // Adjust coordinates for PDF space (y-coordinates need adjustment for bottom baseline)
-                doc.text(text, bbox.x0, bbox.y1, {
-                  baseline: "bottom",
+              if (pageData.words) {
+                pageData.words.forEach((word) => {
+                  const { text, bbox } = word;
+                  const h = bbox.y1 - bbox.y0;
+                  const fontSize = h * 0.9;
+                  doc.setFontSize(fontSize);
+                  doc.text(text, bbox.x0, bbox.y1, {
+                    baseline: "bottom",
+                  });
                 });
-              });
+              }
             });
 
-            doc.save("ocr-searchable-result.pdf");
+            const fileName = inputType === "IMAGE"
+              ? "ocr-image-to-pdf.pdf"
+              : "ocr-searchable-pdf.pdf";
+            doc.save(fileName);
             setProgress({
               percent: 100,
-              text:
-                "PDF downloaded successfully! Upload a new file to start over.",
+              text: "PDF downloaded successfully!",
             });
           } catch (err) {
             console.error(err);
             setProgress({ percent: 100, text: "Error creating PDF." });
           }
-        }, [appMode, processedPagesData]);
+        }, [appMode, processedPagesData, inputType]);
 
         return {
           appMode,
@@ -448,6 +517,7 @@
           processedPagesData,
           progress,
           isProcessing,
+          inputType,
           maxPage,
           setMaxPage,
           workerCount,
@@ -462,11 +532,195 @@
           setPageRangeError,
           handleFileSelect,
           startProcessing,
-          generateSearchablePDF,
+          generateFinalPDF,
         };
       }
 
-      // --- COMPONENTS ---
+      // --- DROP ZONE WEB COMPONENT ---
+
+      function DropZone() {
+        // Get properties passed to the custom element
+        const { disabled } = this;
+
+        // Handle file selection from the input element
+        const handleFileChange = (e) => {
+          const file = e.target.files?.[0];
+          if (file && !disabled) {
+            // Dispatch custom event with the file object
+            this.dispatchEvent(
+              new CustomEvent("file-selected", { detail: file }),
+            );
+          }
+          // Clear input value so selecting the same file triggers change again
+          e.target.value = null;
+        };
+
+        // Drag and Drop Handlers
+        const handleDragOver = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!disabled) {
+            e.currentTarget.classList.add(
+              "border-blue-500",
+              "ring-2",
+              "ring-blue-200",
+              "scale-[1.02]",
+            );
+          }
+        };
+
+        const handleDragLeave = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          e.currentTarget.classList.remove(
+            "border-blue-500",
+            "ring-2",
+            "ring-blue-200",
+            "scale-[1.02]",
+          );
+        };
+
+        const handleDrop = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleDragLeave(e); // Remove highlight
+
+          if (disabled) return;
+
+          const file = e.dataTransfer.files?.[0];
+          if (file) {
+            // Dispatch custom event with the dropped file object
+            this.dispatchEvent(
+              new CustomEvent("file-selected", { detail: file }),
+            );
+          }
+        };
+
+        return html`
+          <div id="uploadSection" class="mb-8">
+            <label
+              for="fileInput"
+              id="dropZoneLabel"
+              class="
+                flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-xl cursor-pointer bg-white hover:bg-slate-50 transition-all duration-150
+                ${disabled
+                  ? "opacity-50 cursor-not-allowed"
+                  : "hover:border-blue-400"}
+              "
+              @dragover="${handleDragOver}"
+              @dragleave="${handleDragLeave}"
+              @drop="${handleDrop}"
+            >
+              <div
+                class="flex flex-col items-center justify-center pt-5 pb-6 pointer-events-none"
+              >
+                <svg
+                  class="w-8 h-8 mb-3 text-slate-400"
+                  aria-hidden="true"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 20 16"
+                >
+                  <path
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
+                  />
+                </svg>
+                <p class="text-sm text-slate-500">
+                  <span class="font-semibold">Click to upload PDF or Image</span>
+                  or drag and drop
+                </p>
+                <p class="text-xs text-slate-400 mt-1">
+                  PDF, JPG, PNG files only
+                </p>
+              </div>
+              <input
+                id="fileInput"
+                type="file"
+                accept="application/pdf,image/jpeg,image/png"
+                class="hidden"
+                @change="${handleFileChange}"
+                ?disabled="${disabled}"
+              />
+            </label>
+          </div>
+        `;
+      }
+      // Register the new custom element. 'disabled' property allows control from parent.
+      customElements.define(
+        "drop-zone",
+        component(DropZone, {
+          properties: { disabled: Boolean },
+          useShadowDOM: false,
+        }),
+      );
+
+      // --- MAIN APP COMPONENT ---
+
+      function App() {
+        // Destructure all values and handlers from the custom hook
+        const {
+          appMode,
+          processedPagesData,
+          progress,
+          isProcessing,
+          inputType,
+          maxPage,
+          workerCount,
+          setWorkerCount,
+          showResults,
+          setShowResults,
+          pageRangeInput,
+          setPageRangeInput,
+          pageSelection,
+          setPageSelection,
+          pageRangeError,
+          setPageRangeError,
+          handleFileSelect,
+          startProcessing,
+          generateFinalPDF,
+        } = useAppState();
+
+        return html`
+          ${Header()}
+          <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Updated to use the new <drop-zone> component -->
+            <drop-zone
+              .disabled="${isProcessing}"
+              @file-selected="${(e) => handleFileSelect(e.detail)}"
+            ></drop-zone>
+
+            ${OptionsPanel({
+              appMode,
+              isProcessing,
+              maxPage,
+              workerCount,
+              setWorkerCount,
+              showResults,
+              setShowResults,
+              pageRangeInput,
+              setPageRangeInput,
+              pageSelection,
+              setPageSelection,
+              pageRangeError,
+              setPageRangeError,
+              inputType,
+            })} ${MainActionButton({
+              appMode,
+              startProcessing,
+              generateFinalPDF,
+              inputType,
+            })} ${ProgressBar({ appMode, progress })} ${ResultsArea({
+              processedPagesData,
+              showResults,
+              appMode,
+            })}
+          </main>
+        `;
+      }
 
       const Header = () =>
         html`
@@ -490,64 +744,11 @@
                   />
                 </svg>
                 <h1 class="text-xl font-bold text-slate-900">
-                  OCR Overlay Tool (Haunted Hooks)
+                  OCR Overlay Tool (PDF & Images)
                 </h1>
               </div>
             </div>
           </header>
-        `;
-
-      const UploadArea = ({ handleFileSelect, isProcessing }) =>
-        html`
-          <div id="uploadSection" class="mb-8">
-            <label
-              for="fileInput"
-              id="dropZone"
-              class="
-                flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-slate-50 transition-all
-                ${isProcessing ? "opacity-50 cursor-not-allowed" : ""}
-              "
-            >
-              <div
-                class="flex flex-col items-center justify-center pt-5 pb-6 pointer-events-none"
-              >
-                <svg
-                  class="w-8 h-8 mb-3 text-slate-400"
-                  aria-hidden="true"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 20 16"
-                >
-                  <path
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
-                  />
-                </svg>
-                <p class="text-sm text-slate-500">
-                  <span class="font-semibold">Click to upload PDF</span> or drag
-                  and drop
-                </p>
-                <p class="text-xs text-slate-400 mt-1">
-                  PDF files only (No external servers are used)
-                </p>
-              </div>
-              <input
-                id="fileInput"
-                type="file"
-                accept="application/pdf"
-                class="hidden"
-                @change="${(e) => handleFileSelect(e.target.files[0])}"
-                ?disabled="${isProcessing}"
-                @click="${(e) => {
-                  // Clear input if re-uploading the same file to trigger change event
-                  if (!isProcessing) e.target.value = null;
-                }}"
-              />
-            </label>
-          </div>
         `;
 
       const OptionsPanel = ({
@@ -564,6 +765,7 @@
         setPageSelection,
         pageRangeError,
         setPageRangeError,
+        inputType,
       }) => {
         const isVisible = appMode !== "IDLE";
 
@@ -577,8 +779,10 @@
               Processing Options
             </h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <!-- 1. Page Selection -->
-              <div>
+              <!-- 1. Page Selection (Hidden for Image Input) -->
+              <div class="${inputType === "IMAGE"
+                ? "hidden"
+                : "block"}">
                 <label class="block text-sm font-medium text-slate-700 mb-2"
                 >Pages to OCR</label>
                 <div class="flex items-center gap-4">
@@ -645,8 +849,23 @@
                 </p>
               </div>
 
+              <!-- Page Selection for Images (Filler) -->
+              <div class="${inputType === "IMAGE"
+                ? "block"
+                : "hidden"}">
+                <label class="block text-sm font-medium text-slate-700 mb-2"
+                >Pages to OCR</label>
+                <p
+                  class="mt-2 block w-full rounded-md border border-slate-200 bg-slate-500/5 text-slate-600 text-sm p-2"
+                >
+                  Single image processed as Page 1.
+                </p>
+              </div>
+
               <!-- 2. Worker Count -->
-              <div class="border-l pl-6 border-slate-100">
+              <div class="pl-6 border-slate-100 ${inputType !== "NONE"
+                ? "border-l"
+                : ""}">
                 <label
                   for="workerCountInput"
                   class="block text-sm font-medium text-slate-700 mb-2"
@@ -668,8 +887,8 @@
                 </p>
               </div>
 
-              <!-- 3. Toggle Display -->
-              <div class="border-l pl-6 border-slate-100">
+              <!-- 3. Show Results Toggle (Always visible when loaded) -->
+              <div class="pl-6 border-l border-slate-100">
                 <label
                   for="showResultsToggle"
                   class="relative inline-flex items-center cursor-pointer mb-2"
@@ -689,7 +908,7 @@
                   >Show Page Results</span>
                 </label>
                 <p class="text-xs text-slate-400 mt-1">
-                  Hide to speed up processing on very large PDFs.
+                  Hide to speed up processing on very large documents.
                 </p>
               </div>
             </div>
@@ -698,7 +917,7 @@
       };
 
       const MainActionButton = (
-        { appMode, startProcessing, generateSearchablePDF },
+        { appMode, startProcessing, generateFinalPDF, inputType },
       ) => {
         let text = "";
         let action = () => {};
@@ -717,8 +936,11 @@
           disabled = true;
           className = "bg-slate-400 text-white cursor-wait";
         } else if (appMode === "COMPLETED") {
-          text = "Download Searchable PDF";
-          action = generateSearchablePDF;
+          // Now only one output mode: New Searchable PDF
+          text = inputType === "IMAGE"
+            ? "Download Searchable PDF"
+            : "Download Searchable PDF";
+          action = generateFinalPDF;
           disabled = false;
           className =
             "bg-green-600 text-white hover:bg-green-700 shadow-lg";
@@ -732,7 +954,7 @@
           <button
             @click="${action}"
             ?disabled="${disabled}"
-            class="w-full mb-8 flex justify-center items-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${className}"
+            class="w-full mb-8 flex justify-center items-center gap-2 px-4 py-3 rounded-xl font-medium transition-colors ${className}"
           >
             ${text}
           </button>
@@ -786,7 +1008,7 @@
 
         return html`
           <div
-            class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"
+            class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden"
           >
             <div
               class="border-b border-slate-100 bg-slate-50 px-4 py-3 flex justify-between items-center"
@@ -808,11 +1030,15 @@
               <div
                 class="p-4 bg-slate-50/50 flex items-start justify-center overflow-auto max-h-[600px] custom-scrollbar"
               >
-                <!-- Canvas ID must match the one referenced in the processPage hook logic -->
-                <canvas
-                  id="canvas-${page.pageNum}"
-                  class="pdf-canvas shadow-lg max-w-full h-auto"
-                ></canvas>
+                <!-- Show the captured image data -->
+                ${page.imgData
+                  ? html`
+                    <img src="${page
+                      .imgData}" class="shadow-lg max-w-full h-auto" />
+                  `
+                  : html`
+                    <div class="text-slate-400 text-sm italic">Image pending...</div>
+                  `}
               </div>
               <!-- Text Column -->
               <div class="p-4 flex flex-col h-[600px]">
@@ -856,64 +1082,6 @@
           </div>
         `;
       };
-
-      // --- MAIN APP COMPONENT ---
-
-      function App() {
-        // Destructure all values and handlers from the custom hook
-        const {
-          appMode,
-          processedPagesData,
-          progress,
-          isProcessing,
-          maxPage,
-          workerCount,
-          setWorkerCount,
-          showResults,
-          setShowResults,
-          pageRangeInput,
-          setPageRangeInput,
-          pageSelection,
-          setPageSelection,
-          pageRangeError,
-          setPageRangeError,
-          handleFileSelect,
-          startProcessing,
-          generateSearchablePDF,
-        } = useAppState();
-
-        return html`
-          ${Header()}
-          <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            ${UploadArea({
-              handleFileSelect,
-              isProcessing,
-            })} ${OptionsPanel({
-              appMode,
-              isProcessing,
-              maxPage,
-              workerCount,
-              setWorkerCount,
-              showResults,
-              setShowResults,
-              pageRangeInput,
-              setPageRangeInput,
-              pageSelection,
-              setPageSelection,
-              pageRangeError,
-              setPageRangeError,
-            })} ${MainActionButton({
-              appMode,
-              startProcessing,
-              generateSearchablePDF,
-            })} ${ProgressBar({ appMode, progress })} ${ResultsArea({
-              processedPagesData,
-              showResults,
-              appMode,
-            })}
-          </main>
-        `;
-      }
 
       // Register the main application component
       customElements.define(
