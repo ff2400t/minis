@@ -519,7 +519,7 @@
             appMode !== "COMPLETED" || processedPagesData.length === 0
           ) return;
 
-          // Sort data by page number
+          // Sort data by page number to ensure PDF pages are in the correct order
           const sortedData = [...processedPagesData].sort((a, b) =>
             a.pageNum - b.pageNum
           );
@@ -531,21 +531,30 @@
 
           try {
             const firstPage = sortedData[0];
-            const doc = new jsPDF({
-              orientation: firstPage.width > firstPage.height
+            // Explicitly determine orientation for the first page
+            const firstPageOrientation =
+              firstPage.width > firstPage.height
                 ? "landscape"
-                : "portrait",
+                : "portrait";
+
+            const doc = new jsPDF({
+              orientation: firstPageOrientation,
               unit: "px",
               format: [firstPage.width, firstPage.height],
             });
 
             sortedData.forEach((pageData, index) => {
-              if (index > 0) {
-                doc.addPage([pageData.width, pageData.height]);
-              }
-
               const width = pageData.width;
               const height = pageData.height;
+              const orientation = width > height
+                ? "landscape"
+                : "portrait";
+
+              if (index > 0) {
+                // Add new page with correct dimensions if it's not the first page
+                // Passing specific format AND orientation ensures mixed-size pages work correctly
+                doc.addPage([width, height], orientation);
+              }
 
               // 1. Add the original image as background
               if (
@@ -575,9 +584,11 @@
               if (pageData.words) {
                 pageData.words.forEach((word) => {
                   const { text, bbox } = word;
+                  // Calculate font size based on word height
                   const h = bbox.y1 - bbox.y0;
                   const fontSize = h * 0.9;
                   doc.setFontSize(fontSize);
+                  // Adjust coordinates for PDF space (y-coordinates need adjustment for bottom baseline)
                   doc.text(text, bbox.x0, bbox.y1, {
                     baseline: "bottom",
                   });
