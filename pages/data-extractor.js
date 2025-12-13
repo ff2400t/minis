@@ -1,10 +1,24 @@
 /**
  * @typedef {Object} Parser
- * @property {string} name 
+ * @property {string} name
  * @property {string[]} match - Array of keywords to match
  * @property {RegExp} metaRegex - The regular expression used to extract metadata from the text.
  * @property {RegExp} tableRegex - The regular expression used to match table data from the text.
- * @property {function(string, RegExp, RegExp): { allRows: (string[]|Object[]), metadataFields: Object }} func - A function that processes the text and applies regex patterns to extract metadata and table data.
+ * @property {ParseFunc} func - A function that processes the text and applies regex patterns to extract metadata and table data.
+ */
+
+
+/**
+ * @typedef {{ allRows: (string[]|Object[]), metadataFields: Object }} ParserResult
+ */
+
+/**
+ *
+ * @callback ParseFunc
+ * @param {string} text
+ * @param {RegExp} metaRegex
+ * @param {RegExp | undefined} tableRegex
+ * @returns {ParserResult}
  */
 
 /*
@@ -19,22 +33,18 @@ export const BUILT_IN_PARSERS = [
       /Date : (?<DepositDate>\d\d[\/-]\d\d[\/-]\d{4}) .* GSTIN: (?<GSTIN>.*?) .* Name:\s+(?<Name>.*?) Address.* \s+(?<StateName>[^\d]+?)\s+SGST/s,
     tableRegex:
       /(?<name>\w+)\(.*?\)\s+(?<tax>-|\d+)\s+(?<interest>-|\d+)\s+(?<penalty>-|\d+)\s+(?<fees>-|\d+)\s+(?<others>-|\d+)\s+(?<total>-|\d+)\s+/g,
+    /** @type ParseFunc **/
     func: (text, metaRx, tableRx) => {
       const metadataFields = {};
       const metaMatch = text.match(metaRx);
       if (metaMatch && metaMatch.groups) {
         Object.assign(metadataFields, metaMatch.groups);
-        if (metaMatch.groups.StateCode && metaMatch.groups.StateName) {
-          metadataFields.State =
-            `${metaMatch.groups.StateCode} ${metaMatch.groups.StateName}`;
-          delete metadataFields.StateCode;
-          delete metadataFields.StateName;
-        }
       }
 
       const metadataRows = Object.entries(metadataFields).map((
         [k, v],
       ) => [k, v, "", "", "", "", ""]);
+      // @ts-ignore
       const matches = [...text.matchAll(tableRx)];
       const headers = [
         "Head",
@@ -46,18 +56,22 @@ export const BUILT_IN_PARSERS = [
         "Total",
       ];
       const dataRows = matches.map(
-        (m) => [
-          m.groups.name,
-          m.groups.tax,
-          m.groups.interest,
-          m.groups.penalty,
-          m.groups.fees,
-          m.groups.others,
-          m.groups.total,
-        ],
+        (m) =>
+          m.groups
+            ? [
+              m.groups.name,
+              m.groups.tax,
+              m.groups.interest,
+              m.groups.penalty,
+              m.groups.fees,
+              m.groups.others,
+              m.groups.total,
+            ]
+            : [],
       );
 
       const totalMatch = text.match(/Total Amount\s+([\d,]+)/);
+      // @ts-ignore it's fine
       if (totalMatch && !matches.find((m) => m.groups.name === "Total")) {
         dataRows.push([
           "Grand Total",
@@ -80,7 +94,7 @@ export const BUILT_IN_PARSERS = [
     match: ["Form GSTR-3B", "See rule 61(5)"],
     metaRegex:
       /Year (?<Year>[\d-]+)\s+Period\s+(.*)\s+GSTIN\s+of\s+the\s+supplier\s+(?<GSTIN>\w+)\s+2\(a\)\.\s+Legal\s+name\s+of\s+the\s+registered\s+person\s+(?<Name>.*)\s+2\(b\)/,
-      // the {5,50} is just a hack to so that .* doesn't go haywire and select more than is required.
+    // the {5,50} is just a hack to so that .* doesn't go haywire and select more than is required.
     tableRegex:
       /\([a-e]\s?\) (.{5,50}) (\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+/g,
     func: generalDocumentParser,
@@ -89,7 +103,7 @@ export const BUILT_IN_PARSERS = [
     name: "TDS",
     match: ["INCOME TAX DEPARTMENT", "Challan Receipt"],
     metaRegex:
-      /Nature of Payment : (?<Section_No>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<Amount>\d[\d,.]*).*(?<Deposit_Date>\d\d\-\s?\w{3}-\d{4})/,
+      /Nature of Payment : (?<SectionNo>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<Amount>\d[\d,.]*).*(?<DepositDate>\d\d\-\s?\w{3}-\d{4})/,
     func: generalDocumentParser,
   },
   {
@@ -125,6 +139,7 @@ export const BUILT_IN_PARSERS = [
     metaRegex: /^(?<Name>.*?) Address .* A\/C NO: (?<AccNo>\d+)/s,
     tableRegex:
       /(?<date>\d\d\/\d\d\/\d{4})\s+(?<particular>.*?)\s+(?<type>Dr\.|Cr\.)\s+\w{3}\s+(?<Amt>[\d,]+\.\d{2})\s+\d\d\/\d\d\/\d{4}\s+\d\d:\d\d:\d\d\s+(?<serialNo>\d+)\s+(?<Bal>-?[\d,]+\.\d{2})/g,
+    /** @type ParseFunc **/
     func: (text, metaRx, tableRx) => {
       const metadataMatch = text.match(metaRx);
       const metadataFields = {
@@ -135,6 +150,7 @@ export const BUILT_IN_PARSERS = [
         [k, v],
       ) => [k, v, "", "", "", "", ""]);
 
+      // @ts-ignore
       const matches = [...text.matchAll(tableRx)];
       const headers = [
         "Date",
@@ -146,6 +162,7 @@ export const BUILT_IN_PARSERS = [
         "",
       ];
       const dataRows = matches.map((m) => {
+        /** @type {any} */
         const g = m.groups;
         const amount = g.type === "Dr." ? `-${g.Amt}` : g.Amt;
         return [
@@ -191,7 +208,7 @@ export const BUILT_IN_PARSERS = [
   },
   {
     name: "Provident Fund Challan Receipts",
-    match: ["Payment Confirmation Receipt","TRRN No"],
+    match: ["Payment Confirmation Receipt", "TRRN No"],
     metaRegex:
       /ID : (?<Name>.*) Establishment Name.*\s(?<WageMonth>\w+-\d{4}) Wage Month : (?<Amt>\d[\d,.]*).*Payment Date : (?<PaymentDate>\d{2}-\w+-\d{4})/,
     func: generalDocumentParser,
@@ -208,19 +225,23 @@ export const BUILT_IN_PARSERS = [
 ];
 
 // --- Core Parser Function ---
+/**
+ * @type {ParseFunc} text
+ */
 export function generalDocumentParser(
   text,
   metadataRegex,
   tableRegex,
 ) {
   let metadataRows = [];
+  /** @type {{[key: string]: string}} */
   let metadataFields = {};
 
   // 1. Metadata Extraction
   if (metadataRegex) {
     try {
       const metaMatch = text.match(metadataRegex);
-      if (metaMatch) {
+      if (metaMatch && metaMatch.groups) {
         for (const [key, value] of Object.entries(metaMatch.groups)) {
           const val = value ? value.trim() : "";
           metadataFields[key] = val;
@@ -233,7 +254,9 @@ export function generalDocumentParser(
   }
 
   // 2. Table Extraction
+  /** @type {string[]} */
   let headers = [];
+  /** @type {string[][]} */
   let dataRows = [];
 
   if (tableRegex) {

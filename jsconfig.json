@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ESNext", // Specify ECMAScript version
+    "type": "module",
+    "module": "ESNext", // Use ES modules
+    "allowJs": true, // Allow JavaScript files
+    "checkJs": true, // Enable type checking for JavaScript files
+    "strict": true, // Enable all strict type-checking options
+    "moduleResolution": "node", // Use Node.js module resolution
+    "resolveJsonModule": true, // Ensures JSON imports work
+    "baseUrl": ".", // Base directory for resolving non-relative module imports
+    "paths": {
+      "*": ["node_modules/*", "src/*"] // Define module resolution paths
+    },
+    "exclude": ["node_modules"] // Exclude node_modules folder from being included
+  },
+  "include": [
+    "**/*.html", // Include all HTML files
+    "**/*.js" // Include all JavaScript files
+  ],
+  "exclude": [
+    "node_modules" // Exclude node_modules to avoid unnecessary checking
+  ]
+}
