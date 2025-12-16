@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Modifier</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- PDF Libraries -->
+    <!-- pdf-lib for modification -->
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <!-- pdf.js for rendering -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"
+    ></script>
+
+    <!-- App Scripts -->
+    <script type="module">
+      import { html, render } from "https://unpkg.com/lit-html?module";
+      import {
+        component,
+        useCallback,
+        useEffect,
+        useMemo,
+        useRef,
+        useState,
+      } from "https://unpkg.com/haunted?module";
+
+      // --- PDF.js Worker Setup ---
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
+
+      // --- Component: PDF Page Thumbnail (Cached Image Data) ---
+      // This component is greatly simplified, only displaying the pre-cached image data.
+      function PdfPageThumbnail({ pageData, onClick }) {
+        // pageData contains { id, originalIndex, rotation, thumbnailUrl }
+        const transformStyle =
+          `transform: rotate(${pageData.rotation}deg);`;
+
+        return html`
+          <div
+            class="cursor-pointer transition-all hover:scale-[1.03] relative group shadow-xl rounded-xl"
+            @click="${onClick}"
+          >
+            <div
+              class="border-4 border-gray-100 rounded-xl overflow-hidden bg-white h-48 w-36 flex items-center justify-center bg-gray-50 relative mx-auto"
+            >
+              ${pageData.thumbnailUrl
+                ? html`
+                  <img
+                    src="${pageData.thumbnailUrl}"
+                    alt="Page ${pageData.originalIndex + 1} Thumbnail"
+                    class="object-contain max-w-full max-h-full transition-transform duration-300"
+                    style="${transformStyle}"
+                  />
+                `
+                : html`
+                  <div
+                    class="text-xs font-semibold text-red-500 absolute inset-0 flex items-center justify-center bg-gray-100"
+                  >
+                    No Preview
+                  </div>
+                `}
+            </div>
+            <div class="text-center text-xs text-gray-600 mt-2 font-medium">
+              Page ${pageData.originalIndex + 1}
+            </div>
+          </div>
+        `;
+      }
+      customElements.define(
+        "pdf-thumbnail",
+        component(PdfPageThumbnail, { useShadowDOM: false }),
+      );
+
+      // --- Component: Modal Viewer (Unchanged) ---
+      function PageModal(
+        { pdfProxy, pageData, onClose, onRotate, onDelete },
+      ) {
+        const canvasRef = useRef(null);
+
+        // Re-render the large page whenever page data (like rotation) changes
+        useEffect(() => {
+          if (pdfProxy && canvasRef.current) {
+            const renderBigPage = async () => {
+              const page = await pdfProxy.getPage(
+                pageData.originalIndex + 1,
+              );
+              // Render at higher scale for modal (scale: 1.0 is default/native size)
+              const viewport = page.getViewport({
+                scale: 1.0,
+                rotation: pageData.rotation,
+              });
+              const canvas = canvasRef.current;
+              const context = canvas.getContext("2d");
+
+              // Set canvas dimensions based on viewport
+              canvas.height = viewport.height;
+              canvas.width = viewport.width;
+
+              await page.render({
+                canvasContext: context,
+                viewport: viewport,
+              }).promise;
+            };
+            renderBigPage();
+          }
+        }, [pdfProxy, pageData.rotation, pageData.originalIndex]);
+
+        // Function to handle rotation button click
+        const handleRotate = useCallback((degrees) => {
+          onRotate(degrees);
+        }, [onRotate]);
+
+        return html`
+          <div
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4"
+            @click="${(e) => {
+              if (e.target === e.currentTarget) onClose();
+            }}"
+          >
+            <div
+              class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[95vh] flex flex-col overflow-hidden transform scale-100 transition-transform"
+            >
+              <!-- Header -->
+              <div
+                class="flex justify-between items-center p-4 border-b bg-gray-50"
+              >
+                <h3 class="font-bold text-lg text-gray-700">
+                  Edit Page ${pageData.originalIndex +
+                    1} (Current Rotation: ${pageData.rotation}°)
+                </h3>
+                <button
+                  @click="${onClose}"
+                  class="text-gray-500 hover:text-red-500 text-2xl font-bold p-1 rounded-full hover:bg-gray-200 transition"
+                >
+                  &times;
+                </button>
+              </div>
+
+              <!-- Canvas Area (Page Preview) -->
+              <div
+                class="flex-1 overflow-auto bg-gray-200 p-4 flex justify-center items-center"
+              >
+                <!-- Canvas scales down to fit the modal view -->
+                <canvas
+                  .ref="${canvasRef}"
+                  class="shadow-xl bg-white max-w-full max-h-full rounded-lg"
+                ></canvas>
+              </div>
+
+              <!-- Toolbar -->
+              <div
+                class="p-4 border-t bg-gray-50 flex flex-wrap justify-center gap-4"
+              >
+                <button
+                  @click="${() => handleRotate(-90)}"
+                  class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-md transform active:scale-95"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
+                    >
+                    </path>
+                  </svg>
+                  Rotate Left
+                </button>
+                <button
+                  @click="${() => handleRotate(90)}"
+                  class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-md transform active:scale-95"
+                >
+                  Rotate Right
+                  <svg
+                    class="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6"
+                    >
+                    </path>
+                  </svg>
+                </button>
+                <div class="w-px bg-gray-300 mx-2 hidden sm:block"></div>
+                <button
+                  @click="${onDelete}"
+                  class="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition shadow-md transform active:scale-95"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    >
+                    </path>
+                  </svg>
+                  Delete Page
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+      customElements.define(
+        "page-modal",
+        component(PageModal, { useShadowDOM: false }),
+      );
+
+      // --- Component: Main App ---
+      function PdfApp() {
+        const [pdfBytes, setPdfBytes] = useState(null);
+        const [pdfProxy, setPdfProxy] = useState(null);
+        // pagesState now stores the thumbnailUrl
+        const [pagesState, setPagesState] = useState([]);
+        const [selectedPageId, setSelectedPageId] = useState(null);
+        const [isDragging, setIsDragging] = useState(false);
+        const [isSaving, setIsSaving] = useState(false);
+        const [isGeneratingThumbs, setIsGeneratingThumbs] = useState(
+          false,
+        );
+
+        // 1. Handle File Input (Thumbnail generation moved here)
+        const handleFile = async (file) => {
+          if (file.type !== "application/pdf") {
+            console.error("File must be a PDF.");
+            return;
+          }
+
+          const arrayBuffer = await file.arrayBuffer();
+          setPdfBytes(arrayBuffer);
+          setIsGeneratingThumbs(true);
+          setPagesState([]); // Clear old pages immediately
+
+          try {
+            const loadingTask = pdfjsLib.getDocument({
+              data: arrayBuffer,
+            });
+            const proxy = await loadingTask.promise;
+            setPdfProxy(proxy);
+
+            // --- Thumbnail Generation Logic ---
+            const initialPagesPromises = Array.from({
+              length: proxy.numPages,
+            }, async (_, i) => {
+              const page = await proxy.getPage(i + 1);
+
+              // Render at a fixed thumbnail scale
+              const scale = 0.3;
+              const viewport = page.getViewport({
+                scale: scale,
+                rotation: 0,
+              });
+
+              // Create an off-screen canvas for rendering
+              const canvas = document.createElement("canvas");
+              const context = canvas.getContext("2d");
+              canvas.height = viewport.height;
+              canvas.width = viewport.width;
+
+              await page.render({
+                canvasContext: context,
+                viewport: viewport,
+              }).promise;
+
+              // Cache as JPEG data URL for fast retrieval
+              const thumbnailUrl = canvas.toDataURL("image/jpeg", 0.8);
+
+              return {
+                id: crypto.randomUUID(),
+                originalIndex: i,
+                rotation: 0,
+                thumbnailUrl: thumbnailUrl, // Store the generated image data
+              };
+            });
+
+            const initialPages = await Promise.all(
+              initialPagesPromises,
+            );
+            setPagesState(initialPages);
+            setSelectedPageId(null);
+          } catch (error) {
+            console.error(
+              "Error loading PDF or generating thumbnails:",
+              error,
+            );
+          } finally {
+            setIsGeneratingThumbs(false);
+          }
+        };
+
+        const onDrop = (e) => {
+          e.preventDefault();
+          setIsDragging(false);
+          if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            handleFile(e.dataTransfer.files[0]);
+          }
+        };
+
+        const onFileSelect = (e) => {
+          if (e.target.files && e.target.files[0]) {
+            handleFile(e.target.files[0]);
+            e.target.value = null;
+          }
+        };
+
+        // 2. Actions
+        const openModal = (id) => setSelectedPageId(id);
+        const closeModal = () => setSelectedPageId(null);
+
+        const rotatePage = (degrees) => {
+          setPagesState((prev) =>
+            prev.map((p) => {
+              if (p.id === selectedPageId) {
+                // Rotation is cumulative and should wrap at 360
+                return { ...p, rotation: (p.rotation + degrees) % 360 };
+              }
+              return p;
+            })
+          );
+        };
+
+        const deletePage = () => {
+          setPagesState((prev) =>
+            prev.filter((p) => p.id !== selectedPageId)
+          );
+          closeModal();
+        };
+
+        // 3. Save Logic (using PDF-Lib - Unchanged)
+        const savePdf = async () => {
+          if (!pdfBytes || pagesState.length === 0) return;
+          setIsSaving(true);
+
+          try {
+            const { PDFDocument, degrees } = PDFLib;
+            const pdfDoc = await PDFDocument.load(pdfBytes);
+            const newPdf = await PDFDocument.create();
+
+            const originalIndices = pagesState.map((p) =>
+              p.originalIndex
+            );
+            const copiedPages = await newPdf.copyPages(
+              pdfDoc,
+              originalIndices,
+            );
+
+            pagesState.forEach((p, index) => {
+              const page = copiedPages[index];
+              const existingRotation = page.getRotation().angle;
+              page.setRotation(degrees(existingRotation + p.rotation));
+              newPdf.addPage(page);
+            });
+
+            const pdfBytesSaved = await newPdf.save();
+
+            // Trigger Download
+            const blob = new Blob([pdfBytesSaved], {
+              type: "application/pdf",
+            });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "modified-document.pdf";
+            link.click();
+            URL.revokeObjectURL(link.href);
+
+            console.log(
+              "PDF saved successfully and download initiated.",
+            );
+          } catch (err) {
+            console.error(
+              "Error during PDF modification and saving:",
+              err,
+            );
+          } finally {
+            setIsSaving(false);
+          }
+        };
+
+        // Helper
+        const selectedPageData = useMemo(
+          () => pagesState.find((p) => p.id === selectedPageId),
+          [pagesState, selectedPageId],
+        );
+
+        const canSave = pdfBytes && pagesState.length > 0 && !isSaving;
+
+        return html`
+          <div class="min-h-screen bg-gray-100 font-sans text-gray-800">
+            <!-- Header -->
+            <header class="bg-white shadow-md sticky top-0 z-20">
+              <div
+                class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center"
+              >
+                <h1
+                  class="text-2xl font-extrabold text-blue-700 flex items-center gap-2"
+                >
+                  <svg
+                    class="w-8 h-8 text-blue-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    >
+                    </path>
+                  </svg>
+                  Lit-PDF Editor
+                </h1>
+                <!-- Save Button -->
+                <button
+                  @click="${savePdf}"
+                  class="
+                    bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-xl font-bold shadow-lg transition transform active:scale-95 flex items-center gap-2
+                    ${!canSave ? "opacity-50 cursor-not-allowed" : ""}
+                  "
+                  ?disabled="${!canSave}"
+                >
+                  ${isSaving
+                    ? html`
+                      <svg
+                        class="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          class="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          stroke-width="4"
+                        >
+                        </circle>
+                        <path
+                          class="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        >
+                        </path>
+                      </svg>
+                      Processing...
+                    `
+                    : html`
+                      Save Document (${pagesState.length} pages)
+                      <svg
+                        class="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                        >
+                        </path>
+                      </svg>
+                    `}
+                </button>
+              </div>
+            </header>
+
+            <main class="max-w-7xl mx-auto px-4 py-8">
+              <!-- Drag and Drop Zone / File Input -->
+              ${!pdfBytes
+                ? html`
+                  <div
+                    class="
+                      border-4 border-dashed rounded-xl h-96 flex flex-col items-center justify-center transition-colors
+                      ${isDragging
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-300 bg-white shadow-xl"}
+                    "
+                    @dragover="${(e) => {
+                      e.preventDefault();
+                      setIsDragging(true);
+                    }}"
+                    @dragleave="${() => setIsDragging(false)}"
+                    @drop="${onDrop}"
+                  >
+                    <svg
+                      class="w-24 h-24 text-blue-400 mb-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                      >
+                      </path>
+                    </svg>
+                    <p class="text-2xl text-gray-500 font-bold mb-4">
+                      Drag & Drop your PDF file here
+                    </p>
+                    <p class="text-gray-400 mb-6">or</p>
+                    <label
+                      class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl cursor-pointer transition shadow-lg font-semibold transform hover:scale-[1.01]"
+                    >
+                      Browse Files
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        class="hidden"
+                        @change="${onFileSelect}"
+                      >
+                    </label>
+                  </div>
+                `
+                : ""}
+
+              <!-- Horizontal Page Grid List -->
+              ${pdfBytes
+                ? html`
+                  <div class="mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                      <h2 class="text-xl font-bold text-gray-700">
+                        Current Page Order (${pagesState.length} pages)
+                      </h2>
+                      <button
+                        @click="${() => {
+                          setPdfBytes(null);
+                          setPagesState([]);
+                          setPdfProxy(null);
+                        }}"
+                        class="text-sm text-red-500 hover:text-red-700 hover:underline transition"
+                      >
+                        Unload PDF / Start Over
+                      </button>
+                    </div>
+
+                    ${isGeneratingThumbs
+                      ? html`
+                        <div class="p-8 text-center bg-white rounded-xl shadow-inner">
+                          <svg
+                            class="animate-spin h-8 w-8 text-blue-500 mx-auto mb-2"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              class="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              stroke-width="4"
+                            >
+                            </circle>
+                            <path
+                              class="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            >
+                            </path>
+                          </svg>
+                          <p class="text-gray-600">
+                            Generating thumbnails for all ${pdfProxy
+                              ?.numPages || ""} pages...
+                          </p>
+                        </div>
+                      `
+                      : html`
+                        <div
+                          class="bg-white border border-gray-200 rounded-xl p-6 shadow-inner"
+                        >
+                          <!-- Responsive Grid Layout -->
+                          <div
+                            class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-6 justify-items-center"
+                          >
+                            ${pagesState.map((page) =>
+                              html`
+                                <pdf-thumbnail
+                                  .pageData="${page}"
+                                  .onClick="${() => openModal(page.id)}"
+                                ></pdf-thumbnail>
+                              `
+                            )}
+                          </div>
+                          ${pagesState.length === 0
+                            ? html`
+                              <div class="w-full text-center text-gray-500 italic p-4">
+                                All pages have been removed.
+                              </div>
+                            `
+                            : ""}
+                        </div>
+                      `}
+                    <p class="text-sm text-gray-500 mt-3 text-center">
+                      Click a page thumbnail to view, rotate, or delete the page.
+                    </p>
+                  </div>
+                `
+                : ""}
+            </main>
+
+            <!-- Modal Window (Only renders if a page is selected) -->
+            ${selectedPageId && selectedPageData
+              ? html`
+                <page-modal
+                  .pdfProxy="${pdfProxy}"
+                  .pageData="${selectedPageData}"
+                  .onClose="${closeModal}"
+                  .onRotate="${rotatePage}"
+                  .onDelete="${deletePage}"
+                ></page-modal>
+              `
+              : ""}
+          </div>
+        `;
+      }
+
+      customElements.define(
+        "pdf-app",
+        component(PdfApp, { useShadowDOM: false }),
+      );
+
+      // Render the main app component to the body
+      render(
+        html`
+          <pdf-app></pdf-app>
+        `,
+        document.body,
+      );
+    </script>
+    <style>
+      /* No custom scrollbar needed for the new wrapping grid */
+      /* Center content within the small thumbnail box */
+      .h-48 {
+        height: 12rem;
+      }
+      .w-36 {
+        width: 9rem;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100">
+    <!-- App entry point injected by script -->
+  </body>
+</html>
