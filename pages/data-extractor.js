@@ -96,7 +96,7 @@ export const BUILT_IN_PARSERS = [
       /Year (?<Year>[\d-]+)\s+Period\s+(.*)\s+GSTIN\s+of\s+the\s+supplier\s+(?<GSTIN>\w+)\s+2\(a\)\.\s+Legal\s+name\s+of\s+the\s+registered\s+person\s+(?<Name>.*)\s+2\(b\)/,
     // the {5,50} is just a hack to so that .* doesn't go haywire and select more than is required.
     tableRegex:
-      /\([a-e]\s?\) (.{5,50}) (\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+(\d+\.\d\d|-)\s+/g,
+      /\([a-e]\s?\) (?<Particular>.{5,75}) (?<TaxableValue>\d+\.\d\d|-)\s+(?<IGST>\d+\.\d\d|-)\s+(?<CGST>\d+\.\d\d|-)\s+(?<SGST>\d+\.\d\d|-)\s+(?<Cess>\d+\.\d\d|-)\s+/g,
     func: generalDocumentParser,
   },
   {
