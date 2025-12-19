@@ -93,10 +93,10 @@ export const BUILT_IN_PARSERS = [
     name: "GSTR-3B",
     match: ["Form GSTR-3B", "See rule 61(5)"],
     metaRegex:
-      /Year (?<Year>[\d-]+)\s+Period\s+(.*)\s+GSTIN\s+of\s+the\s+supplier\s+(?<GSTIN>\w+)\s+2\(a\)\.\s+Legal\s+name\s+of\s+the\s+registered\s+person\s+(?<Name>.*)\s+2\(b\)/,
-    // the {5,50} is just a hack to so that .* doesn't go haywire and select more than is required.
+      /Year (?<Year>[\d-]+)\s+Period\s+(?<Period>.*)\s+GSTIN\s+of\s+the\s+supplier\s+(?<GSTIN>\w+)\s+2\(a\)\.\s+Legal\s+name\s+of\s+the\s+registered\s+person\s+(?<Name>.*)\s+2\(b\).*Date of ARN (?<ARN_Date>[\d\/]+)/,
+      // another attempt to fix the above
     tableRegex:
-      /\([a-e]\s?\) (?<Particular>.{5,75}) (?<TaxableValue>\d+\.\d\d|-)\s+(?<IGST>\d+\.\d\d|-)\s+(?<CGST>\d+\.\d\d|-)\s+(?<SGST>\d+\.\d\d|-)\s+(?<Cess>\d+\.\d\d|-)\s+/g,
+      /\([a-e]\s?\) (?<Particular>[A-Z].*?) (?<TaxableValue>\d+\.\d\d|-)\s+(?<IGST>\d+\.\d\d|-)\s+(?<CGST>\d+\.\d\d|-)\s+(?<SGST>\d+\.\d\d|-)\s+(?<Cess>\d+\.\d\d|-)\s+/g,
     func: generalDocumentParser,
   },
   {
