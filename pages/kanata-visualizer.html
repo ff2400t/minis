@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kanata Asus Dashboard</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --sidebar: #1e293b;
+        --main: #0f172a;
+        --accent: #38bdf8;
+        --key-bg: #334155;
+        --key-text: #f8fafc;
+        --key-border: #475569;
+        --tooltip-bg: #020617;
+      }
+      body {
+        font-family: "Inter", system-ui, sans-serif;
+        background: var(--bg);
+        color: #f1f5f9;
+        margin: 0;
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      #sidebar {
+        width: 260px;
+        background: var(--sidebar);
+        border-right: 1px solid #334155;
+        display: flex;
+        flex-direction: column;
+        padding: 20px;
+      }
+      .logo {
+        font-weight: 800;
+        font-size: 1.2rem;
+        color: var(--accent);
+        margin-bottom: 30px;
+      }
+      .layer-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        flex-grow: 1;
+        overflow-y: auto;
+      }
+      .layer-item {
+        padding: 12px 16px;
+        margin-bottom: 8px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: 0.2s;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid transparent;
+      }
+      .layer-item:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+      .layer-item.active {
+        background: var(--accent);
+        color: #0f172a;
+        font-weight: 600;
+      }
+
+      #content {
+        flex-grow: 1;
+        padding: 40px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        overflow-y: auto;
+        position: relative;
+      }
+      textarea {
+        width: 90%;
+        height: 150px;
+        background: #020617;
+        color: #10b981;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 12px;
+        font-family: "Fira Code", monospace;
+        font-size: 13px;
+        margin-bottom: 30px;
+        resize: none;
+      }
+      .kb-container {
+        background: #1e293b;
+        padding: 40px;
+        border-radius: 20px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        border: 1px solid #334155;
+        position: relative;
+      }
+      svg {
+        filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+      }
+      .status-bar {
+        width: 90%;
+        margin-top: 10px;
+        font-size: 0.8rem;
+        color: #94a3b8;
+      }
+
+      .key-group {
+        cursor: help;
+      }
+      .tooltip {
+        position: fixed;
+        background: var(--tooltip-bg);
+        color: #10b981;
+        padding: 10px 14px;
+        border-radius: 6px;
+        font-family: "Fira Code", monospace;
+        font-size: 12px;
+        border: 1px solid var(--accent);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        pointer-events: none;
+        z-index: 1000;
+        display: none;
+        max-width: 500px;
+        white-space: pre-wrap;
+        word-break: break-all;
+        line-height: 1.4;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="sidebar">
+      <div class="logo">KANATA VISUALIZER</div>
+      <div
+        style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em"
+      >
+        Layers
+      </div>
+      <ul id="layerList" class="layer-list"></ul>
+      <div style="margin-top: auto">
+        <button
+          onclick="parseAndRefresh()"
+          style="width: 100%; background: var(--accent); border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold"
+        >
+          Sync Config
+        </button>
+      </div>
+    </div>
+
+    <div id="content">
+      <textarea
+        id="configInput"
+        placeholder="Paste your Kanata config here..."
+      ></textarea>
+
+      <div id="kbWrapper" class="kb-container"></div>
+
+      <div class="status-bar" id="statusBar">Showing Layer: none</div>
+      <div id="tooltip" class="tooltip"></div>
+    </div>
+
+    <script>
+      const ASUS_LAYOUT = [
+        { src: "esc", x: 0, y: 0, w: 60, h: 35 },
+        { src: "f1", x: 65, y: 0, w: 55, h: 35 },
+        { src: "f2", x: 125, y: 0, w: 55, h: 35 },
+        { src: "f3", x: 185, y: 0, w: 55, h: 35 },
+        { src: "f4", x: 245, y: 0, w: 55, h: 35 },
+        { src: "f5", x: 315, y: 0, w: 55, h: 35 },
+        { src: "f6", x: 375, y: 0, w: 55, h: 35 },
+        { src: "f7", x: 435, y: 0, w: 55, h: 35 },
+        { src: "f8", x: 495, y: 0, w: 55, h: 35 },
+        { src: "f9", x: 565, y: 0, w: 55, h: 35 },
+        { src: "f10", x: 625, y: 0, w: 55, h: 35 },
+        { src: "f11", x: 685, y: 0, w: 55, h: 35 },
+        { src: "f12", x: 745, y: 0, w: 55, h: 35 },
+        { src: "prtsc", x: 805, y: 0, w: 55, h: 35 },
+        { src: "delete", x: 865, y: 0, w: 65, h: 35 },
+        { src: "grv", x: 0, y: 45, w: 55, h: 55 },
+        { src: "1", x: 60, y: 45, w: 55, h: 55 },
+        { src: "2", x: 120, y: 45, w: 55, h: 55 },
+        { src: "3", x: 180, y: 45, w: 55, h: 55 },
+        { src: "4", x: 240, y: 45, w: 55, h: 55 },
+        { src: "5", x: 300, y: 45, w: 55, h: 55 },
+        { src: "6", x: 360, y: 45, w: 55, h: 55 },
+        { src: "7", x: 420, y: 45, w: 55, h: 55 },
+        { src: "8", x: 480, y: 45, w: 55, h: 55 },
+        { src: "9", x: 540, y: 45, w: 55, h: 55 },
+        { src: "0", x: 600, y: 45, w: 55, h: 55 },
+        { src: "-", x: 660, y: 45, w: 55, h: 55 },
+        { src: "=", x: 720, y: 45, w: 55, h: 55 },
+        { src: "bspc", x: 780, y: 45, w: 150, h: 55 },
+        { src: "tab", x: 0, y: 105, w: 85, h: 55 },
+        { src: "q", x: 90, y: 105, w: 55, h: 55 },
+        { src: "w", x: 150, y: 105, w: 55, h: 55 },
+        { src: "e", x: 210, y: 105, w: 55, h: 55 },
+        { src: "r", x: 270, y: 105, w: 55, h: 55 },
+        { src: "t", x: 330, y: 105, w: 55, h: 55 },
+        { src: "y", x: 390, y: 105, w: 55, h: 55 },
+        { src: "u", x: 450, y: 105, w: 55, h: 55 },
+        { src: "i", x: 510, y: 105, w: 55, h: 55 },
+        { src: "o", x: 570, y: 105, w: 55, h: 55 },
+        { src: "p", x: 630, y: 105, w: 55, h: 55 },
+        { src: "[", x: 690, y: 105, w: 55, h: 55 },
+        { src: "]", x: 750, y: 105, w: 55, h: 55 },
+        { src: "\\", x: 810, y: 105, w: 120, h: 55 },
+        { src: "caps", x: 0, y: 165, w: 105, h: 55 },
+        { src: "a", x: 110, y: 165, w: 55, h: 55 },
+        { src: "s", x: 170, y: 165, w: 55, h: 55 },
+        { src: "d", x: 230, y: 165, w: 55, h: 55 },
+        { src: "f", x: 290, y: 165, w: 55, h: 55 },
+        { src: "g", x: 350, y: 165, w: 55, h: 55 },
+        { src: "h", x: 410, y: 165, w: 55, h: 55 },
+        { src: "j", x: 470, y: 165, w: 55, h: 55 },
+        { src: "k", x: 530, y: 165, w: 55, h: 55 },
+        { src: "l", x: 590, y: 165, w: 55, h: 55 },
+        { src: ";", x: 650, y: 165, w: 55, h: 55 },
+        { src: "'", x: 710, y: 165, w: 55, h: 55 },
+        { src: "ret", x: 770, y: 165, w: 160, h: 55 },
+        { src: "lsft", x: 0, y: 225, w: 135, h: 55 },
+        { src: "z", x: 140, y: 225, w: 55, h: 55 },
+        { src: "x", x: 200, y: 225, w: 55, h: 55 },
+        { src: "c", x: 260, y: 225, w: 55, h: 55 },
+        { src: "v", x: 320, y: 225, w: 55, h: 55 },
+        { src: "b", x: 380, y: 225, w: 55, h: 55 },
+        { src: "n", x: 440, y: 225, w: 55, h: 55 },
+        { src: "m", x: 500, y: 225, w: 55, h: 55 },
+        { src: ",", x: 560, y: 225, w: 55, h: 55 },
+        { src: ".", x: 620, y: 225, w: 55, h: 55 },
+        { src: "/", x: 680, y: 225, w: 55, h: 55 },
+        { src: "rsft", x: 740, y: 225, w: 190, h: 55 },
+        { src: "lctl", x: 0, y: 285, w: 75, h: 55 },
+        { src: "lmet", x: 80, y: 285, w: 55, h: 55 },
+        { src: "lalt", x: 140, y: 285, w: 55, h: 55 },
+        { src: "spc", x: 200, y: 285, w: 285, h: 55 },
+        { src: "ralt", x: 490, y: 285, w: 55, h: 55 },
+        { src: "rctl", x: 550, y: 285, w: 75, h: 55 },
+        { src: "left", x: 640, y: 312, w: 60, h: 28 },
+        { src: "up", x: 705, y: 285, w: 60, h: 28 },
+        { src: "down", x: 705, y: 312, w: 60, h: 28 },
+        { src: "right", x: 770, y: 312, w: 60, h: 28 },
+      ];
+
+      let currentConfig = null;
+      let aliases = {};
+
+      function tokenize(str) {
+        return str
+          .replace(/\(/g, " ( ")
+          .replace(/\)/g, " ) ")
+          .split(/\s+/)
+          .filter((t) => t.length > 0);
+      }
+
+      function parseSExpr(tokens) {
+        if (tokens.length === 0) return null;
+        let token = tokens.shift();
+        if (token === "(") {
+          let list = [];
+          while (tokens[0] !== ")") {
+            list.push(parseSExpr(tokens));
+          }
+          tokens.shift(); // remove ')'
+          return list;
+        } else {
+          return token;
+        }
+      }
+
+      function exprToString(expr) {
+        if (Array.isArray(expr)) {
+          return "(" + expr.map(exprToString).join(" ") + ")";
+        }
+        return expr;
+      }
+
+      function parseKanata(text) {
+        // Remove comments
+        const clean = text.replace(/;;.*$/gm, "");
+        const tokens = tokenize(clean);
+
+        let defsrc = [];
+        let layers = [];
+        const aliasMap = {};
+
+        // Loop through top-level expressions
+        while (tokens.length > 0) {
+          const expr = parseSExpr(tokens);
+          if (!Array.isArray(expr)) continue;
+
+          const command = expr[0];
+          if (command === "defsrc") {
+            defsrc = expr.slice(1);
+          } else if (command === "deflayer") {
+            layers.push({ name: expr[1], keys: expr.slice(2) });
+          } else if (command === "defalias") {
+            const pairs = expr.slice(1);
+            // defalias usually follows (defalias key value key value)
+            for (let i = 0; i < pairs.length; i += 2) {
+              if (pairs[i] && pairs[i + 1] !== undefined) {
+                aliasMap[pairs[i]] = exprToString(pairs[i + 1]);
+              }
+            }
+          }
+        }
+
+        aliases = aliasMap;
+        return { srcKeys: defsrc, layers };
+      }
+
+      const tooltip = document.getElementById("tooltip");
+
+      function showTooltip(e, text) {
+        tooltip.innerText = text;
+        tooltip.style.display = "block";
+        updateTooltipPos(e);
+      }
+
+      function updateTooltipPos(e) {
+        tooltip.style.left =
+          Math.min(window.innerWidth - 420, e.clientX + 15) + "px";
+        tooltip.style.top = (e.clientY + 15) + "px";
+      }
+
+      function hideTooltip() {
+        tooltip.style.display = "none";
+      }
+
+      function renderKeyboard(layer) {
+        if (!currentConfig) return;
+        const srcKeys = currentConfig.srcKeys;
+        const kbWrapper = document.getElementById("kbWrapper");
+
+        let svg =
+          `<svg width="930" height="345" viewBox="0 0 940 350" xmlns="http://www.w3.org/2000/svg">`;
+        ASUS_LAYOUT.forEach((pos) => {
+          const userIdx = srcKeys.indexOf(pos.src);
+          const isActive = userIdx !== -1;
+          const mappedVal = isActive
+            ? (layer.keys[userIdx] || "_")
+            : pos.src;
+          const isTransparent = mappedVal === "_";
+
+          // Check for alias
+          const isAlias = typeof mappedVal === "string" &&
+            mappedVal.startsWith("@");
+          const aliasKey = isAlias ? mappedVal.substring(1) : null;
+          const aliasDef = aliasKey ? aliases[aliasKey] : null;
+
+          const fillColor = isActive
+            ? (isTransparent ? "#1e293b" : "#334155")
+            : "#020617";
+          const textColor = isActive
+            ? (isTransparent ? "#475569" : "#f8fafc")
+            : "#334155";
+          const strokeColor = isAlias
+            ? "#38bdf8"
+            : (isActive ? "#475569" : "#1e293b");
+
+          const label = Array.isArray(mappedVal)
+            ? exprToString(mappedVal)
+            : mappedVal;
+          const tooltipText = aliasDef
+            ? aliasDef
+            : (Array.isArray(mappedVal) ? label : null);
+
+          const mouseEvents = tooltipText
+            ? `onmouseenter="showTooltip(event, '${
+              tooltipText.replace(/'/g, "\\'")
+            }')" onmousemove="updateTooltipPos(event)" onmouseleave="hideTooltip()"`
+            : "";
+
+          svg += `
+                <g class="key-group" ${mouseEvents}>
+                    <rect x="${pos.x}" y="${pos.y}" width="${pos.w}" height="${pos.h}" rx="6" 
+                        fill="${fillColor}" stroke="${strokeColor}" stroke-width="${
+            isAlias ? 2 : 1.5
+          }" />
+                    <text x="${pos.x + pos.w / 2}" y="${
+            pos.y + pos.h / 2 + 5
+          }" font-size="10" 
+                        text-anchor="middle" fill="${textColor}" font-family="monospace" font-weight="bold">
+                        ${(label.length > 10
+            ? label.substring(0, 8) + ".."
+            : label)}
+                    </text>
+                    <text x="${pos.x + 4}" y="${
+            pos.y + 10
+          }" font-size="7" fill="#64748b">${pos.src}</text>
+                </g>`;
+        });
+        svg += `</svg>`;
+        kbWrapper.innerHTML = svg;
+        document.getElementById("statusBar").innerText =
+          `Viewing Layer: ${layer.name}`;
+      }
+
+      function parseAndRefresh() {
+        const input = document.getElementById("configInput").value;
+        const data = parseKanata(input);
+        if (!data || data.layers.length === 0) return;
+
+        currentConfig = data;
+        const list = document.getElementById("layerList");
+        list.innerHTML = "";
+
+        data.layers.forEach((layer, idx) => {
+          const li = document.createElement("li");
+          li.className = "layer-item" + (idx === 0 ? " active" : "");
+          li.innerText = layer.name;
+          li.onclick = () => {
+            document.querySelectorAll(".layer-item").forEach((el) =>
+              el.classList.remove("active")
+            );
+            li.classList.add("active");
+            renderKeyboard(layer);
+          };
+          list.appendChild(li);
+        });
+
+        renderKeyboard(data.layers[0]);
+      }
+
+      // sample config
+      window.onload = () => {
+        document.getElementById("configInput").value = `(defsrc
+  esc  1    2    3    4    5    6    7    8    9    0    -    = 
+  q    w    e    r    t    y    u    i    o    p
+  caps a    s    d    f    g    h    j    k    l    ;
+  lsft           b    n    m    ,    .    rsft
+  spc
+)
+
+(defalias
+  a    (tap-hold 200 200 a lmet)
+  s    (tap-hold 200 200 s lalt)
+  d    (tap-hold 200 200 d lsft)
+  f    (tap-hold 200 200 f lctl)
+  mnu  (tap-hold 100 200 t menu)
+  j    (tap-hold 200 200 j rctl)
+  k    (tap-hold 200 200 k rsft)
+  l    (tap-hold 200 200 l ralt)
+  ;    (tap-hold 200 200 ; rmet)
+  b    (tap-hold 200 200 b bspc)
+  g    (tap-hold 200 200 g ent)
+  spc  (tap-hold 200 200 spc (layer-while-held nav))
+  
+  urdo (switch
+    ((input real lsft)) C-z break
+    ((input real rsft)) C-z break
+    () C-S-z break
+  )
+)
+
+(deflayer base
+  caps 1    2    3    4    5    6    7    8    9    0    -    =
+  q    w    e    r    @mnu y    u    i    o    p
+  esc  @a   @s   @d   @f   @g   h    @j   @k   @l   @;
+  lsft           @b   n    m    ,    .    rsft
+  @spc
+)
+
+(deflayer nav
+  _    f1   f2   f3   f4   f5   f6   f7   f8   f9   f10  f11  f12
+  _    _    _    _    _    _    _    _    _    _
+  _    lmet lalt lsft lctl _    left down up   right _
+  _              _    _    _    _    _    _
+  @urdo
+)`;
+        parseAndRefresh();
+      };
+    </script>
+  </body>
+</html>
