@@ -76,8 +76,8 @@
 
     <script type="module">
         // Load haunted and its dependencies from CDN
-        import { html, render } from 'https://unpkg.com/lit-html?module';
-        import { component, useState, useEffect, useCallback, useMemo } from 'https://unpkg.com/haunted?module';
+        import { html, render } from '/vendor/lit-html@3.3.2.js';
+        import { component, useState, useEffect, useCallback, useMemo } from '/vendor/haunted@6.1.0.js';
         import { BUILT_IN_PARSERS, generalDocumentParser } from './data-extractor.js'
         // Set the workerSrc for PDF.js
         if (typeof pdfjsLib !== 'undefined') {

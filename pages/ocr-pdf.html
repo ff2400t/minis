@@ -50,7 +50,7 @@
 
     <script type="module">
       // Load haunted and its dependencies from CDN
-      import { html, render } from "https://unpkg.com/lit-html?module";
+      import { html, render } from "/vendor/lit-html@3.3.2.js";
       // Import useRef explicitly
       import {
         component,
@@ -59,7 +59,7 @@
         useMemo,
         useRef,
         useState,
-      } from "https://unpkg.com/haunted?module";
+      } from "/vendor/haunted@6.1.0.js";
       // Access jsPDF from the global window object
       const { jsPDF } = window.jspdf;
 
