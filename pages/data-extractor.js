@@ -110,7 +110,7 @@ export const BUILT_IN_PARSERS = [
     matches: ["Union Bank of India", "Statement of Account"],
     metadata:
       /Statement of Account\s+(?<Account_Holder_Name>.*?)\s+.* Account No\s+(?<Account_Number>\d+)/is,
-    tableReegx:
+    table:
       /(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d,]+\.\d\s?\d)\s+(?<bal>-?\s?[\d,]+\.\d\s?\d)/g,
     func: generalDocumentParser,
   },
@@ -119,7 +119,7 @@ export const BUILT_IN_PARSERS = [
     matches: ["Canara Bank does not"],
     metadata:
       /Account Number (?<Account_Number>\d+).* Opening Balance Rs\. (?<Opening_Balance>-?[\d,]+\.\d\d)\s+Closing Balance Rs\. (?<Closing_Balance>-?[\d,]+\.\d\d)/s,
-    tableReegx:
+    table:
       /\s\s(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d+,]+\.\d\d)\s+(?<bal>-?[\d+,]+\.\d\d)/g,
     func: generalDocumentParser,
   },
@@ -128,7 +128,7 @@ export const BUILT_IN_PARSERS = [
     matches: ["RBL BANK LTD"],
     metadata:
       /Account Name: (?<Account_Name>.*?) Home Branch: .* in Account Number:\s+(?<Account_Number>\d+)\s+.* Opening Balance: ₹ (?<Opening_Balance>[\d,]+\.\d{2})\s+Count Of Debit: \d+\s+Closing Balance: ₹ (?<Closing_Balance>[\d,]+\.\d{2})/s,
-    tableReegx:
+    table:
       /(?<date>\d\d\/\d\d\/\d{4})\s+\d\d\/\d\d\/\d{4}\s+(?<particular>.*?)\s+(?<amt>[\d,]+\.\s?\d\s?\d)\s+(?<bal>[\d,]+\s?\.\s?\d\s?\d)/g,
     func: generalDocumentParser,
   },
@@ -187,7 +187,7 @@ export const BUILT_IN_PARSERS = [
     metadata:
       /Account Number (?<AccountNumber>\d+).*?Account Name: (?<Name>.*?) Customer Address/,
     table:
-      /(?<TxnNo>[A-Z]{1}\d+) (?<date>\d\d\/\d\d\/\d{4}) (?<description>.*?) (?<Amt>-?\s?\d[\d,.\s]+\d) (?<bal>\d[\d,.\s]+\d) (?<Effect>Cr|Dr)/,
+      /(?<TxnNo>[A-Z]{1}\d+) (?<date>\d\d\/\d\d\/\d{4}) (?<description>.*?) (?<Amt>-?\s?\d[\d,.\s]+\d) (?<bal>\d[\d,.\s]+\d) (?<Effect>Cr|Dr)/g,
     func: generalDocumentParser,
   },
   {
@@ -196,9 +196,9 @@ export const BUILT_IN_PARSERS = [
       "PAN can be updated online or at the nearest ICICI Bank Branch .",
     ],
     metadata:
-      /^.*?  (?<Name>.*?)  .* (?<OpeningDate>\d\d-\d\d-\d{4}) B\/F (?<OpeningBalance>[\d,.]+)/,
+      /^.*?  (?<Name>.*?)  .* (?<OpeningDate>\d\d-\d\d-\d{4}) B\/F (?<OpeningBalance>[\d,.]+)/s,
     table:
-      /(?<Date>\d\d-\d\d-\d{4}) (?<Particular>.*?) (?<Amount>[\d,]+\.\d\d) (?<Balance>[\d,.]+) /,
+      /(?<Date>\d\d-\d\d-\d{4}) (?<Particular>.*?) (?<Amount>[\d,]+\.\d\d) (?<Balance>[\d,.]+) /g,
     func: generalDocumentParser,
   },
   {
@@ -212,7 +212,7 @@ export const BUILT_IN_PARSERS = [
     name: "Provident Fund Challan Receipts",
     matches: ["Payment Confirmation Receipt", "TRRN No"],
     metadata:
-      /ID : (?<Name>.*) Establishment Name.*\s(?<WageMonth>\w+-\d{4}) Wage Month : (?<Amt>\d[\d,.]*).*Payment Date : (?<PaymentDate>\d{2}-\w+-\d{4})/,
+      /ID : (?<Name>.*) Establishment Name.*\s(?<WageMonth>\w+-\d{4}) Wage Month : (?<Amt>\d[\d,.]*).*Payment Date : (?<PaymentDate>\d{2}-\w+-\d{4})/s,
     func: generalDocumentParser,
   },
   {
