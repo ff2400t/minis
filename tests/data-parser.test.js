@@ -9,14 +9,14 @@ import testObj from "./test.json" with { type: "json" };
 function checkParser(text) {
   const res = BUILT_IN_PARSERS.find(
     (parser) => {
-      return parser.match.every((s) =>
+      return parser.matches.every((s) =>
         text.toLowerCase().includes(s.toLowerCase())
       );
     },
   );
   if (res) {
-    const { metaRegex, tableRegex, func } = res;
-    return func(text, metaRegex, tableRegex);
+    const { metadata, table: tableRegex, func } = res;
+    return func(text, metadata, tableRegex);
   }
 }
 

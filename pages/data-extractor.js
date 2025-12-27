@@ -7,17 +7,15 @@
  * @property {ParseFunc} func - A function that processes the text and applies regex patterns to extract metadata and table data.
  */
 
-
 /**
  * @typedef {{ allRows: (string[]|Object[]), metadataFields: Object }} ParserResult
  */
 
 /**
- *
  * @callback ParseFunc
  * @param {string} text
- * @param {RegExp} metaRegex
- * @param {RegExp | undefined} tableRegex
+ * @param {RegExp | undefined} metadata
+ * @param {RegExp | undefined} table
  * @returns {ParserResult}
  */
 
@@ -27,15 +25,16 @@
 export const BUILT_IN_PARSERS = [
   {
     name: "GST Challan",
-    match: ["GOODS AND SERVICES TAX", "PAYMENT RECEIPT"],
-    metaRegex:
+    matches: ["GOODS AND SERVICES TAX", "PAYMENT RECEIPT"],
+    metadata:
       // /Name:\s+(?<Name>.*?)\s+Address.*?GSTIN:\s+(?<GSTIN>\w+).*?Date :\s+(?<Date>\d\d\/\d\d\/\d{4}).*?(?<StateCode>\d+)\s+(?<StateName>[^\d]+?)\s+SGST/s,
       /Date : (?<DepositDate>\d\d[\/-]\d\d[\/-]\d{4}) .* GSTIN: (?<GSTIN>.*?) .* Name:\s+(?<Name>.*?) Address.* \s+(?<StateName>[^\d]+?)\s+SGST/s,
-    tableRegex:
+    table:
       /(?<name>\w+)\(.*?\)\s+(?<tax>-|\d+)\s+(?<interest>-|\d+)\s+(?<penalty>-|\d+)\s+(?<fees>-|\d+)\s+(?<others>-|\d+)\s+(?<total>-|\d+)\s+/g,
     /** @type ParseFunc **/
     func: (text, metaRx, tableRx) => {
       const metadataFields = {};
+      // @ts-ignore: we know this will have a metadata regex
       const metaMatch = text.match(metaRx);
       if (metaMatch && metaMatch.groups) {
         Object.assign(metadataFields, metaMatch.groups);
@@ -91,25 +90,25 @@ export const BUILT_IN_PARSERS = [
   },
   {
     name: "GSTR-3B",
-    match: ["Form GSTR-3B", "See rule 61(5)"],
-    metaRegex:
+    matches: ["Form GSTR-3B", "See rule 61(5)"],
+    metadata:
       /Year (?<Year>[\d-]+)\s+Period\s+(?<Period>.*)\s+GSTIN\s+of\s+the\s+supplier\s+(?<GSTIN>\w+)\s+2\(a\)\.\s+Legal\s+name\s+of\s+the\s+registered\s+person\s+(?<Name>.*)\s+2\(b\).*Date of ARN (?<ARN_Date>[\d\/]+)/,
-      // another attempt to fix the above
-    tableRegex:
+    // another attempt to fix the above
+    table:
       /\([a-e]\s?\) (?<Particular>[A-Z].*?) (?<TaxableValue>\d+\.\d\d|-)\s+(?<IGST>\d+\.\d\d|-)\s+(?<CGST>\d+\.\d\d|-)\s+(?<SGST>\d+\.\d\d|-)\s+(?<Cess>\d+\.\d\d|-)\s+/g,
     func: generalDocumentParser,
   },
   {
     name: "TDS",
-    match: ["INCOME TAX DEPARTMENT", "Challan Receipt"],
-    metaRegex:
+    matches: ["INCOME TAX DEPARTMENT", "Challan Receipt"],
+    metadata:
       /Nature of Payment : (?<SectionNo>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<Amount>\d[\d,.]*).*(?<DepositDate>\d\d\-\s?\w{3}-\d{4})/,
     func: generalDocumentParser,
   },
   {
     name: "Union Bank Statement",
-    match: ["Union Bank of India", "Statement of Account"],
-    metaRegex:
+    matches: ["Union Bank of India", "Statement of Account"],
+    metadata:
       /Statement of Account\s+(?<Account_Holder_Name>.*?)\s+.* Account No\s+(?<Account_Number>\d+)/is,
     tableReegx:
       /(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d,]+\.\d\s?\d)\s+(?<bal>-?\s?[\d,]+\.\d\s?\d)/g,
@@ -117,8 +116,8 @@ export const BUILT_IN_PARSERS = [
   },
   {
     name: "Canara Bank Statement",
-    match: ["Canara Bank does not"],
-    metaRegex:
+    matches: ["Canara Bank does not"],
+    metadata:
       /Account Number (?<Account_Number>\d+).* Opening Balance Rs\. (?<Opening_Balance>-?[\d,]+\.\d\d)\s+Closing Balance Rs\. (?<Closing_Balance>-?[\d,]+\.\d\d)/s,
     tableReegx:
       /\s\s(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d+,]+\.\d\d)\s+(?<bal>-?[\d+,]+\.\d\d)/g,
@@ -126,8 +125,8 @@ export const BUILT_IN_PARSERS = [
   },
   {
     name: "RBL Bank Statement",
-    match: ["RBL BANK LTD"],
-    metaRegex:
+    matches: ["RBL BANK LTD"],
+    metadata:
       /Account Name: (?<Account_Name>.*?) Home Branch: .* in Account Number:\s+(?<Account_Number>\d+)\s+.* Opening Balance: ₹ (?<Opening_Balance>[\d,]+\.\d{2})\s+Count Of Debit: \d+\s+Closing Balance: ₹ (?<Closing_Balance>[\d,]+\.\d{2})/s,
     tableReegx:
       /(?<date>\d\d\/\d\d\/\d{4})\s+\d\d\/\d\d\/\d{4}\s+(?<particular>.*?)\s+(?<amt>[\d,]+\.\s?\d\s?\d)\s+(?<bal>[\d,]+\s?\.\s?\d\s?\d)/g,
@@ -135,12 +134,13 @@ export const BUILT_IN_PARSERS = [
   },
   {
     name: "IDBI Bank Statement",
-    match: ["IDBI Bank or other authorities"],
-    metaRegex: /^(?<Name>.*?) Address .* A\/C NO: (?<AccNo>\d+)/s,
-    tableRegex:
+    matches: ["IDBI Bank or other authorities"],
+    metadata: /^(?<Name>.*?) Address .* A\/C NO: (?<AccNo>\d+)/s,
+    table:
       /(?<date>\d\d\/\d\d\/\d{4})\s+(?<particular>.*?)\s+(?<type>Dr\.|Cr\.)\s+\w{3}\s+(?<Amt>[\d,]+\.\d{2})\s+\d\d\/\d\d\/\d{4}\s+\d\d:\d\d:\d\d\s+(?<serialNo>\d+)\s+(?<Bal>-?[\d,]+\.\d{2})/g,
     /** @type ParseFunc **/
     func: (text, metaRx, tableRx) => {
+      // @ts-ignore: we know this will have a metadata regex
       const metadataMatch = text.match(metaRx);
       const metadataFields = {
         "Account Name": metadataMatch?.groups?.Name?.trim() || "N/A",
@@ -183,42 +183,44 @@ export const BUILT_IN_PARSERS = [
   },
   {
     name: "PNB",
-    match: [`Stk Stmt: Stock Statement`, `Trf: Transfer`],
-    metaRegex:
+    matches: [`Stk Stmt: Stock Statement`, `Trf: Transfer`],
+    metadata:
       /Account Number (?<AccountNumber>\d+).*?Account Name: (?<Name>.*?) Customer Address/,
-    tableRegex:
+    table:
       /(?<TxnNo>[A-Z]{1}\d+) (?<date>\d\d\/\d\d\/\d{4}) (?<description>.*?) (?<Amt>-?\s?\d[\d,.\s]+\d) (?<bal>\d[\d,.\s]+\d) (?<Effect>Cr|Dr)/,
     func: generalDocumentParser,
   },
   {
     name: "ICICI",
-    match: ["PAN can be updated online or at the nearest ICICI Bank Branch ."],
-    metaRegex:
+    matches: [
+      "PAN can be updated online or at the nearest ICICI Bank Branch .",
+    ],
+    metadata:
       /^.*?  (?<Name>.*?)  .* (?<OpeningDate>\d\d-\d\d-\d{4}) B\/F (?<OpeningBalance>[\d,.]+)/,
-    tableRegex:
+    table:
       /(?<Date>\d\d-\d\d-\d{4}) (?<Particular>.*?) (?<Amount>[\d,]+\.\d\d) (?<Balance>[\d,.]+) /,
     func: generalDocumentParser,
   },
   {
     name: "Professional Tax Challan",
-    match: ["CHALLAN MTR Form Number-6"],
-    metaRegex:
+    matches: ["CHALLAN MTR Form Number-6"],
+    metadata:
       /Full Name (?<name>.*) Location.*From (?<period>.*) Flat.*TAX (?<amt>\d+\.\d{2}).*RBI Date (?<paymentDate>\d\d\/\d\d\/\d{4})/s,
     func: generalDocumentParser,
   },
   {
     name: "Provident Fund Challan Receipts",
-    match: ["Payment Confirmation Receipt", "TRRN No"],
-    metaRegex:
+    matches: ["Payment Confirmation Receipt", "TRRN No"],
+    metadata:
       /ID : (?<Name>.*) Establishment Name.*\s(?<WageMonth>\w+-\d{4}) Wage Month : (?<Amt>\d[\d,.]*).*Payment Date : (?<PaymentDate>\d{2}-\w+-\d{4})/,
     func: generalDocumentParser,
   },
   {
     name: "Provident Fund Challan",
-    match: [
+    matches: [
       "COMBINED CHALLAN OF A/C NO. 01, 02, 10, 21 & 22 (With EMPLOYEES' PROVIDENT FUND ORGANISATION",
     ],
-    metaRegex:
+    metadata:
       /(?<Month>\w+) (?<Year>\d{4}) (?<TRRN>\d{13}) (?<Name>.*) Total Subscribers .* (?<Amt>[\d,]+) Grand Total :/s,
     func: generalDocumentParser,
   },
