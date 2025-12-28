@@ -77,6 +77,7 @@
     <script type="module">
         // Load haunted and its dependencies from CDN
         import { html, render } from '/vendor/lit-html@3.3.2.js';
+        import { when } from '/vendor/lit-html-directives@3.3.2.js';
         import { component, useState, useEffect, useCallback, useMemo } from '/vendor/haunted@6.1.0.js';
         import { BUILT_IN_PARSERS, generalDocumentParser } from './data-extractor.js'
         // Set the workerSrc for PDF.js
@@ -170,7 +171,117 @@
                 fileReader.readAsArrayBuffer(file);
             });
         }
-        
+
+        // --- Templates ---
+        const renderConsolidatedSummary = (consolidatedTables) => {
+            return html`
+                <div class="mt-8 border-t pt-8">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Consolidated Metadata Summary</h2>
+                    <p class="text-gray-600 mb-4">A combined view of metadata across all processed files, grouped by document type.</p>
+                    ${consolidatedTables.map((tbl, i) => html`
+                        <div class="mb-8">
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="text-lg font-semibold text-blue-700">${tbl.title}</h3>
+                                <button @click=${() => copyTable(`consTable-${i}`)} class="px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded text-sm font-bold transition">
+                                    Copy Table
+                                </button>
+                            </div>
+                            <div class="overflow-x-auto border rounded-lg shadow-sm">
+                                <table id=${`consTable-${i}`} class="data-table">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            ${tbl.headers.map(h => html`<th class="font-bold text-gray-600">${h}</th>`)}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${tbl.rows.map(row => html`
+                                            <tr>
+                                                ${row.map(cell => html`<td>${cell}</td>`)}
+                                            </tr>
+                                        `)}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `)}
+                </div>
+            `;
+        };
+
+        const renderDetailedTable = (documents, selectedMetaCols, toggleMetaColumn) => {
+            // Calculate which extra columns are active (convert Set to Array)
+            const activeExtraCols = Array.from(selectedMetaCols);
+
+            return html`
+                <div class="mt-6">
+                    <h3 class="text-lg font-bold text-gray-700 mb-2">Detailed Extraction</h3>
+                    <div class="overflow-x-auto border rounded-lg">
+                        <table id="outputTable" class="data-table">
+                            <tbody>
+                                ${documents.map(doc => {
+                                    // 1. Render Source Header
+                                    const fileRow = html`
+                                        <tr class="file-row">
+                                            <td colspan=${7 + activeExtraCols.length}>Source: ${doc.fileName} (${doc.docType})</td>
+                                        </tr>
+                                    `;
+
+                                    // 2. Render Metadata Rows (with checkboxes)
+                                    const metaRows = Object.entries(doc.metadata).map(([key, val]) => html`
+                                        <tr>
+                                            <td class="flex items-center space-x-2">
+                                                <input 
+                                                    type="checkbox" 
+                                                    class="meta-checkbox rounded text-blue-600 focus:ring-blue-500"
+                                                    .checked=${selectedMetaCols.has(key)}
+                                                    @change=${() => toggleMetaColumn(key)}
+                                                    id=${`cb-${doc.fileName}-${key}`}
+                                                />
+                                                <label for=${`cb-${doc.fileName}-${key}`} class="meta-key-label font-medium text-gray-700">
+                                                    ${key}
+                                                </label>
+                                            </td>
+                                            <td>${val}</td>
+                                            ${Array.from({length: 5 + activeExtraCols.length}).map(() => html`<td></td>`)}
+                                        </tr>
+                                    `);
+
+                                    // 3. Render Table Header (Standard Headers + Active Metadata Keys)
+                                    const headers = html`
+                                        <tr class="bg-gray-50 border-b-2 border-gray-200">
+                                            ${doc.headers.map(h => html`<th class="font-bold text-gray-800">${h}</th>`)}
+                                            ${activeExtraCols.map(colName => html`
+                                                <th class="font-bold meta-col-header text-sm">${colName}</th>
+                                            `)}
+                                        </tr>
+                                    `;
+
+                                    // 4. Render Table Rows (Data + Active Metadata Values)
+                                    const rows = doc.rows.map(row => {
+                                        return html`
+                                            <tr class="hover:bg-gray-50 transition-colors">
+                                                ${row.map(cell => html`<td>${cell}</td>`)}
+                                                ${activeExtraCols.map(colKey => {
+                                                    const val = doc.metadata[colKey] || '';
+                                                    return html`<td class="meta-col-cell">${val}</td>`;
+                                                })}
+                                            </tr>
+                                        `;
+                                    });
+
+                                    return html`
+                                        ${fileRow}
+                                        ${metaRows}
+                                        ${headers}
+                                        ${rows}
+                                    `;
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        };
         // --- Haunted Component (Main Application) ---
 
         function App() {
@@ -232,7 +343,7 @@
 
             // --- Handlers (Memoized) ---
             
-            const toggleMetaColumn = useCallback((key) => {
+            const toggleMetaColumn = (key) => {
                 const newSet = new Set(selectedMetaCols);
                 if (newSet.has(key)) {
                     newSet.delete(key);
@@ -240,7 +351,7 @@
                     newSet.add(key);
                 }
                 setSelectedMetaCols(newSet);
-            }, [selectedMetaCols]);
+            }
 
             const saveCustomParsers = useCallback((parsers) => {
                 try {
@@ -646,123 +757,7 @@
                     </div>
                 `;
             };
-
-            const renderConsolidatedSummary = () => {
-                if (!isConsolidatedVisible || consolidatedTables.length === 0) return html``;
-
-                return html`
-                    <div class="mt-8 border-t pt-8">
-                        <h2 class="text-2xl font-bold text-gray-800 mb-4">Consolidated Metadata Summary</h2>
-                        <p class="text-gray-600 mb-4">A combined view of metadata across all processed files, grouped by document type.</p>
-                        ${consolidatedTables.map((tbl, i) => html`
-                            <div class="mb-8">
-                                <div class="flex justify-between items-center mb-3">
-                                    <h3 class="text-lg font-semibold text-blue-700">${tbl.title}</h3>
-                                    <button @click=${() => copyTable(`consTable-${i}`)} class="px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded text-sm font-bold transition">
-                                        Copy Table
-                                    </button>
-                                </div>
-                                <div class="overflow-x-auto border rounded-lg shadow-sm">
-                                    <table id=${`consTable-${i}`} class="data-table">
-                                        <thead class="bg-gray-50">
-                                            <tr>
-                                                ${tbl.headers.map(h => html`<th class="font-bold text-gray-600">${h}</th>`)}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            ${tbl.rows.map(row => html`
-                                                <tr>
-                                                    ${row.map(cell => html`<td>${cell}</td>`)}
-                                                </tr>
-                                            `)}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        `)}
-                    </div>
-                `;
-            };
-
-            const renderDetailedTable = () => {
-                if (!isTableVisible) return html`
-                    <div class="p-8 text-center text-gray-500 border rounded-lg bg-white mt-6">The extracted data table is currently hidden.</div>
-                `;
-
-                // Calculate which extra columns are active (convert Set to Array)
-                const activeExtraCols = Array.from(selectedMetaCols);
-
-                return html`
-                    <div class="mt-6">
-                        <h3 class="text-lg font-bold text-gray-700 mb-2">Detailed Extraction</h3>
-                        <div class="overflow-x-auto border rounded-lg">
-                            <table id="outputTable" class="data-table">
-                                <tbody>
-                                    ${documents.map(doc => {
-                                        // 1. Render Source Header
-                                        const fileRow = html`
-                                            <tr class="file-row">
-                                                <td colspan=${7 + activeExtraCols.length}>Source: ${doc.fileName} (${doc.docType})</td>
-                                            </tr>
-                                        `;
-
-                                        // 2. Render Metadata Rows (with checkboxes)
-                                        const metaRows = Object.entries(doc.metadata).map(([key, val]) => html`
-                                            <tr>
-                                                <td class="flex items-center space-x-2">
-                                                    <input 
-                                                        type="checkbox" 
-                                                        class="meta-checkbox rounded text-blue-600 focus:ring-blue-500"
-                                                        .checked=${selectedMetaCols.has(key)}
-                                                        @change=${() => toggleMetaColumn(key)}
-                                                        id=${`cb-${doc.fileName}-${key}`}
-                                                    />
-                                                    <label for=${`cb-${doc.fileName}-${key}`} class="meta-key-label font-medium text-gray-700">
-                                                        ${key}
-                                                    </label>
-                                                </td>
-                                                <td>${val}</td>
-                                                ${Array.from({length: 5 + activeExtraCols.length}).map(() => html`<td></td>`)}
-                                            </tr>
-                                        `);
-
-                                        // 3. Render Table Header (Standard Headers + Active Metadata Keys)
-                                        const headers = html`
-                                            <tr class="bg-gray-50 border-b-2 border-gray-200">
-                                                ${doc.headers.map(h => html`<th class="font-bold text-gray-800">${h}</th>`)}
-                                                ${activeExtraCols.map(colName => html`
-                                                    <th class="font-bold meta-col-header text-sm">${colName}</th>
-                                                `)}
-                                            </tr>
-                                        `;
-
-                                        // 4. Render Table Rows (Data + Active Metadata Values)
-                                        const rows = doc.rows.map(row => {
-                                            return html`
-                                                <tr class="hover:bg-gray-50 transition-colors">
-                                                    ${row.map(cell => html`<td>${cell}</td>`)}
-                                                    ${activeExtraCols.map(colKey => {
-                                                        const val = doc.metadata[colKey] || '';
-                                                        return html`<td class="meta-col-cell">${val}</td>`;
-                                                    })}
-                                                </tr>
-                                            `;
-                                        });
-
-                                        return html`
-                                            ${fileRow}
-                                            ${metaRows}
-                                            ${headers}
-                                            ${rows}
-                                        `;
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                `;
-            };
-
+                      
             const renderPasswordModal = () => {
                 if (!passwordModal.isOpen) return html``;
                 
@@ -1089,10 +1084,17 @@
                             </div>
                             
                             <!-- Consolidated Summary -->
-                            ${renderConsolidatedSummary()}
+                            ${when(!isConsolidatedVisible || consolidatedTables.length === 0,
+                                () => renderConsolidatedSummary(consolidatedTables)
+                                )
+                            }
 
                             <!-- Detailed Table -->
-                            ${renderDetailedTable()}
+                            ${when(isTableVisible,
+                                () => renderDetailedTable(documents, selectedMetaCols, toggleMetaColumn),
+                                () => html` <div class="p-8 text-center text-gray-500 border rounded-lg bg-white mt-6">The extracted data table is currently hidden.</div> `
+                                )
+                            }
 
                             <!-- Raw Text Display -->
                             <div class="mt-8">
@@ -1103,11 +1105,11 @@
                                     </button>
                                 </div>
                                 
-                                ${isRawTextVisible ? html`
-                                    <pre class="bg-gray-100 p-4 rounded-lg text-xs overflow-auto max-h-64 border">${rawText}</pre>
-                                ` : html`
-                                    <div class="p-4 bg-gray-50 border rounded text-xs text-gray-500 italic">Raw text hidden.</div>
-                                `}
+                                ${when(isRawTextVisible,
+                                    () => html`<pre class="bg-gray-100 p-4 rounded-lg text-xs overflow-auto max-h-64 border">${rawText}</pre>`,
+                                    () => html`<div class="p-4 bg-gray-50 border rounded text-xs text-gray-500 italic">Raw text hidden.</div> `
+                                    )
+                                }
                             </div>
                         </div>
                     ` : html``}
