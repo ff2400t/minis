@@ -1,9 +1,9 @@
 /**
  * @typedef {Object} Parser
  * @property {string} name
- * @property {string[]} match - Array of keywords to match
- * @property {RegExp} metaRegex - The regular expression used to extract metadata from the text.
- * @property {RegExp} tableRegex - The regular expression used to match table data from the text.
+ * @property {string[]} matches - Array of keywords to match
+ * @property {RegExp} metadata - The regular expression used to extract metadata from the text.
+ * @property {RegExp} table - The regular expression used to match table data from the text.
  * @property {ParseFunc} func - A function that processes the text and applies regex patterns to extract metadata and table data.
  */
 
