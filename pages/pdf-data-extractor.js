@@ -6,6 +6,7 @@ import {
   useCallback,
   useMemo,
   useReducer,
+  useRef,
   useState,
 } from "/vendor/haunted@6.1.0.js";
 import { BUILT_IN_PARSERS, generalDocumentParser } from "./data-extractor.js";
@@ -55,12 +56,12 @@ const parserInit = (/** @type {object} */ state) => {
 
 /**
  * @param {ParserState} state
- * @param {{ type: any; payload: string }} action
+ * @param {{ type: string; payload: any | undefined}} action
  */
 function parserReducer(state, action) {
   switch (action.type) {
     case "UPDATE_PARSERS":
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state.parsers));
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(action.payload));
       return { ...state, customParsers: action.payload };
     case "TOGGLE_FORM":
       return { ...state, isParserFormVisible: !state.isParserFormVisible };
@@ -110,10 +111,15 @@ function parseConfigBlock(text) {
   const baseObj = {
     name: "",
     matches: "",
-    metastring: undefined,
+    metadata: undefined,
     table: undefined,
   };
-  const parsed = text.split(";;\n").map((a) => a.split(":", 2));
+
+  const parsed = text.split(";;\n")
+    .map((str) => {
+      const indx = str.search(":");
+      return [str.slice(0, indx), str.slice(indx + 1)];
+    });
   return Object.assign(baseObj, Object.fromEntries(parsed));
 }
 
@@ -269,7 +275,11 @@ const renderConsolidatedSummary = (
   `;
 };
 
-const renderDetailedTable = (/** @type {Docs[]} */ documents, /** @type {Set<string>} */ selectedMetaCols, /** @type {(arg0: string) => any } */ toggleMetaColumn) => {
+const renderDetailedTable = (
+  /** @type {Docs[]} */ documents,
+  /** @type {Set<string>} */ selectedMetaCols,
+  /** @type {(arg0: string) => any } */ toggleMetaColumn,
+) => {
   // Calculate which extra columns are active (convert Set to Array)
   const activeExtraCols = Array.from(selectedMetaCols);
 
@@ -398,14 +408,14 @@ function App() {
   const [savedPassword, setSavedPassword] = useState(null);
 
   // File Processing Context (Mutable, non-reactive state managed internally)
-  const fileProcessingContext = useMemo(() => ({
+  const fileProcessingContext = useRef({
     fileList: [],
     currentIndex: 0,
     tempDocuments: [], // New structured temp storage
     tempRawText: "",
     tempMetadata: [],
     successCount: 0,
-  }), []);
+  });
 
   /** @type {ConsolidatedTable[]} */
   const consolidatedTables = useMemo(
@@ -425,14 +435,6 @@ function App() {
     setSelectedMetaCols(newSet);
   };
 
-  const saveCustomParsers = (parsers) => {
-    try {
-      dispatchParser({ type: "UPDATE_PARSERS", payload: parsers });
-    } catch (e) {
-      console.error("Could not save custom parsers to localStorage:", e);
-    }
-  };
-
   const addCustomParser = (/** @type {string} */ configText) => {
     const data = parseConfigBlock(configText);
 
@@ -446,7 +448,7 @@ function App() {
       });
       return;
     }
-
+    debugger;
     try {
       if (metadata) new RegExp(metadata, "s");
       if (table) new RegExp(table, "g");
@@ -460,9 +462,7 @@ function App() {
 
     const newParser = {
       name,
-      matches: m.split(",").map((s) => s.trim()).filter((s) =>
-        s.length > 0
-      ),
+      matches: m.split(",").map((s) => s.trim()).filter((s) => s.length > 0),
       metadata: metadata,
       table: table,
     };
@@ -480,8 +480,10 @@ function App() {
 
     let newParserList;
     let action;
+    debugger;
 
     if (existingIndex !== -1) {
+      // @ts-ignore it's fine to not have func
       currentParsers[existingIndex] = newParser;
       newParserList = currentParsers;
       action = "updated";
@@ -490,19 +492,19 @@ function App() {
       action = "added";
     }
 
-    saveCustomParsers(newParserList);
-    dispatchParser({ type: "CLOSE_FORM" });
+    dispatchParser({ type: "UPDATE_PARSERS", payload: newParserList });
+    dispatchParser({ type: "CLOSE_FORM", payload: undefined });
     setStatus({
       message: `Custom parser "${name}" successfully ${action}!`,
       type: "success",
     });
   };
 
-  const removeCustomParser = (index) => {
+  const removeCustomParser = (/** @type {number} */ index) => {
     const name = customParsers[index].name;
     const current = [...customParsers];
     current.splice(index, 1);
-    saveCustomParsers(current);
+    dispatchParser({ type: "UPDATE_PARSERS", payload: current });
     setStatus({ message: `Custom parser "${name}" removed.`, type: "info" });
   };
 
@@ -542,9 +544,9 @@ function App() {
 
   // --- File Processing Logic ---
 
-  const finalizeProcessing = useCallback(() => {
+  const finalizeProcessing = () => {
     const { tempDocuments, tempMetadata, tempRawText, successCount, fileList } =
-      fileProcessingContext;
+      fileProcessingContext.current;
 
     setDocuments(tempDocuments);
     setRawText(tempRawText);
@@ -563,92 +565,98 @@ function App() {
         type: "success",
       });
     }
-  }, [fileProcessingContext]);
+  };
 
-  const processFileContent = useCallback(async (file, password) => {
-    let rawText = await extractAllPdfText(file, password);
-    rawText = rawText.replace(/   /g, " ");
+  const processFileContent = useCallback(
+    async (
+      /** @type {Blob} */ file,
+      /** @type {string | undefined} */ password,
+    ) => {
+      let rawText = await extractAllPdfText(file, password);
+      rawText = rawText.replace(/   /g, " ");
 
-    let parsedData = { allRows: [], metadataFields: {} };
-    let docType = "Unknown";
-    const cleanCheckText = rawText.replace(/\s+/g, " ");
+      let parsedData = { allRows: [], metadataFields: {} };
+      let docType = "Unknown";
+      const cleanCheckText = rawText.replace(/\s+/g, " ");
 
-    let parserFound = false;
+      let parserFound = false;
 
-    const allParsers = [
-      ...customParsers.map((/** @type {Parser} */ p) => ({
-        ...p,
-        name: p.name + " (Custom)",
-        func: generalDocumentParser,
-      })),
-      ...BUILT_IN_PARSERS,
-    ];
+      const allParsers = [
+        ...customParsers.map((/** @type {Parser} */ p) => ({
+          ...p,
+          name: p.name + " (Custom)",
+          func: generalDocumentParser,
+        })),
+        ...BUILT_IN_PARSERS,
+      ];
 
-    for (const { name, matches, metadata, table, func } of allParsers) {
-      const isMatch = matches.every((s) =>
-        cleanCheckText.toLowerCase().includes(s.toLowerCase())
-      );
-      if (isMatch) {
-        docType = name;
-        let effectiveMetaRx = typeof metadata === "string"
-          ? new RegExp(metadata, "s")
-          : metadata;
-        let effectiveTableRx = typeof table === "string"
-          ? new RegExp(table, "g")
-          : table;
+      for (const { name, matches, metadata, table, func } of allParsers) {
+        const isMatch = matches.every((s) =>
+          cleanCheckText.toLowerCase().includes(s.toLowerCase())
+        );
+        if (isMatch) {
+          docType = name;
+          let effectiveMetaRx = typeof metadata === "string"
+            ? new RegExp(metadata, "s")
+            : metadata;
+          let effectiveTableRx = typeof table === "string"
+            ? new RegExp(table, "g")
+            : table;
 
-        parsedData = func(rawText, effectiveMetaRx, effectiveTableRx);
-        console.debug(JSON.stringify(parsedData));
-        parserFound = true;
-        break;
+          parsedData = func(rawText, effectiveMetaRx, effectiveTableRx);
+          console.debug(JSON.stringify(parsedData));
+          parserFound = true;
+          break;
+        }
       }
-    }
 
-    // Update context with the successfully parsed data
-    fileProcessingContext.tempRawText +=
-      `\n--- SOURCE: ${file.name} (${docType}) ---\n${rawText}\n`;
+      // Update context with the successfully parsed data
+      fileProcessingContext.current.tempRawText +=
+        `\n--- SOURCE: ${file.name} (${docType}) ---\n${rawText}\n`;
 
-    if (parserFound) {
-      if (
-        parsedData.metadataFields &&
-        Object.keys(parsedData.metadataFields).length > 0
-      ) {
-        fileProcessingContext.tempMetadata.push({
+      if (parserFound) {
+        if (
+          parsedData.metadataFields &&
+          Object.keys(parsedData.metadataFields).length > 0
+        ) {
+          fileProcessingContext.current.tempMetadata.push({
+            fileName: file.name,
+            docType: docType,
+            fields: parsedData.metadataFields,
+          });
+        }
+
+        // Separation of concerns: We now split the "allRows" into metadata section, header, and data
+        const metaKeys = Object.keys(parsedData.metadataFields);
+        const metaCount = metaKeys.length;
+
+        // The standard parser output is: Metadata Rows -> Header -> Data Rows
+        // We assume parsedData.allRows[metaCount] is the header based on generalDocumentParser logic
+        const headerRow = parsedData.allRows.length > metaCount
+          ? parsedData.allRows[metaCount]
+          : [];
+        const dataRows = parsedData.allRows.length > metaCount + 1
+          ? parsedData.allRows.slice(metaCount + 1)
+          : [];
+
+        fileProcessingContext.current.tempDocuments.push({
           fileName: file.name,
           docType: docType,
-          fields: parsedData.metadataFields,
+          metadata: parsedData.metadataFields,
+          headers: headerRow,
+          rows: dataRows,
         });
       }
 
-      // Separation of concerns: We now split the "allRows" into metadata section, header, and data
-      const metaKeys = Object.keys(parsedData.metadataFields);
-      const metaCount = metaKeys.length;
-
-      // The standard parser output is: Metadata Rows -> Header -> Data Rows
-      // We assume parsedData.allRows[metaCount] is the header based on generalDocumentParser logic
-      const headerRow = parsedData.allRows.length > metaCount
-        ? parsedData.allRows[metaCount]
-        : [];
-      const dataRows = parsedData.allRows.length > metaCount + 1
-        ? parsedData.allRows.slice(metaCount + 1)
-        : [];
-
-      fileProcessingContext.tempDocuments.push({
-        fileName: file.name,
-        docType: docType,
-        metadata: parsedData.metadataFields,
-        headers: headerRow,
-        rows: dataRows,
-      });
-    }
-
-    if (!parserFound) {
-      throw new Error("Document type unknown. Data not extracted.");
-    }
-  }, [customParsers, fileProcessingContext]);
+      if (!parserFound) {
+        throw new Error("Document type unknown. Data not extracted.");
+      }
+    },
+    [customParsers],
+  );
 
   const processNextFile = useCallback(async () => {
-    const { fileList, currentIndex } = fileProcessingContext;
+    const { fileList, currentIndex } = fileProcessingContext.current;
 
     if (currentIndex >= fileList.length) {
       finalizeProcessing();
@@ -665,32 +673,34 @@ function App() {
 
     try {
       await processFileContent(file, savedPassword || "");
+      const fpContext = fileProcessingContext.current;
 
-      fileProcessingContext.successCount++;
-      fileProcessingContext.currentIndex++;
+      fpContext.successCount++;
+      fpContext.currentIndex++;
       processNextFile();
     } catch (e) {
-      if (e.name === "PasswordException") {
-        // PAUSE: Open modal
-        setPasswordModal((prev) => ({
-          ...prev,
-          isOpen: true,
-          fileName: file.name,
-          fileToProcess: file,
-          passwordInput: "",
-        }));
-        return;
-      }
+      if (e instanceof Error) {
+        if (e.name === "PasswordException") {
+          // PAUSE: Open modal
+          setPasswordModal((prev) => ({
+            ...prev,
+            isOpen: true,
+            fileName: file.name,
+            fileToProcess: file,
+            passwordInput: "",
+          }));
+          return;
+        }
 
-      // Other Error
-      console.error(`Error processing ${file.name}:`, e);
-      fileProcessingContext.tempRawText +=
-        `\n--- SOURCE: ${file.name} (FAILED) ---\nError: ${e.message}\n`;
-      fileProcessingContext.currentIndex++;
-      processNextFile();
+        // Other Error
+        console.error(`Error processing ${file.name}:`, e);
+        fileProcessingContext.current.tempRawText +=
+          `\n--- SOURCE: ${file.name} (FAILED) ---\nError: ${e.message}\n`;
+        fileProcessingContext.current.currentIndex++;
+        processNextFile();
+      }
     }
   }, [
-    fileProcessingContext,
     processFileContent,
     savedPassword,
     finalizeProcessing,
@@ -721,17 +731,17 @@ function App() {
     setSavedPassword(null);
 
     // Reset mutable context
-    Object.assign(fileProcessingContext, {
+    fileProcessingContext.current = {
       fileList: files,
       currentIndex: 0,
       tempDocuments: [],
       tempRawText: "",
       tempMetadata: [],
       successCount: 0,
-    });
+    }
 
     processNextFile();
-  }, [fileProcessingContext, processNextFile]);
+  }, [processNextFile]);
 
   const handlePasswordSubmit = useCallback(async () => {
     const { fileToProcess, passwordInput, useForSubsequent } = passwordModal;
@@ -753,34 +763,35 @@ function App() {
       try {
         await processFileContent(fileToProcess, password);
 
-        fileProcessingContext.successCount++;
-        fileProcessingContext.currentIndex++;
+        fileProcessingContext.current.successCount++;
+        fileProcessingContext.current.currentIndex++;
         processNextFile();
       } catch (e) {
-        if (e.name === "PasswordException") {
-          setStatus({
-            message: "Incorrect password. Please try again.",
-            type: "error",
-          });
-          setPasswordModal((prev) => ({
-            ...prev,
-            isOpen: true,
-            fileName: fileToProcess.name,
-            fileToProcess: fileToProcess,
-            passwordInput: password,
-          }));
-          return;
+        if (e instanceof Error) {
+          if (e.name === "PasswordException") {
+            setStatus({
+              message: "Incorrect password. Please try again.",
+              type: "error",
+            });
+            setPasswordModal((prev) => ({
+              ...prev,
+              isOpen: true,
+              fileName: fileToProcess.name,
+              fileToProcess: fileToProcess,
+              passwordInput: password,
+            }));
+            return;
+          }
         }
 
         // Other error: log and skip this file, continue the main loop
         console.error("Error after password retry:", e);
-        fileProcessingContext.currentIndex++;
+        fileProcessingContext.current.currentIndex++;
         processNextFile();
       }
     }
   }, [
     passwordModal,
-    fileProcessingContext,
     processFileContent,
     processNextFile,
   ]);
@@ -790,28 +801,28 @@ function App() {
     setStatus({ message: "", type: "" });
 
     if (
-      fileProcessingContext.fileList.length > fileProcessingContext.currentIndex
+      fileProcessingContext.current.fileList.length > fileProcessingContext.current.currentIndex
     ) {
-      fileProcessingContext.tempRawText += `\n--- SOURCE: ${
-        fileProcessingContext.fileList[fileProcessingContext.currentIndex].name
+      fileProcessingContext.current.tempRawText += `\n--- SOURCE: ${
+        fileProcessingContext.current.fileList[fileProcessingContext.current.currentIndex].name
       } (SKIPPED BY USER) ---\n\n`;
     }
-    fileProcessingContext.currentIndex++;
+    fileProcessingContext.current.currentIndex++;
     processNextFile();
-  }, [fileProcessingContext, processNextFile]);
+  }, [processNextFile]);
 
   // --- Drag/Drop Handlers ---
-  const handleDragOver = useCallback((e) => {
+  const handleDragOver = (/** @type {DragEvent} */ e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
-  }, []);
-  const handleDragLeave = useCallback((e) => {
+  };
+  const handleDragLeave = (/** @type {SubmitEvent} */ e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-  }, []);
-  const handleDrop = useCallback((e) => {
+  };
+  const handleDrop = useCallback((/** @type {DragEvent} */ e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
@@ -819,9 +830,10 @@ function App() {
     if (files && files.length > 0) processFiles(files);
   }, [processFiles]);
 
-  const handleFileInput = useCallback((e) => {
+  const handleFileInput = (/** @type {InputEvent} */ e) => {
+    // @ts-ignore
     processFiles(e.target.files);
-  }, [processFiles]);
+  };
 
   // --- Modal/UI Render Helpers ---
 
@@ -907,7 +919,8 @@ function App() {
       <div class="mb-6 border rounded-lg overflow-hidden">
         <button
           class="w-full text-left px-6 py-4 bg-gray-100 font-semibold text-gray-700 hover:bg-gray-200 flex justify-between items-center transition"
-          @click="${() => dispatchParser({ type: "TOGGLE_FORM" })}"
+          @click="${() =>
+            dispatchParser({ type: "TOGGLE_FORM", payload: undefined })}"
         >
           <span>🛠️ Configure Custom Parser (Add/Update/Import)</span>
           <span>${isParserFormVisible ? "▲" : "▼"}</span>
@@ -1108,6 +1121,7 @@ function App() {
           ${customParsers.map((parser, idx) => {
             const id = `custom-${idx}`;
             const isExpanded = expandedParsers[id];
+            console.log(parser);
 
             return html`
               <li class="border rounded-lg p-3 bg-indigo-50 border-indigo-100">
@@ -1216,6 +1230,7 @@ function App() {
         blocks = raw.split(/\n\s*\n/);
       }
 
+      /** @type {Parser[]}*/
       const newParsers = [];
       for (const block of blocks) {
         const cleanBlock = block.trim();
@@ -1223,6 +1238,7 @@ function App() {
         const data = parseConfigBlock(cleanBlock);
 
         if (data.name && data.matches) {
+          // @ts-ignore func will be added when needed
           newParsers.push({
             name: data.name,
             matches: data.matches
@@ -1235,7 +1251,7 @@ function App() {
         }
       }
 
-      saveCustomParsers(newParsers);
+      dispatchParser({ type: "UPDATE_PARSERS", payload: newParsers });
       dispatchParser({ type: "TOGGLE_TEMPLATES_MODAL", payload: false });
       dispatchParser({ type: "SET_TEMPLATES_TEXT", payload: "" });
       setStatus({
