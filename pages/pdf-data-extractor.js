@@ -22,6 +22,7 @@ const initialParserState = {
   isTemplatesModalVisible: false,
   templatesText: "",
   parsers: [],
+  selectedParser: "auto",
 };
 
 /**
@@ -36,6 +37,7 @@ const initialParserState = {
      isTemplatesModalVisible: any;
      customParsers: Array<Parser>;
      templatesText: string;
+     selectedParser: string;
 }} ParserState
  */
 
@@ -63,6 +65,8 @@ function parserReducer(state, action) {
     case "UPDATE_PARSERS":
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(action.payload));
       return { ...state, customParsers: action.payload };
+    case "SET_SELECTED_PARSER":
+      return { ...state, selectedParser: action.payload };
     case "TOGGLE_FORM":
       return { ...state, isParserFormVisible: !state.isParserFormVisible };
     case "CLOSE_FORM":
@@ -94,6 +98,15 @@ function parserReducer(state, action) {
   }
 }
 
+/** @typedef {object} PasswordModalState
+ * @property {boolean} isOpen
+ * @property {string} fileName
+ * @property {string} passwordInput
+ * @property {boolean} useForSubsequent
+ * @property {any[] | null} fileToProcess
+ */
+
+/** @type{PasswordModalState} */
 const INITIAL_MODAL_STATE = {
   isOpen: false,
   fileName: "",
@@ -385,6 +398,7 @@ function App() {
     expandedParsers,
     isTemplatesModalVisible,
     templatesText,
+    selectedParser,
   } = parserState;
 
   const [isDragging, setIsDragging] = useState(false);
@@ -422,6 +436,16 @@ function App() {
     () => generateConsolidatedTables(consolidatedMetadata),
     [consolidatedMetadata],
   );
+
+  /** @type {Parser[]} */
+  const allParsers = useMemo(() => [
+    ...customParsers.map((/** @type {Parser} */ p) => ({
+      ...p,
+      name: p.name + " (Custom)",
+      func: generalDocumentParser,
+    })),
+    ...BUILT_IN_PARSERS,
+  ], [customParsers]);
 
   // --- Handlers (Memoized) ---
 
@@ -580,19 +604,16 @@ function App() {
 
       let parserFound = false;
 
-      const allParsers = [
-        ...customParsers.map((/** @type {Parser} */ p) => ({
-          ...p,
-          name: p.name + " (Custom)",
-          func: generalDocumentParser,
-        })),
-        ...BUILT_IN_PARSERS,
-      ];
-
       for (const { name, matches, metadata, table, func } of allParsers) {
-        const isMatch = matches.every((s) =>
-          cleanCheckText.toLowerCase().includes(s.toLowerCase())
-        );
+        let isMatch = false;
+        if (selectedParser === "auto") {
+          isMatch = matches.every((s) =>
+            cleanCheckText.toLowerCase().includes(s.toLowerCase())
+          );
+        } else {
+          isMatch = name === selectedParser;
+        }
+
         if (isMatch) {
           docType = name;
           let effectiveMetaRx = typeof metadata === "string"
@@ -651,7 +672,7 @@ function App() {
         throw new Error("Document type unknown. Data not extracted.");
       }
     },
-    [customParsers],
+    [customParsers, selectedParser],
   );
 
   const processNextFile = useCallback(async () => {
@@ -1324,11 +1345,38 @@ function App() {
 
       ${renderParserForm()}
 
-      <div class="mb-6 flex justify-end">
+      <div class="mb-6 flex flex-col md:flex-row justify-between items-end gap-4">
+        <div class="w-full md:w-1/2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Processing Mode (Parser Selection)
+          </label>
+          <select
+            class="w-full border border-gray-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            .value="${selectedParser}"
+            @change="${(/** @type {Event} */ e) =>
+              dispatchParser({
+                type: "SET_SELECTED_PARSER",
+                // @ts-ignore
+                payload: e.target.value,
+              })}"
+          >
+            <option value="auto">Auto-detect (Default)</option>
+            ${allParsers.map((p) =>
+              html`
+                <option value="${p.name}">${p.name}</option>
+              `
+            )}
+          </select>
+          <p class="text-xs text-gray-500 mt-1">
+            "Auto" checks all parsers. Select a specific one to force it for all
+            files.
+          </p>
+        </div>
+
         <button
           @click="${() =>
             dispatchParser({ type: "TOGGLE_LIST_MODAL", payload: true })}"
-          class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg shadow flex items-center transition"
+          class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg shadow flex items-center transition h-10"
         >
           <span>ℹ️ Show Available Parsers</span>
         </button>
