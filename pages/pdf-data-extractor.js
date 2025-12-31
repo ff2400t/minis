@@ -403,7 +403,7 @@ function App() {
   // Dynamic Columns State
   const [selectedMetaCols, setSelectedMetaCols] = useState(new Set());
 
-  // Password State
+  /** @type {[PasswordModalState, (e: PasswordModalState | ((e: PasswordModalState) => PasswordModalState)) => void ]} */
   const [passwordModal, setPasswordModal] = useState(INITIAL_MODAL_STATE);
   const [savedPassword, setSavedPassword] = useState(null);
 
@@ -448,13 +448,13 @@ function App() {
       });
       return;
     }
-    debugger;
     try {
       if (metadata) new RegExp(metadata, "s");
       if (table) new RegExp(table, "g");
     } catch (e) {
-      // @ts-ignore
-      setStatus({ message: `Invalid Regex: ${e.message}`, type: "error" });
+      if (e instanceof Error) {
+        setStatus({ message: `Invalid Regex: ${e.message}`, type: "error" });
+      }
       return;
     }
     /** @type {string} */
@@ -480,7 +480,6 @@ function App() {
 
     let newParserList;
     let action;
-    debugger;
 
     if (existingIndex !== -1) {
       // @ts-ignore it's fine to not have func
@@ -738,7 +737,7 @@ function App() {
       tempRawText: "",
       tempMetadata: [],
       successCount: 0,
-    }
+    };
 
     processNextFile();
   }, [processNextFile]);
@@ -801,10 +800,12 @@ function App() {
     setStatus({ message: "", type: "" });
 
     if (
-      fileProcessingContext.current.fileList.length > fileProcessingContext.current.currentIndex
+      fileProcessingContext.current.fileList.length >
+        fileProcessingContext.current.currentIndex
     ) {
       fileProcessingContext.current.tempRawText += `\n--- SOURCE: ${
-        fileProcessingContext.current.fileList[fileProcessingContext.current.currentIndex].name
+        fileProcessingContext.current
+          .fileList[fileProcessingContext.current.currentIndex].name
       } (SKIPPED BY USER) ---\n\n`;
     }
     fileProcessingContext.current.currentIndex++;
@@ -925,8 +926,8 @@ function App() {
           <span>🛠️ Configure Custom Parser (Add/Update/Import)</span>
           <span>${isParserFormVisible ? "▲" : "▼"}</span>
         </button>
-        ${isParserFormVisible
-          ? html`
+        ${when(isParserFormVisible, () =>
+          html`
             <div class="p-6 bg-white border-t">
               ${customParsersHtml}
 
@@ -957,42 +958,40 @@ function App() {
                 </button>
               </form>
             </div>
-          `
-          : html`
-
-          `}
+          `)}
       </div>
     `;
   };
 
   const renderPasswordModal = () => {
-    if (!passwordModal.isOpen) {
-      return html`
-
-      `;
-    }
-
-    const updatePassInput = (e) => {
-      /** @type {HTMLElement} */
+    const updatePassInput = (/** @type {SubmitEvent} */ e) => {
+      /** @type {boolean} */
       const useForSubsequent =
         // @ts-ignore
         document.querySelector("#useForSubsequent").checked;
+
+      /** @type {string} */
+      // @ts-ignore
+      const passwordInput = e.target.value;
       setPasswordModal((prev) => ({
         ...prev,
-        passwordInput: e.target.value,
+        passwordInput,
         useForSubsequent,
       }));
     };
 
     const updateCheckbox = (/** @type {InputEvent} */ e) => {
-      /** @type {HTMLElement} */
+      /** @type {string} */
       // @ts-ignore
       const passwordInput = document.querySelector("#passwordInput").value;
+
+      /** @type {boolean} */
+      // @ts-ignore
+      const useForSubsequent = e.target.checked;
       setPasswordModal((prev) => ({
         ...prev,
         passwordInput,
-        // @ts-ignore
-        useForSubsequent: e.target.checked,
+        useForSubsequent,
       }));
     };
 
@@ -1055,12 +1054,6 @@ function App() {
   };
 
   const renderParserListModal = () => {
-    if (!isParserListModalVisible) {
-      return html`
-
-      `;
-    }
-
     const builtInParsersHtml = BUILT_IN_PARSERS.map((parser, idx) => {
       const id = `builtin-${idx}`;
       const name = parser.name;
@@ -1214,13 +1207,8 @@ function App() {
   };
 
   const renderTemplatesModal = () => {
-    if (!isTemplatesModalVisible) {
-      return html`
-
-      `;
-    }
-
     const saveTemplates = () => {
+      /** @type {string} */
       // @ts-ignore
       const raw = document.querySelector("#templatesTextarea").value;
       let blocks = [];
@@ -1492,7 +1480,20 @@ function App() {
     </div>
 
     <!-- Modals -->
-    ${renderPasswordModal()} ${renderTemplatesModal()} ${renderParserListModal()}
+    ${when(
+      passwordModal.isOpen,
+      () => renderPasswordModal(),
+    )}
+    <!-- Seperator -->
+    ${when(
+      isTemplatesModalVisible,
+      () => renderTemplatesModal(),
+    )}
+    <!-- Seperator -->
+    ${when(
+      isParserListModalVisible,
+      () => renderParserListModal(),
+    )}
   `;
 }
 
