@@ -6,3 +6,7 @@ var U=globalThis,R=n=>n,M=U.trustedTypes,V=M?M.createPolicy("lit-html",{createHT
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
+ // directives will be here
+function t(r,e,o){return r?e(r):o?.(r)}export{t as when};
+function*n(o,t){if(o!==void 0){let r=0;for(let e of o)yield t(e,r++)}}export{n as map};
+function o(o){return o??a};export{o as ifDefined};
