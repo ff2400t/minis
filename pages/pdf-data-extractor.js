@@ -1,13 +1,12 @@
 // Load haunted and its dependencies from CDN
-import { html } from "/vendor/lit-html@3.3.2.js";
-import { when } from "/vendor/lit-html-directives@3.3.2.js";
+import { html, when} from "/vendor/lit-html@3.3.2.js";
 import {
   component,
   useCallback,
   useMemo,
   useReducer,
   useRef,
-  useState,
+  useState as u1,
 } from "/vendor/haunted@6.1.0.js";
 import { BUILT_IN_PARSERS, generalDocumentParser } from "./data-extractor.js";
 // --- CONSTANTS & GLOBALS ---
@@ -26,10 +25,20 @@ const initialParserState = {
 };
 
 /**
+ * @template T
+ * A simplified type alias for `useState`.
+ *
+ * @type {<T>(initialState: T) => [T, (e: T | ((e: T) => T)) => void]}
+ */
+let useState = u1;
+
+/**
+ * @typedef {import("./data-extractor.js").StringMap} StringMap
  * @typedef {import('data-extractor.js').Parser} Parser
- * @typedef {{ fileName:string, metadata: string[], headers: string[] , rows: string[][] }} Docs
+ * @typedef {{ fileName:string, docType: string, metadata: StringMap, headers: string[] , rows: string[][] }} Docs
  * @typedef {{ title: string, headers: string[] , rows: string[][] }} ConsolidatedTable
-  * @typedef {{
+ * @typedef {{ fileName: string, docType: string, fields: StringMap}} DocMetadata
+ * @typedef {{
      parsers: Array<Parser>;
      isParserFormVisible: any;
      isParserListModalVisible: any;
@@ -39,6 +48,15 @@ const initialParserState = {
      templatesText: string;
      selectedParser: string;
 }} ParserState
+ */
+
+/** @typedef {object} FileProcessingContext
+ * @property {File[]} fileList
+ * @property {number} currentIndex
+ * @property {Docs[]} tempDocuments
+ * @property {string} tempRawText
+ * @property {DocMetadata[]} tempMetadata
+ * @property {number} successCount
  */
 
 const parserInit = (/** @type {object} */ state) => {
@@ -103,7 +121,7 @@ function parserReducer(state, action) {
  * @property {string} fileName
  * @property {string} passwordInput
  * @property {boolean} useForSubsequent
- * @property {any[] | null} fileToProcess
+ * @property {File | null} fileToProcess
  */
 
 /** @type{PasswordModalState} */
@@ -188,6 +206,7 @@ class PasswordRequiredError extends Error {
 
 /**
  * @param {Blob} file
+ * @param {string} password
  */
 async function extractAllPdfText(file, password = "") {
   const fileReader = new FileReader();
@@ -213,10 +232,11 @@ async function extractAllPdfText(file, password = "") {
         resolve(fullText);
       } catch (error) {
         if (
-          // @ts-ignore don't know how to fix this
-          error.name === "PasswordException" ||
-          // @ts-ignore don't know how to fix this
-          error.message.includes("password")
+          error instanceof Error &&
+          (
+            error.name === "PasswordException" ||
+            error.message.includes("password")
+          )
         ) {
           reject(new PasswordRequiredError("Password required or incorrect."));
         } else {
@@ -383,6 +403,12 @@ const renderDetailedTable = (
 };
 // --- Haunted Component (Main Application) ---
 
+// some useless stuff that will help withtype inference
+/** @type {Docs[]} */
+const documentsInitial = [];
+/** @type {DocMetadata[]} */
+const consolidatedMetadataInitial = [];
+
 function App() {
   // --- State Declarations ---
   /** @type {[ParserState, (e: {type: string, payload: any| undefined}) => ParserState ]} */
@@ -406,27 +432,29 @@ function App() {
   const [status, setStatus] = useState({ message: "", type: "" });
 
   // Results State
-  const [documents, setDocuments] = useState([]); // Stores structured
-  const [rawText, setRawText] = useState("");
-  const [consolidatedMetadata, setConsolidatedMetadata] = useState([]);
+  const [documents, setDocuments] = useState(documentsInitial); // Stores structured
+  const [rawText, setRawText] = useState([]);
+  const [consolidatedMetadata, setConsolidatedMetadata] = useState(
+    consolidatedMetadataInitial,
+  );
   const [isResultVisible, setIsResultVisible] = useState(false);
   const [isTableVisible, setIsTableVisible] = useState(true);
   const [isRawTextVisible, setIsRawTextVisible] = useState(false);
   const [isConsolidatedVisible, setIsConsolidatedVisible] = useState(false);
 
-  // Dynamic Columns State
-  const [selectedMetaCols, setSelectedMetaCols] = useState(new Set());
+  // Dynamic Columns Stat
+  const [selectedMetaCols, setSelectedMetaCols] = useState(new Set(""));
 
-  /** @type {[PasswordModalState, (e: PasswordModalState | ((e: PasswordModalState) => PasswordModalState)) => void ]} */
   const [passwordModal, setPasswordModal] = useState(INITIAL_MODAL_STATE);
-  const [savedPassword, setSavedPassword] = useState(null);
+  const [savedPassword, setSavedPassword] = useState("");
 
   // File Processing Context (Mutable, non-reactive state managed internally)
+  /** @type {{current: FileProcessingContext}}*/
   const fileProcessingContext = useRef({
     fileList: [],
     currentIndex: 0,
     tempDocuments: [], // New structured temp storage
-    tempRawText: "",
+    tempRawText: [],
     tempMetadata: [],
     successCount: 0,
   });
@@ -442,14 +470,13 @@ function App() {
     ...customParsers.map((/** @type {Parser} */ p) => ({
       ...p,
       name: p.name + " (Custom)",
-      func: generalDocumentParser,
     })),
     ...BUILT_IN_PARSERS,
   ], [customParsers]);
 
   // --- Handlers (Memoized) ---
 
-  const toggleMetaColumn = (key) => {
+  const toggleMetaColumn = (/** @type {string} */ key) => {
     const newSet = new Set(selectedMetaCols);
     if (newSet.has(key)) {
       newSet.delete(key);
@@ -506,7 +533,6 @@ function App() {
     let action;
 
     if (existingIndex !== -1) {
-      // @ts-ignore it's fine to not have func
       currentParsers[existingIndex] = newParser;
       newParserList = currentParsers;
       action = "updated";
@@ -545,24 +571,36 @@ function App() {
       Array.from(row.cells).map((cell) => cell.innerText).join("\t")
     ).join("\n");
 
-    const tempTextArea = document.createElement("textarea");
-    tempTextArea.style.position = "fixed";
-    tempTextArea.style.opacity = "0";
-    tempTextArea.value = rows;
-    document.body.appendChild(tempTextArea);
-    tempTextArea.select();
-    try {
-      document.execCommand("copy");
-      setStatus({
-        message: "Table content copied to clipboard!",
-        type: "success",
+    // try the new clipboard api before the old one
+    navigator?.clipboard.writeText(rows)
+      .then(() => {
+        setStatus({
+          message: "Table content copied to clipboard!",
+          type: "success",
+        });
+      }).catch(() => {
+        const tempTextArea = document.createElement("textarea");
+        tempTextArea.style.position = "fixed";
+        tempTextArea.style.opacity = "0";
+        tempTextArea.value = rows;
+        document.body.appendChild(tempTextArea);
+        tempTextArea.select();
+        console.log(tempTextArea.value);
+        try {
+          document.execCommand("copy");
+          setStatus({
+            message: "Table content copied to clipboard!",
+            type: "success",
+          });
+        } catch (err) {
+          setStatus({ message: "Manual copy required.", type: "error" });
+        } finally {
+          document.body.removeChild(tempTextArea);
+          setTimeout(() => setStatus({ message: "", type: "" }), 3000);
+        }
+      }).finally(() => {
+        setTimeout(() => setStatus({ message: "", type: "" }), 3000);
       });
-    } catch (err) {
-      setStatus({ message: "Manual copy required.", type: "error" });
-    } finally {
-      document.body.removeChild(tempTextArea);
-      setTimeout(() => setStatus({ message: "", type: "" }), 3000);
-    }
   };
 
   // --- File Processing Logic ---
@@ -592,19 +630,24 @@ function App() {
 
   const processFileContent = useCallback(
     async (
-      /** @type {Blob} */ file,
-      /** @type {string | undefined} */ password,
+      /** @type {File} */ file,
+      /** @type {string} */ password,
     ) => {
+      /** @type {string} */
       let rawText = await extractAllPdfText(file, password);
       rawText = rawText.replace(/   /g, " ");
 
+      /** @type {import("./data-extractor.js").ParserResult} */
       let parsedData = { allRows: [], metadataFields: {} };
       let docType = "Unknown";
       const cleanCheckText = rawText.replace(/\s+/g, " ");
 
       let parserFound = false;
 
-      for (const { name, matches, metadata, table, func } of allParsers) {
+      for (
+        const { name, matches, metadata, table, func = generalDocumentParser }
+          of allParsers
+      ) {
         let isMatch = false;
         if (selectedParser === "auto") {
           isMatch = matches.every((s) =>
@@ -631,8 +674,12 @@ function App() {
       }
 
       // Update context with the successfully parsed data
-      fileProcessingContext.current.tempRawText +=
-        `\n--- SOURCE: ${file.name} (${docType}) ---\n${rawText}\n`;
+      fileProcessingContext.current.tempRawText.push({
+        fileName: file.name,
+        docType: docType,
+        text: rawText,
+        status: "success",
+      });
 
       if (parserFound) {
         if (
@@ -692,7 +739,7 @@ function App() {
     });
 
     try {
-      await processFileContent(file, savedPassword || "");
+      await processFileContent(file, savedPassword);
       const fpContext = fileProcessingContext.current;
 
       fpContext.successCount++;
@@ -714,8 +761,12 @@ function App() {
 
         // Other Error
         console.error(`Error processing ${file.name}:`, e);
-        fileProcessingContext.current.tempRawText +=
-          `\n--- SOURCE: ${file.name} (FAILED) ---\nError: ${e.message}\n`;
+        fileProcessingContext.current.tempRawText.push({
+          fileName: file.name,
+          docType: "FAILED",
+          text: `Error: ${e.message}`,
+          status: "error",
+        });
         fileProcessingContext.current.currentIndex++;
         processNextFile();
       }
@@ -726,7 +777,7 @@ function App() {
     finalizeProcessing,
   ]);
 
-  const processFiles = useCallback((fileList) => {
+  const processFiles = useCallback((/** @type {FileList} */ fileList) => {
     if (!fileList || fileList.length === 0) {
       setFileSummary("");
       setIsResultVisible(false);
@@ -748,14 +799,14 @@ function App() {
     setSelectedMetaCols(new Set()); // Reset selected columns on new upload
     setRawText("");
     setConsolidatedMetadata([]);
-    setSavedPassword(null);
+    setSavedPassword("");
 
     // Reset mutable context
     fileProcessingContext.current = {
       fileList: files,
       currentIndex: 0,
       tempDocuments: [],
-      tempRawText: "",
+      tempRawText: [],
       tempMetadata: [],
       successCount: 0,
     };
@@ -775,7 +826,7 @@ function App() {
 
     // 1. Close modal and set saved password
     setPasswordModal(INITIAL_MODAL_STATE);
-    setSavedPassword(useSubsequent ? password : null);
+    setSavedPassword(useSubsequent ? password : "");
     setStatus({ message: "", type: "" });
 
     // 2. Attempt to re-process the file with the new password
@@ -824,10 +875,13 @@ function App() {
       fileProcessingContext.current.fileList.length >
         fileProcessingContext.current.currentIndex
     ) {
-      fileProcessingContext.current.tempRawText += `\n--- SOURCE: ${
-        fileProcessingContext.current
-          .fileList[fileProcessingContext.current.currentIndex].name
-      } (SKIPPED BY USER) ---\n\n`;
+      fileProcessingContext.current.tempRawText.push({
+        fileName: fileProcessingContext.current
+          .fileList[fileProcessingContext.current.currentIndex].name,
+        docType: "SKIPPED",
+        text: "Skipped by user.",
+        status: "skipped",
+      });
     }
     fileProcessingContext.current.currentIndex++;
     processNextFile();
@@ -853,7 +907,7 @@ function App() {
   }, [processFiles]);
 
   const handleFileInput = (/** @type {InputEvent} */ e) => {
-    // @ts-ignore
+    // @ts-ignore we know this will work
     processFiles(e.target.files);
   };
 
@@ -928,8 +982,7 @@ function App() {
 
     const submitForm = (/** @type {SubmitEvent} */ e) => {
       e.preventDefault();
-      /** @type {HTMLTextAreaElement} */
-      // @ts-ignore
+      /** @type {HTMLTextAreaElement | null} */
       const configInput = document.querySelector("#configTextInput");
       if (configInput) {
         addCustomParser(configInput.value);
@@ -986,10 +1039,12 @@ function App() {
 
   const renderPasswordModal = () => {
     const updatePassInput = (/** @type {SubmitEvent} */ e) => {
-      /** @type {boolean} */
-      const useForSubsequent =
-        // @ts-ignore
-        document.querySelector("#useForSubsequent").checked;
+      /** @type {HTMLInputElement | null} */
+      const useForSubsequentElm = document.querySelector("#useForSubsequent");
+      if (useForSubsequentElm === null) {
+        return;
+      }
+      const useForSubsequent = useForSubsequentElm.checked;
 
       /** @type {string} */
       // @ts-ignore
@@ -1036,7 +1091,7 @@ function App() {
               placeholder="Password"
               .value="${passwordModal.passwordInput}"
               @input="${updatePassInput}"
-              @keydown="${(e) => {
+              @keydown="${(/** @type {KeyboardEvent} */ e) => {
                 if (e.key === "Enter") handlePasswordSubmit();
               }}"
             />
@@ -1247,7 +1302,6 @@ function App() {
         const data = parseConfigBlock(cleanBlock);
 
         if (data.name && data.matches) {
-          // @ts-ignore func will be added when needed
           newParsers.push({
             name: data.name,
             matches: data.matches
@@ -1510,9 +1564,30 @@ function App() {
 
               ${when(isRawTextVisible, () =>
                 html`
-                  <pre
-                    class="bg-gray-100 p-4 rounded-lg text-xs overflow-auto max-h-64 border"
-                  >${rawText}</pre>
+                  <div class="space-y-4">
+                    ${rawText.map((item) =>
+                      html`
+                        <div class="border rounded-lg p-3 bg-gray-50">
+                          <div class="flex justify-between items-center mb-2">
+                            <span class="font-bold text-sm text-gray-700">SOURCE: ${item.fileName}
+                              (${item.docType})</span>
+                            <a
+                              href="https://regex101.com/?testString=${encodeURIComponent(
+                                item.text,
+                              )}"
+                              target="_blank"
+                              class="px-2 py-1 bg-purple-600 text-white text-xs font-bold rounded hover:bg-purple-700 transition"
+                            >
+                              Test in Regex101
+                            </a>
+                          </div>
+                          <pre
+                            class="bg-white p-3 rounded border text-xs overflow-auto max-h-64"
+                          >${item.text}</pre>
+                        </div>
+                      `
+                    )}
+                  </div>
                 `, () =>
                 html`
                   <div class="p-4 bg-gray-50 border rounded text-xs text-gray-500 italic">

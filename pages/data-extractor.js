@@ -3,12 +3,13 @@
  * @property {string} name
  * @property {string[]} matches - Array of keywords to match
  * @property {RegExp} metadata - The regular expression used to extract metadata from the text.
- * @property {RegExp} table - The regular expression used to match table data from the text.
- * @property {ParseFunc} func - A function that processes the text and applies regex patterns to extract metadata and table data.
+ * @property {RegExp} [table] - The regular expression used to match table data from the text.
+ * @property {ParseFunc} [func] - A function that processes the text and applies regex patterns to extract metadata and table data.
  */
 
 /**
- * @typedef {{ allRows: (string[]|Object[]), metadataFields: Object }} ParserResult
+ * @typedef {Object.<string, string>} StringMap
+ * @typedef {{ allRows: string[][], metadataFields: StringMap}} ParserResult
  */
 
 /**
@@ -33,6 +34,7 @@ export const BUILT_IN_PARSERS = [
       /(?<name>\w+)\(.*?\)\s+(?<tax>-|\d+)\s+(?<interest>-|\d+)\s+(?<penalty>-|\d+)\s+(?<fees>-|\d+)\s+(?<others>-|\d+)\s+(?<total>-|\d+)\s+/g,
     /** @type ParseFunc **/
     func: (text, metaRx, tableRx) => {
+      /** @type {StringMap} */
       const metadataFields = {};
       // @ts-ignore: we know this will have a metadata regex
       const metaMatch = text.match(metaRx);
@@ -96,14 +98,12 @@ export const BUILT_IN_PARSERS = [
     // another attempt to fix the above
     table:
       /\([a-e]\s?\) (?<Particular>[A-Z].*?) (?<TaxableValue>\d+\.\d\d|-)\s+(?<IGST>\d+\.\d\d|-)\s+(?<CGST>\d+\.\d\d|-)\s+(?<SGST>\d+\.\d\d|-)\s+(?<Cess>\d+\.\d\d|-)\s+/g,
-    func: generalDocumentParser,
   },
   {
     name: "TDS",
     matches: ["INCOME TAX DEPARTMENT", "Challan Receipt"],
     metadata:
-      /Nature of Payment : (?<SectionNo>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<Amount>\d[\d,.]*).*(?<DepositDate>\d\d\-\s?\w{3}-\d{4})/,
-    func: generalDocumentParser,
+      /Name : (?<Name>.*?)\s+Ass.* Nature of Payment : (?<SectionNo>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<Amount>\d[\d,.]*).*(?<DepositDate>\d\d\-\s?\w{3}-\d{4})/,
   },
   {
     name: "Union Bank Statement",
@@ -112,7 +112,6 @@ export const BUILT_IN_PARSERS = [
       /Statement of Account\s+(?<Account_Holder_Name>.*?)\s+.* Account No\s+(?<Account_Number>\d+)/is,
     table:
       /(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d,]+\.\d\s?\d)\s+(?<bal>-?\s?[\d,]+\.\d\s?\d)/g,
-    func: generalDocumentParser,
   },
   {
     name: "Canara Bank Statement",
@@ -121,7 +120,6 @@ export const BUILT_IN_PARSERS = [
       /Account Number (?<Account_Number>\d+).* Opening Balance Rs\. (?<Opening_Balance>-?[\d,]+\.\d\d)\s+Closing Balance Rs\. (?<Closing_Balance>-?[\d,]+\.\d\d)/s,
     table:
       /\s\s(?<date>\d\d-\d\d-\d{4})\s+\d\d:\d\d:\d\d\s+(?<particulars>.*?)\s+(?<amt>[\d+,]+\.\d\d)\s+(?<bal>-?[\d+,]+\.\d\d)/g,
-    func: generalDocumentParser,
   },
   {
     name: "RBL Bank Statement",
@@ -188,7 +186,6 @@ export const BUILT_IN_PARSERS = [
       /Account Number (?<AccountNumber>\d+).*?Account Name: (?<Name>.*?) Customer Address/,
     table:
       /(?<TxnNo>[A-Z]{1}\d+) (?<date>\d\d\/\d\d\/\d{4}) (?<description>.*?) (?<Amt>-?\s?\d[\d,.\s]+\d) (?<bal>\d[\d,.\s]+\d) (?<Effect>Cr|Dr)/g,
-    func: generalDocumentParser,
   },
   {
     name: "ICICI",
@@ -199,21 +196,18 @@ export const BUILT_IN_PARSERS = [
       /^.*?  (?<Name>.*?)  .* (?<OpeningDate>\d\d-\d\d-\d{4}) B\/F (?<OpeningBalance>[\d,.]+)/s,
     table:
       /(?<Date>\d\d-\d\d-\d{4}) (?<Particular>.*?) (?<Amount>[\d,]+\.\d\d) (?<Balance>[\d,.]+) /g,
-    func: generalDocumentParser,
   },
   {
     name: "Professional Tax Challan",
     matches: ["CHALLAN MTR Form Number-6"],
     metadata:
       /Full Name (?<name>.*) Location.*From (?<period>.*) Flat.*TAX (?<amt>\d+\.\d{2}).*RBI Date (?<paymentDate>\d\d\/\d\d\/\d{4})/s,
-    func: generalDocumentParser,
   },
   {
     name: "Provident Fund Challan Receipts",
     matches: ["Payment Confirmation Receipt", "TRRN No"],
     metadata:
-      /ID : (?<Name>.*) Establishment Name.*\s(?<WageMonth>\w+-\d{4}) Wage Month : (?<Amt>\d[\d,.]*).*Payment Date : (?<PaymentDate>\d{2}-\w+-\d{4})/s,
-    func: generalDocumentParser,
+      /ID : (?<Name>.*?) Establishment Name .*? (?<WageMonth>\w+-\d{2,4}) Wage Month : (?<Amt>\d[\d,.]*).*? (Payment|Realization|Payment Confirmation) Date : (?<PaymentDate>\d{2}-\w+-\d{4})/s,
   },
   {
     name: "Provident Fund Challan",
@@ -222,7 +216,6 @@ export const BUILT_IN_PARSERS = [
     ],
     metadata:
       /(?<Month>\w+) (?<Year>\d{4}) (?<TRRN>\d{13}) (?<Name>.*) Total Subscribers .* (?<Amt>[\d,]+) Grand Total :/s,
-    func: generalDocumentParser,
   },
 ];
 
