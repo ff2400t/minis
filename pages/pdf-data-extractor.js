@@ -1,5 +1,5 @@
 // Load haunted and its dependencies from CDN
-import { html, when} from "/vendor/lit-html@3.3.2.js";
+import { html, when } from "/vendor/lit-html@3.3.2.js";
 import {
   component,
   useCallback,
@@ -35,7 +35,16 @@ let useState = u1;
 /**
  * @typedef {import("./data-extractor.js").StringMap} StringMap
  * @typedef {import('data-extractor.js').Parser} Parser
- * @typedef {{ fileName:string, docType: string, metadata: StringMap, headers: string[] , rows: string[][] }} Docs
+ * @typedef {{
+    fileName:string,
+    docType: string,
+    metadata: StringMap,
+    headers: string[] ,
+    rows: string[][]
+    text: string,
+    rawText: string,
+    status: string,
+ }} Docs
  * @typedef {{ title: string, headers: string[] , rows: string[][] }} ConsolidatedTable
  * @typedef {{ fileName: string, docType: string, fields: StringMap}} DocMetadata
  * @typedef {{
@@ -54,7 +63,6 @@ let useState = u1;
  * @property {File[]} fileList
  * @property {number} currentIndex
  * @property {Docs[]} tempDocuments
- * @property {string} tempRawText
  * @property {DocMetadata[]} tempMetadata
  * @property {number} successCount
  */
@@ -433,7 +441,6 @@ function App() {
 
   // Results State
   const [documents, setDocuments] = useState(documentsInitial); // Stores structured
-  const [rawText, setRawText] = useState([]);
   const [consolidatedMetadata, setConsolidatedMetadata] = useState(
     consolidatedMetadataInitial,
   );
@@ -454,7 +461,6 @@ function App() {
     fileList: [],
     currentIndex: 0,
     tempDocuments: [], // New structured temp storage
-    tempRawText: [],
     tempMetadata: [],
     successCount: 0,
   });
@@ -606,11 +612,10 @@ function App() {
   // --- File Processing Logic ---
 
   const finalizeProcessing = () => {
-    const { tempDocuments, tempMetadata, tempRawText, successCount, fileList } =
+    const { tempDocuments, tempMetadata, successCount, fileList } =
       fileProcessingContext.current;
 
     setDocuments(tempDocuments);
-    setRawText(tempRawText);
     setConsolidatedMetadata(tempMetadata);
     setIsResultVisible(true);
 
@@ -673,14 +678,6 @@ function App() {
         }
       }
 
-      // Update context with the successfully parsed data
-      fileProcessingContext.current.tempRawText.push({
-        fileName: file.name,
-        docType: docType,
-        text: rawText,
-        status: "success",
-      });
-
       if (parserFound) {
         if (
           parsedData.metadataFields &&
@@ -712,6 +709,9 @@ function App() {
           metadata: parsedData.metadataFields,
           headers: headerRow,
           rows: dataRows,
+          text: "",
+          rawText,
+          status: "success",
         });
       }
 
@@ -723,7 +723,8 @@ function App() {
   );
 
   const processNextFile = useCallback(async () => {
-    const { fileList, currentIndex } = fileProcessingContext.current;
+    const fpContext = fileProcessingContext.current;
+    const { fileList, currentIndex } = fpContext;
 
     if (currentIndex >= fileList.length) {
       finalizeProcessing();
@@ -740,7 +741,6 @@ function App() {
 
     try {
       await processFileContent(file, savedPassword);
-      const fpContext = fileProcessingContext.current;
 
       fpContext.successCount++;
       fpContext.currentIndex++;
@@ -761,20 +761,22 @@ function App() {
 
         // Other Error
         console.error(`Error processing ${file.name}:`, e);
-        fileProcessingContext.current.tempRawText.push({
-          fileName: file.name,
-          docType: "FAILED",
-          text: `Error: ${e.message}`,
-          status: "error",
-        });
-        fileProcessingContext.current.currentIndex++;
+
+        const fileObj = fileProcessingContext.current.tempDocuments.find((a) =>
+          a.fileName
+        );
+        if (fileObj) {
+          fileObj.docType = "FAILED";
+          fileObj.text = `Error: ${e.message}`;
+          fileObj.status = "error";
+        }
+        fpContext.currentIndex++;
         processNextFile();
       }
     }
   }, [
     processFileContent,
     savedPassword,
-    finalizeProcessing,
   ]);
 
   const processFiles = useCallback((/** @type {FileList} */ fileList) => {
@@ -797,7 +799,6 @@ function App() {
     setIsResultVisible(false);
     setDocuments([]);
     setSelectedMetaCols(new Set()); // Reset selected columns on new upload
-    setRawText("");
     setConsolidatedMetadata([]);
     setSavedPassword("");
 
@@ -806,7 +807,6 @@ function App() {
       fileList: files,
       currentIndex: 0,
       tempDocuments: [],
-      tempRawText: [],
       tempMetadata: [],
       successCount: 0,
     };
@@ -875,13 +875,14 @@ function App() {
       fileProcessingContext.current.fileList.length >
         fileProcessingContext.current.currentIndex
     ) {
-      fileProcessingContext.current.tempRawText.push({
-        fileName: fileProcessingContext.current
-          .fileList[fileProcessingContext.current.currentIndex].name,
-        docType: "SKIPPED",
-        text: "Skipped by user.",
-        status: "skipped",
-      });
+      const fileObj = fileProcessingContext.current.tempDocuments.find((a) =>
+        a.fileName
+      );
+      if (fileObj) {
+        fileObj.docType = "SKIPPED";
+        fileObj.text = "Skipped by user.";
+        fileObj.status = "skipped";
+      }
     }
     fileProcessingContext.current.currentIndex++;
     processNextFile();
@@ -1565,15 +1566,15 @@ function App() {
               ${when(isRawTextVisible, () =>
                 html`
                   <div class="space-y-4">
-                    ${rawText.map((item) =>
+                    ${documents.map((item) =>
                       html`
                         <div class="border rounded-lg p-3 bg-gray-50">
                           <div class="flex justify-between items-center mb-2">
-                            <span class="font-bold text-sm text-gray-700">SOURCE: ${item.fileName}
-                              (${item.docType})</span>
+                            <span class="font-bold text-sm text-gray-700"
+                            >SOURCE: ${item.fileName} (${item.docType})</span>
                             <a
                               href="https://regex101.com/?testString=${encodeURIComponent(
-                                item.text,
+                                item.rawText,
                               )}"
                               target="_blank"
                               class="px-2 py-1 bg-purple-600 text-white text-xs font-bold rounded hover:bg-purple-700 transition"
@@ -1583,7 +1584,7 @@ function App() {
                           </div>
                           <pre
                             class="bg-white p-3 rounded border text-xs overflow-auto max-h-64"
-                          >${item.text}</pre>
+                          >${item.rawText}</pre>
                         </div>
                       `
                     )}
