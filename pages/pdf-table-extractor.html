@@ -1,707 +1,394 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+  <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Table Extractor (Searchable PDF)</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+    ></script>
     <style>
-        :root {
-            --primary: #4f46e5;
-            --primary-hover: #4338ca;
-            --bg: #f8fafc;
-            --card-bg: #ffffff;
-            --text-main: #0f172a;
-            --text-muted: #64748b;
-            --border: #e2e8f0;
-            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-        }
+      :root {
+        --primary: #4f46e5;
+        --primary-hover: #4338ca;
+        --bg: #f8fafc;
+        --card-bg: #ffffff;
+        --text-main: #0f172a;
+        --text-muted: #64748b;
+        --border: #e2e8f0;
+        --shadow:
+          0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      }
 
-        body {
-            margin: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg);
-            color: var(--text-main);
-            line-height: 1.5;
-        }
+      body {
+        margin: 0;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+        background-color: var(--bg);
+        color: var(--text-main);
+        line-height: 1.5;
+      }
 
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem;
+      }
 
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin-bottom: 2rem;
-            gap: 1rem;
-        }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-bottom: 2rem;
+        gap: 1rem;
+      }
 
-        h1 { font-size: 2rem; font-weight: 900; margin: 0; letter-spacing: -0.025em; }
-        .subtitle { color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem; }
+      h1 {
+        font-size: 2rem;
+        font-weight: 900;
+        margin: 0;
+        letter-spacing: -0.025em;
+      }
+      .subtitle {
+        color: var(--text-muted);
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+      }
 
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0.625rem 1.25rem;
-            border-radius: 0.75rem;
-            font-weight: 700;
-            font-size: 0.875rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            border: none;
-            gap: 0.5rem;
-        }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.625rem 1.25rem;
+        border-radius: 0.75rem;
+        font-weight: 700;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+        gap: 0.5rem;
+      }
 
-        .btn-primary { background: var(--primary); color: white; box-shadow: var(--shadow); }
-        .btn-primary:hover { background: var(--primary-hover); }
-        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+      .btn-primary {
+        background: var(--primary);
+        color: white;
+        box-shadow: var(--shadow);
+      }
+      .btn-primary:hover {
+        background: var(--primary-hover);
+      }
+      .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
 
-        .btn-ghost { background: transparent; color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
-        .btn-ghost:hover { color: #ef4444; }
+      .btn-ghost {
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .btn-ghost:hover {
+        color: #ef4444;
+      }
 
-        .settings-card {
-            background: var(--card-bg);
-            padding: 1.5rem;
-            border-radius: 1.25rem;
-            border: 1px solid var(--border);
-            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
-            margin-bottom: 1.5rem;
-        }
+      .settings-card {
+        background: var(--card-bg);
+        padding: 1.5rem;
+        border-radius: 1.25rem;
+        border: 1px solid var(--border);
+        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+        margin-bottom: 1.5rem;
+      }
 
-        .settings-grid {
-            display: grid;
-            grid-template-columns: auto 1fr 1fr auto;
-            gap: 2rem;
-            align-items: center;
-        }
+      .settings-grid {
+        display: grid;
+        grid-template-columns: auto 1fr 1fr auto;
+        gap: 2rem;
+        align-items: center;
+      }
 
-        .input-group { display: flex; flex-direction: column; gap: 0.5rem; }
-        .label-tiny { font-size: 0.625rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; white-space: nowrap; }
-        .value-badge { font-size: 0.75rem; font-weight: 700; color: var(--primary); background: #eef2ff; padding: 2px 6px; border-radius: 4px; min-width: 24px; text-align: center; }
-        
-        input[type="text"], input[type="password"] {
-            padding: 0.5rem 0.75rem;
-            border: 1px solid var(--border);
-            border-radius: 0.5rem;
-            font-size: 0.875rem;
-            background: #f1f5f9;
-            outline: none;
-        }
+      .input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .label-tiny {
+        font-size: 0.625rem;
+        font-weight: 800;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        white-space: nowrap;
+      }
+      .value-badge {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--primary);
+        background: #eef2ff;
+        padding: 2px 6px;
+        border-radius: 4px;
+        min-width: 24px;
+        text-align: center;
+      }
 
-        input[type="range"] { accent-color: var(--primary); height: 6px; cursor: pointer; }
+      input[type="text"], input[type="password"] {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        background: #f1f5f9;
+        outline: none;
+      }
 
-        .dropzone-container { margin-bottom: 2rem; }
-        .dropzone-label {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            height: 10rem;
-            border: 2px dashed var(--border);
-            border-radius: 1.5rem;
-            cursor: pointer;
-            background: white;
-            transition: all 0.3s;
-        }
-        .dropzone-label:hover { background: #f8fafc; border-color: var(--primary); }
-        .dropzone-label.has-file { height: 4rem; border-style: solid; border-color: #dcfce7; background: #f0fdf4; }
+      input[type="range"] {
+        accent-color: var(--primary);
+        height: 6px;
+        cursor: pointer;
+      }
 
-        .status-bar {
-            background: #f1f5f9;
-            border-radius: 0.5rem;
-            padding: 0.5rem 1rem;
-            margin-bottom: 1rem;
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: var(--primary);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            border-left: 4px solid var(--primary);
-        }
+      .dropzone-container {
+        margin-bottom: 2rem;
+      }
+      .dropzone-label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 10rem;
+        border: 2px dashed var(--border);
+        border-radius: 1.5rem;
+        cursor: pointer;
+        background: white;
+        transition: all 0.3s;
+      }
+      .dropzone-label:hover {
+        background: #f8fafc;
+        border-color: var(--primary);
+      }
+      .dropzone-label.has-file {
+        height: 4rem;
+        border-style: solid;
+        border-color: #dcfce7;
+        background: #f0fdf4;
+      }
 
-        .page-card {
-            background: white;
-            border-radius: 1.25rem;
-            border: 1px solid var(--border);
-            margin-bottom: 2rem;
-            overflow: hidden;
-        }
-        .page-header {
-            padding: 0.75rem 1.5rem;
-            background: #f8fafc;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.625rem;
-            font-weight: 800;
-            color: var(--text-muted);
-            text-transform: uppercase;
-        }
+      .status-bar {
+        background: #f1f5f9;
+        border-radius: 0.5rem;
+        padding: 0.5rem 1rem;
+        margin-bottom: 1rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        border-left: 4px solid var(--primary);
+      }
 
-        .table-container { overflow-x: auto; width: 100%; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        tr { border-bottom: 1px solid #f1f5f9; }
-        td { padding: 0.625rem 1.25rem; color: #334155; white-space: nowrap; border-right: 1px solid #f1f5f9; }
-        .row-num { width: 2rem; color: #cbd5e1; font-family: monospace; text-align: center; border-right: 2px solid #f1f5f9; }
+      .page-card {
+        background: white;
+        border-radius: 1.25rem;
+        border: 1px solid var(--border);
+        margin-bottom: 2rem;
+        overflow: hidden;
+      }
+      .page-header {
+        padding: 0.75rem 1.5rem;
+        background: #f8fafc;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.625rem;
+        font-weight: 800;
+        color: var(--text-muted);
+        text-transform: uppercase;
+      }
 
-        .anchor-track {
-            position: relative;
-            height: 60px;
-            background: #f1f5f9;
-            border-radius: 0.5rem;
-            margin: 1rem 0;
-            border: 1px solid var(--border);
-            cursor: crosshair;
-            overflow: visible;
-            user-select: none;
-        }
-        .anchor-marker {
-            position: absolute;
-            top: -4px;
-            bottom: -4px;
-            width: 8px;
-            background: var(--primary);
-            z-index: 10;
-            cursor: ew-resize;
-            border-radius: 4px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-            transition: background 0.2s;
-        }
-        .anchor-marker:hover { background: #6366f1; box-shadow: 0 0 10px rgba(79, 70, 229, 0.4); }
-        .anchor-marker.active { background: #ef4444; box-shadow: 0 0 15px rgba(239, 68, 68, 0.5); z-index: 20; }
+      .table-container {
+        overflow-x: auto;
+        width: 100%;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      tr {
+        border-bottom: 1px solid #f1f5f9;
+      }
+      td {
+        padding: 0.625rem 1.25rem;
+        color: #334155;
+        white-space: nowrap;
+        border-right: 1px solid #f1f5f9;
+      }
+      .row-num {
+        width: 2rem;
+        color: #cbd5e1;
+        font-family: monospace;
+        text-align: center;
+        border-right: 2px solid #f1f5f9;
+      }
 
-        .track-hint {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 0.75rem; color: #94a3b8; pointer-events: none;
-        }
+      .anchor-track {
+        position: relative;
+        height: 60px;
+        background: #f1f5f9;
+        border-radius: 0.5rem;
+        margin: 1rem 0;
+        border: 1px solid var(--border);
+        cursor: crosshair;
+        overflow: visible;
+        user-select: none;
+      }
+      .anchor-marker {
+        position: absolute;
+        top: -4px;
+        bottom: -4px;
+        width: 8px;
+        background: var(--primary);
+        z-index: 10;
+        cursor: ew-resize;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        transition: background 0.2s;
+      }
+      .anchor-marker:hover {
+        background: #6366f1;
+        box-shadow: 0 0 10px rgba(79, 70, 229, 0.4);
+      }
+      .anchor-marker.active {
+        background: #ef4444;
+        box-shadow: 0 0 15px rgba(239, 68, 68, 0.5);
+        z-index: 20;
+      }
 
-        .toggle-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #eef2ff;
-            padding: 1rem;
-            border-radius: 1rem;
-            margin-bottom: 1rem;
-            border: 1px solid #e0e7ff;
-        }
+      .track-hint {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        color: #94a3b8;
+        pointer-events: none;
+      }
 
-        .error-msg {
-            background: #fef2f2;
-            color: #dc2626;
-            padding: 1rem;
-            border-radius: 0.75rem;
-            text-align: center;
-            font-size: 0.875rem;
-            margin-bottom: 1rem;
-        }
+      .toggle-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #eef2ff;
+        padding: 1rem;
+        border-radius: 1rem;
+        margin-bottom: 1rem;
+        border: 1px solid #e0e7ff;
+      }
 
-        /* Modal specific styles */
-        .modal-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(15, 23, 42, 0.8);
-            display: flex; align-items: center; justify-content: center;
-            z-index: 1000;
-        }
-        .modal-container {
-            background: #1e293b;
-            width: 95vw;
-            height: 90vh;
-            border-radius: 1.5rem;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        }
-        .modal-header {
-            padding: 1rem 1.5rem;
-            background: #0f172a;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #334155;
-        }
-        .modal-body {
-            flex: 1;
-            overflow: auto;
-            position: relative;
-            background: #0f172a;
-            display: flex;
-            justify-content: center;
-            padding: 2rem;
-        }
-        .modal-footer {
-            padding: 1rem 1.5rem;
-            background: #0f172a;
-            border-top: 1px solid #334155;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .visual-canvas-wrapper {
-            position: relative;
-            display: inline-block;
-            box-shadow: 0 0 40px rgba(0,0,0,0.5);
-        }
-        .visual-overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            cursor: crosshair;
-        }
+      .error-msg {
+        background: #fef2f2;
+        color: #dc2626;
+        padding: 1rem;
+        border-radius: 0.75rem;
+        text-align: center;
+        font-size: 0.875rem;
+        margin-bottom: 1rem;
+      }
 
-        .dot-loader {
-            display: inline-block;
-            width: 8px; height: 8px;
-            background: var(--primary);
-            border-radius: 50%;
-            animation: pulse 1s infinite alternate;
+      /* Modal specific styles */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+      .modal-container {
+        background: #1e293b;
+        width: 95vw;
+        height: 90vh;
+        border-radius: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      }
+      .modal-header {
+        padding: 1rem 1.5rem;
+        background: #0f172a;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #334155;
+      }
+      .modal-body {
+        flex: 1;
+        overflow: auto;
+        position: relative;
+        background: #0f172a;
+        display: flex;
+        justify-content: center;
+        padding: 2rem;
+      }
+      .modal-footer {
+        padding: 1rem 1.5rem;
+        background: #0f172a;
+        border-top: 1px solid #334155;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .visual-canvas-wrapper {
+        position: relative;
+        display: inline-block;
+        box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+      }
+      .visual-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        cursor: crosshair;
+      }
+
+      .dot-loader {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        background: var(--primary);
+        border-radius: 50%;
+        animation: pulse 1s infinite alternate;
+      }
+      @keyframes pulse {
+        from {
+          opacity: 0.3;
+          transform: scale(0.8);
         }
-        @keyframes pulse { from { opacity: 0.3; transform: scale(0.8); } to { opacity: 1; transform: scale(1.1); } }
+        to {
+          opacity: 1;
+          transform: scale(1.1);
+        }
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div id="app"></div>
 
-    <script type="module">
-        import { html, render } from 'https://unpkg.com/lit-html?module';
-        import { when } from 'https://unpkg.com/lit-html/directives/when.js?module';
-        import { map } from 'https://unpkg.com/lit-html/directives/map.js?module';
-        import { ref } from 'https://unpkg.com/lit-html/directives/ref.js?module';
-        import { component, useReducer, useRef, useState, useEffect } from 'https://unpkg.com/haunted?module';
-
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-        const initialState = {
-            isProcessing: false,
-            processingStep: '',
-            extractedData: [],
-            error: null,
-            lastFile: null,
-            triggerWord: "Date",
-            rowLeniency: 8,
-            colLeniency: 45,
-            copyStatus: {},
-            showManualSettings: false,
-            manualAnchors: null,
-            showAllPages: false,
-            showPasswordModal: false,
-            showVisualModal: false
-        };
-
-        function reducer(state, action) {
-            switch (action.type) {
-                case 'SET_CONFIG': return { ...state, [action.key]: action.value };
-                case 'START_PROCESSING': 
-                    return { 
-                        ...state, 
-                        isProcessing: true, 
-                        processingStep: 'Initializing...', 
-                        error: null, 
-                        extractedData: [], 
-                        lastFile: action.file || state.lastFile,
-                        showPasswordModal: false
-                    };
-                case 'SET_STEP': return { ...state, processingStep: action.step };
-                case 'APPEND_PAGE_DATA':
-                    return {
-                        ...state,
-                        extractedData: [...state.extractedData, action.pageData],
-                        manualAnchors: action.anchors !== undefined ? action.anchors : state.manualAnchors
-                    };
-                case 'FINISH_PROCESSING': return { ...state, isProcessing: false, processingStep: '' };
-                case 'SET_ERROR': return { ...state, isProcessing: false, error: action.error };
-                case 'SHOW_PASSWORD_PROMPT': return { ...state, isProcessing: false, showPasswordModal: true };
-                case 'RESET': return { ...initialState };
-                case 'SET_ANCHORS': return { ...state, manualAnchors: action.anchors };
-                case 'SET_COPY_STATUS': return { ...state, copyStatus: action.status };
-                case 'TOGGLE_VISUAL_MODAL': return { ...state, showVisualModal: action.value };
-                default: return state;
-            }
-        }
-
-        /**
-         * Vanilla Web Component: Visual Alignment Modal
-         */
-        class VisualModal extends HTMLElement {
-            constructor() {
-                super();
-                this.pdfFile = null;
-                this.anchors = [];
-                this.pdfDoc = null;
-                this.currentPage = 1;
-                this.totalPages = 0;
-                this.scale = 1;
-            }
-
-            connectedCallback() {
-                this.render();
-                this.loadPdf();
-            }
-
-            static get observedAttributes() {
-                return ['page'];
-            }
-
-            async loadPdf() {
-                if (!this.pdfFile) return;
-                try {
-                    this.updateStatus('Loading Document...');
-                    const arrayBuffer = await this.pdfFile.arrayBuffer();
-                    this.pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                    this.totalPages = this.pdfDoc.numPages;
-                    this.renderPage(1);
-                } catch (e) {
-                    console.error(e);
-                    this.updateStatus('Error loading PDF.');
-                }
-            }
-
-            async renderPage(num) {
-                if (!this.pdfDoc) return;
-                this.currentPage = num;
-                this.updateStatus('Rendering Page...');
-                
-                try {
-                    const page = await this.pdfDoc.getPage(num);
-                    const viewport = page.getViewport({ scale: 1.5 });
-                    
-                    const canvas = this.querySelector('canvas');
-                    const context = canvas.getContext('2d');
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
-                    
-                    this.scale = viewport.width / 800; // Base width for coordinates
-
-                    await page.render({ canvasContext: context, viewport: viewport }).promise;
-                    this.updateStatus('');
-                    this.renderControls();
-                    this.renderAnchors();
-                } catch (e) {
-                    console.error(e);
-                    this.updateStatus('Error rendering page.');
-                }
-            }
-
-            updateStatus(text) {
-                const statusEl = this.querySelector('#render-status');
-                if (statusEl) statusEl.textContent = text;
-                const wrapper = this.querySelector('.visual-canvas-wrapper');
-                if (wrapper) wrapper.style.display = text ? 'none' : 'block';
-            }
-
-            addAnchor(e) {
-                const overlay = this.querySelector('.visual-overlay');
-                const rect = overlay.getBoundingClientRect();
-                const clickX = e.clientX - rect.left;
-                const pt = clickX / this.scale;
-                
-                this.anchors = [...this.anchors, pt].sort((a,b) => a - b);
-                this.dispatchEvent(new CustomEvent('update', { detail: this.anchors }));
-                this.renderAnchors();
-            }
-
-            removeAnchor(idx) {
-                this.anchors = this.anchors.filter((_, i) => i !== idx);
-                this.dispatchEvent(new CustomEvent('update', { detail: this.anchors }));
-                this.renderAnchors();
-            }
-
-            renderAnchors() {
-                const overlay = this.querySelector('.visual-overlay');
-                if (!overlay) return;
-                overlay.innerHTML = '';
-                this.anchors.forEach((x, i) => {
-                    const marker = document.createElement('div');
-                    marker.className = 'anchor-marker';
-                    marker.style.cssText = `left: ${x * this.scale}px; height: 100%; position: absolute; top: 0; width: 4px; background: #6366f1; cursor: pointer; box-shadow: 0 0 10px rgba(99, 102, 241, 0.5); border-radius: 2px;`;
-                    marker.onclick = (e) => {
-                        e.stopPropagation();
-                        this.removeAnchor(i);
-                    };
-                    overlay.appendChild(marker);
-                });
-            }
-
-            renderControls() {
-                const nav = this.querySelector('#page-nav');
-                if (!nav) return;
-                nav.innerHTML = `
-                    <button class="btn btn-ghost" ${this.currentPage <= 1 ? 'disabled' : ''} id="prev-btn" style="color:white">←</button>
-                    <span style="color:white; font-size: 0.875rem;">Page ${this.currentPage} / ${this.totalPages}</span>
-                    <button class="btn btn-ghost" ${this.currentPage >= this.totalPages ? 'disabled' : ''} id="next-btn" style="color:white">→</button>
-                `;
-                nav.querySelector('#prev-btn')?.addEventListener('click', () => this.renderPage(this.currentPage - 1));
-                nav.querySelector('#next-btn')?.addEventListener('click', () => this.renderPage(this.currentPage + 1));
-            }
-
-            render() {
-                this.innerHTML = `
-                    <div class="modal-overlay">
-                        <div class="modal-container">
-                            <div class="modal-header">
-                                <div style="display: flex; align-items: center; gap: 2rem;">
-                                    <h2 style="margin:0; font-size:1.1rem; color:white;">Visual Aligner</h2>
-                                    <div id="page-nav" style="display: flex; align-items: center; gap: 0.5rem;"></div>
-                                </div>
-                                <button id="close-btn-top" class="btn btn-ghost" style="color:white;">✕</button>
-                            </div>
-                            <div class="modal-body">
-                                <div id="render-status" style="color: #94a3b8; font-weight: 600;"></div>
-                                <div class="visual-canvas-wrapper" style="display:none">
-                                    <canvas></canvas>
-                                    <div class="visual-overlay"></div>
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <span style="color: #94a3b8; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">Click on PDF to place column markers</span>
-                                <div style="display:flex; gap:1rem;">
-                                    <button id="clear-btn" class="btn btn-ghost">Clear All</button>
-                                    <button id="save-btn" class="btn btn-primary">Done</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-
-                this.querySelector('#close-btn-top').onclick = () => this.dispatchEvent(new CustomEvent('close'));
-                this.querySelector('#save-btn').onclick = () => this.dispatchEvent(new CustomEvent('close'));
-                this.querySelector('#clear-btn').onclick = () => {
-                    this.anchors = [];
-                    this.dispatchEvent(new CustomEvent('update', { detail: [] }));
-                    this.renderAnchors();
-                };
-                this.querySelector('.visual-overlay').onclick = (e) => this.addAnchor(e);
-            }
-        }
-        customElements.define('visual-alignment-modal', VisualModal);
-
-        function DropZone({ disabled, fileName, onFileSelected }) {
-            return html`
-                <div class="dropzone-container">
-                    <label class="dropzone-label ${fileName ? 'has-file' : ''} ${disabled ? 'disabled' : ''}">
-                        <div style="pointer-events: none; text-align: center; display: flex; align-items: center; gap: 1rem;">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${fileName ? '#16a34a' : '#94a3b8'}" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
-                            </svg>
-                            <p style="font-size: 0.875rem; color: #64748b; margin: 0;">
-                                ${fileName 
-                                    ? html`Loaded: <span style="font-weight: 700; color: #16a34a;">${fileName}</span> (Click to change)` 
-                                    : html`<span style="font-weight: 700; color: #1e293b;">Upload Searchable PDF</span> to begin`}
-                            </p>
-                        </div>
-                        <input type="file" accept="application/pdf" style="display: none;" @change="${e => { if (!disabled) { onFileSelected(e.target.files); e.target.value = null; } }}" ?disabled="${disabled}" />
-                    </label>
-                </div>
-            `;
-        }
-        customElements.define("drop-zone", component(DropZone, { useShadowDOM: false }));
-
-        function ColumnAdjuster({ initialAnchors, onOpenVisual }) {
-            const trackRef = useRef(null);
-            const [localAnchors, setLocalAnchors] = useState(initialAnchors || []);
-            const [activeIdx, setActiveIdx] = useState(-1);
-            const trackWidthPt = 800;
-            const host = this;
-
-            useEffect(() => {
-                host.getAnchors = () => [...localAnchors].sort((a,b) => a - b);
-            }, [localAnchors]);
-
-            useEffect(() => {
-                setLocalAnchors(initialAnchors || []);
-            }, [initialAnchors]);
-
-            const getPt = (e) => {
-                if (!trackRef.current) return 0;
-                const rect = trackRef.current.getBoundingClientRect();
-                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                const xPct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-                return xPct * trackWidthPt;
-            };
-
-            const onMouseDown = (e) => {
-                const pt = getPt(e);
-                const rect = trackRef.current.getBoundingClientRect();
-                const clientX = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-                const hitIdx = localAnchors.findIndex(a => Math.abs(((a/trackWidthPt)*rect.width) - clientX) < 10);
-
-                if (hitIdx !== -1) {
-                    if (e.altKey) setLocalAnchors(localAnchors.filter((_, i) => i !== hitIdx));
-                    else setActiveIdx(hitIdx);
-                } else {
-                    const next = [...localAnchors, pt].sort((a,b) => a - b);
-                    setLocalAnchors(next);
-                    setActiveIdx(next.indexOf(pt));
-                }
-            };
-
-            useEffect(() => {
-                const move = (e) => { if (activeIdx !== -1) setLocalAnchors(prev => { const n = [...prev]; n[activeIdx] = getPt(e); return n; }); };
-                const up = () => setActiveIdx(-1);
-                window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
-                return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
-            }, [activeIdx]);
-
-            return html`
-                <div class="settings-card" style="margin-top: 1rem; border-color: #c7d2fe; background: #f5f3ff;">
-                    <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                        <span class="label-tiny">Column Editor</span>
-                        <button class="btn btn-ghost" style="font-size: 0.65rem; color: var(--primary); font-weight: 800;" @click="${onOpenVisual}">Launch Visual Aligner</button>
-                    </div>
-                    <div class="anchor-track" ${ref(el => trackRef.current = el)} @mousedown="${onMouseDown}">
-                        ${when(localAnchors.length === 0, () => html`<div class="track-hint">Click to place column markers</div>`)}
-                        ${map(localAnchors, (x, i) => html`<div class="anchor-marker ${activeIdx === i ? 'active' : ''}" style="left: ${(x / trackWidthPt) * 100}%"></div>`)}
-                    </div>
-                </div>
-            `;
-        }
-        customElements.define('column-adjuster', component(ColumnAdjuster, { useShadowDOM: false }));
-
-        function App() {
-            const [state, dispatch] = useReducer(reducer, initialState);
-            const [password, setPassword] = useState("");
-            const adjusterRef = useRef(null);
-
-            const handleReparse = () => {
-                let currentAnchors = state.manualAnchors;
-                if (state.showManualSettings && adjusterRef.current?.getAnchors) {
-                    currentAnchors = adjusterRef.current.getAnchors();
-                }
-                extractFromPdf(state.lastFile, currentAnchors, password);
-            };
-
-            const extractFromPdf = async (file, providedAnchors = null, pdfPassword = "") => {
-                if (!file) return;
-                dispatch({ type: 'START_PROCESSING', file });
-                try {
-                    const arrayBuffer = await file.arrayBuffer();
-                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, password: pdfPassword }).promise;
-
-                    let anchors = providedAnchors;
-                    if (!anchors?.length && !state.showManualSettings) {
-                        const page = await pdf.getPage(1);
-                        const content = await page.getTextContent();
-                        const clusters = [];
-                        content.items.forEach(it => {
-                            const x = it.transform[4] + (it.width/2);
-                            let c = clusters.find(cl => Math.abs(cl.avg - x) < state.colLeniency);
-                            if (c) { c.pts.push(x); c.avg = c.pts.reduce((a,b)=>a+b,0)/c.pts.length; }
-                            else clusters.push({avg: x, pts: [x]});
-                        });
-                        anchors = clusters.map(c => c.avg).sort((a,b)=>a-b);
-                    }
-
-                    for (let i = 1; i <= pdf.numPages; i++) {
-                        dispatch({ type: 'SET_STEP', step: `Reading Page ${i}...` });
-                        const page = await pdf.getPage(i);
-                        const content = await page.getTextContent();
-                        const viewport = page.getViewport({ scale: 1.0 });
-                        const scale = 800 / viewport.width;
-
-                        const items = content.items.map(it => ({
-                            str: it.str, y: it.transform[5], centerX: (it.transform[4] + (it.width / 2)) * scale
-                        })).filter(it => it.str.trim());
-
-                        const lines = [];
-                        items.forEach(it => {
-                            let l = lines.find(ln => Math.abs(ln.y - it.y) < state.rowLeniency);
-                            if (l) l.items.push(it); else lines.push({ y: it.y, items: [it] });
-                        });
-                        lines.sort((a,b) => b.y - a.y);
-                        
-                        const startIdx = lines.findIndex(ln => ln.items.some(it => it.str.toLowerCase().includes(state.triggerWord.toLowerCase())));
-                        const rows = (startIdx === -1 ? lines : lines.slice(startIdx)).map(ln => {
-                            const r = new Array(anchors.length).fill("");
-                            ln.items.forEach(it => {
-                                let b = 0, m = Infinity;
-                                anchors.forEach((a, idx) => { const d = Math.abs(a - it.centerX); if (d < m) { m = d; b = idx; } });
-                                r[b] = r[b] ? r[b] + " " + it.str : it.str;
-                            });
-                            return r;
-                        });
-                        dispatch({ type: 'APPEND_PAGE_DATA', pageData: { page: i, rows }, anchors });
-                    }
-                    dispatch({ type: 'FINISH_PROCESSING' });
-                } catch (err) {
-                    if (err.name === 'PasswordException') dispatch({ type: 'SHOW_PASSWORD_PROMPT' });
-                    else dispatch({ type: 'SET_ERROR', error: err.message });
-                }
-            };
-
-            const copyAll = () => {
-                const text = state.extractedData.flatMap(p => p.rows).map(r => r.join('\t')).join('\n');
-                const area = document.createElement("textarea");
-                area.value = text; document.body.appendChild(area); area.select();
-                document.execCommand('copy'); document.body.removeChild(area);
-                dispatch({ type: 'SET_COPY_STATUS', status: { all: true } });
-                setTimeout(() => dispatch({ type: 'SET_COPY_STATUS', status: {} }), 2000);
-            };
-
-            return html`
-                <div class="container">
-                    <header>
-                        <div><h1>Table Extractor</h1><p class="subtitle">Searchable PDF Data Recovery</p></div>
-                        ${when(state.extractedData.length, () => html`
-                            <div style="display:flex; gap:1rem;">
-                                <button class="btn btn-ghost" @click="${() => dispatch({ type: 'RESET' })}">Reset</button>
-                                <button class="btn btn-primary" @click="${copyAll}">${state.copyStatus.all ? "✓ Copied" : "Copy TSV"}</button>
-                            </div>
-                        `)}
-                    </header>
-
-                    <drop-zone ?disabled="${state.isProcessing}" .fileName="${state.lastFile?.name}" .onFileSelected="${f => extractFromPdf(f[0])}"></drop-zone>
-
-                    <div class="settings-card">
-                        <div class="settings-grid">
-                            <div class="input-group"><span class="label-tiny">Row Trigger</span><input type="text" .value="${state.triggerWord}" @input="${e => dispatch({ type: 'SET_CONFIG', key: 'triggerWord', value: e.target.value })}" /></div>
-                            <div class="input-group"><div style="display:flex; justify-content: space-between;"><span class="label-tiny">Row Leniency</span><span class="value-badge">${state.rowLeniency}</span></div><input type="range" min="1" max="30" .value="${state.rowLeniency}" @input="${e => dispatch({ type: 'SET_CONFIG', key: 'rowLeniency', value: e.target.value })}" /></div>
-                            <div class="input-group"><div style="display:flex; justify-content: space-between;"><span class="label-tiny">Auto-Col Cluster</span><span class="value-badge">${state.colLeniency}</span></div><input type="range" min="10" max="150" .value="${state.colLeniency}" @input="${e => dispatch({ type: 'SET_CONFIG', key: 'colLeniency', value: e.target.value })}" /></div>
-                            <div style="border-left: 1px solid var(--border); padding-left: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
-                                <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem;"><input type="checkbox" .checked="${state.showManualSettings}" @change="${e => dispatch({ type: 'SET_CONFIG', key: 'showManualSettings', value: e.target.checked })}" /> Manual Mode</label>
-                                <button class="btn btn-primary" style="padding: 0.4rem; font-size: 0.75rem;" @click="${handleReparse}" ?disabled="${!state.lastFile || state.isProcessing}">Apply & Reparse</button>
-                            </div>
-                        </div>
-                        ${when(state.showManualSettings, () => html`<column-adjuster ${ref(el => adjusterRef.current = el)} .initialAnchors="${state.manualAnchors}" .onOpenVisual="${() => dispatch({ type: 'TOGGLE_VISUAL_MODAL', value: true })}"></column-adjuster>`)}
-                    </div>
-
-                    ${when(state.isProcessing, () => html`<div class="status-bar"><span class="dot-loader"></span> ${state.processingStep}</div>`)}
-                    ${when(state.error, () => html`<div class="error-msg">${state.error}</div>`)}
-
-                    ${when(state.extractedData.length, () => html`
-                        <div class="toggle-container"><h3 style="margin:0; font-size: 0.875rem;">Preview</h3><label style="display: flex; align-items: center; gap: 0.5rem;"><span class="label-tiny">Show All Pages</span><input type="checkbox" .checked="${state.showAllPages}" @change="${e => dispatch({ type: 'SET_CONFIG', key: 'showAllPages', value: e.target.checked })}" /></label></div>
-                        ${map(state.showAllPages ? state.extractedData : state.extractedData.slice(0, 1), page => html`
-                            <div class="page-card">
-                                <div class="page-header"><span>Page ${page.page}</span><span>${page.rows.length} Rows</span></div>
-                                <div class="table-container"><table><tbody>${map(page.rows, (r, i) => html`<tr><td class="row-num">${i+1}</td>${map(r, c => html`<td>${c}</td>`)}</tr>`)}</tbody></table></div>
-                            </div>
-                        `)}
-                    `)}
-
-                    ${when(state.showPasswordModal, () => html`<div class="modal-overlay"><form class="modal-content" @submit="${e => { e.preventDefault(); extractFromPdf(state.lastFile, state.manualAnchors, password); }}"><h2 style="margin:0">Protected PDF</h2><input type="password" placeholder="Password" .value="${password}" @input="${e => setPassword(e.target.value)}" required /><div style="display:flex; gap:1rem; justify-content:flex-end;"><button type="button" class="btn btn-ghost" @click="${() => dispatch({ type: 'RESET' })}">Cancel</button><button type="submit" class="btn btn-primary">Unlock</button></div></form></div>`)}
-
-                    ${when(state.showVisualModal, () => html`
-                        <visual-alignment-modal 
-                            .pdfFile="${state.lastFile}" 
-                            .anchors="${state.manualAnchors || []}"
-                            @update="${e => dispatch({ type: 'SET_ANCHORS', anchors: e.detail })}"
-                            @close="${() => dispatch({ type: 'TOGGLE_VISUAL_MODAL', value: false })}">
-                        </visual-alignment-modal>
-                    `)}
-                </div>
-            `;
-        }
-
-        customElements.define('main-app', component(App, { useShadowDOM: false }));
-        render(html`<main-app></main-app>`, document.getElementById('app'));
+    <script type="module" src="pdf-table-extractor.js">
     </script>
-</body>
+  </body>
 </html>
