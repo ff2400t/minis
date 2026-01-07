@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Excel Formula Helper</title>
+
+  <!-- CodeMirror base + folding styles -->
+  <link rel="stylesheet" href="https://esm.sh/@codemirror/view/style.css" />
+  <link rel="stylesheet" href="https://esm.sh/@codemirror/fold/style.css" />
+
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --panel-dark: #1e293b;
+      --text-dark: #e5e7eb;
+      --muted-dark: #9ca3af;
+      --primary: #2563eb;
+      --error: #f87171;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: var(--bg-dark);
+      color: var(--text-dark);
+      font-family: system-ui, sans-serif;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .editor-wrapper {
+      border-radius: 8px;
+      border: 1px solid #334155;
+      background: var(--panel-dark);
+      overflow: hidden;
+      height: min(300px, calc(100vh - 220px));
+    }
+
+    #editor { height: 100%; }
+
+    .actions { display: flex; gap: 12px; }
+
+    button.primary {
+      padding: 8px 14px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    /* Rainbow brackets */
+    .cm-b1 { color: #ef4444; }
+    .cm-b2 { color: #f59e0b; }
+    .cm-b3 { color: #22c55e; }
+    .cm-b4 { color: #3b82f6; }
+    .cm-b5 { color: #a855f7; }
+
+    .cm-errorBracket { text-decoration: underline wavy var(--error); }
+  </style>
+
+  <script type="module">
+    import { EditorState, RangeSetBuilder } from "https://esm.sh/@codemirror/state";
+    import { EditorView, Decoration, ViewPlugin, keymap, lineNumbers } from "https://esm.sh/@codemirror/view";
+    import { defaultKeymap } from "https://esm.sh/@codemirror/commands";
+    import { LRLanguage, LanguageSupport, foldGutter, foldService, syntaxHighlighting } from "https://esm.sh/@codemirror/language";
+    import { oneDark } from "https://esm.sh/@codemirror/theme-one-dark";
+    import { HighlightStyle } from "https://esm.sh/@codemirror/language";
+    import { tags } from "https://esm.sh/@lezer/highlight";
+    import { parser as jsParser } from "https://esm.sh/@lezer/javascript";
+
+    /**************** Language (Lezer, JS-based) ****************/
+
+    const excelLanguage = LRLanguage.define({ parser: jsParser });
+
+    const excelHighlight = HighlightStyle.define([
+      { tag: tags.function(tags.variableName), color: "#d8b4fe" },
+      { tag: tags.number, color: "#fca5a5" },
+      { tag: tags.string, color: "#86efac" },
+      { tag: tags.operator, color: "#93c5fd" }
+    ]);
+
+    function excel() {
+      return new LanguageSupport(excelLanguage, [syntaxHighlighting(excelHighlight)]);
+    }
+
+    function parseExcelFormula(text) {
+      return jsParser.parse(text.startsWith("=") ? text.slice(1) : text);
+    }
+
+    /**************** AST-driven rainbow brackets ****************/
+
+    const astRainbow = ViewPlugin.fromClass(class {
+      decorations;
+      constructor(view) { this.decorations = this.build(view); }
+      update(u) { if (u.docChanged) this.decorations = this.build(u.view); }
+      build(view) {
+        const b = new RangeSetBuilder();
+        const text = view.state.doc.toString();
+        const tree = parseExcelFormula(text);
+        const offset = text.startsWith("=") ? 1 : 0;
+        let depth = 0;
+
+        tree.iterate({
+          enter: n => {
+            if (n.name === "ParenthesizedExpression") {
+              const cls = `cm-b${(depth % 5) + 1}`;
+              b.add(n.from + offset, n.from + offset + 1, Decoration.mark({ class: cls }));
+              b.add(n.to - 1 + offset, n.to + offset, Decoration.mark({ class: cls }));
+              depth++;
+            }
+          },
+          leave: n => { if (n.name === "ParenthesizedExpression") depth--; }
+        });
+        return b.finish();
+      }
+    }, { decorations: v => v.decorations });
+
+    /**************** AST-based folding (FIXED visibility) ****************/
+
+    const astFolding = foldService.of((state, lineStart) => {
+      const text = state.doc.toString();
+      const tree = parseExcelFormula(text);
+      const offset = text.startsWith("=") ? 1 : 0;
+      let found = null;
+
+      tree.iterate({
+        enter: n => {
+          if (n.name === "ParenthesizedExpression") {
+            const from = n.from + offset;
+            const line = state.doc.lineAt(from);
+            if (line.from === lineStart && !found) {
+              found = { from: from + 1, to: n.to - 1 + offset };
+            }
+          }
+        }
+      });
+      return found;
+    });
+
+    /**************** Formatter / Minifier ****************/
+
+    function minifyFormula(input) {
+      return input.replace(/\s+/g, "");
+    }
+
+    function formatFormula(input) {
+      const clean = minifyFormula(input);
+      let depth = 0;
+      let out = "";
+      for (const ch of clean) {
+        if (ch === '(') out += "(\n" + "  ".repeat(++depth);
+        else if (ch === ')') out += "\n" + "  ".repeat(--depth) + ")";
+        else if (ch === ',') out += ",\n" + "  ".repeat(depth);
+        else out += ch;
+      }
+      return out.trim();
+    }
+
+    /**************** Bootstrap ****************/
+
+    window.addEventListener("DOMContentLoaded", () => {
+      const editorParent = document.getElementById("editor");
+      const formatBtn = document.getElementById("formatBtn");
+      const minifyBtn = document.getElementById("minifyBtn");
+
+      const state = EditorState.create({
+        doc: "=IF(A1>10,SUM(A1:A10),AVERAGE(B1:B10))",
+        extensions: [
+          lineNumbers(),
+          foldGutter({ openText: "▾", closedText: "▸" }),
+          keymap.of(defaultKeymap),
+          excel(),
+          oneDark,              // ✅ official CodeMirror dark theme
+          astRainbow,
+          astFolding,
+          EditorView.theme({ "&": { height: "100%" } })
+        ]
+      });
+
+      const view = new EditorView({ state, parent: editorParent });
+
+      formatBtn.addEventListener("click", () => {
+        view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: formatFormula(view.state.doc.toString()) } });
+      });
+
+      minifyBtn.addEventListener("click", () => {
+        view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: minifyFormula(view.state.doc.toString()) } });
+      });
+    });
+  </script>
+</head>
+<body>
+  <div class="container">
+    <div class="editor-wrapper">
+      <div id="editor"></div>
+    </div>
+    <div class="actions">
+      <button id="formatBtn" class="primary">Format</button>
+      <button id="minifyBtn" class="primary">Minify</button>
+    </div>
+  </div>
+</body>
+</html>
