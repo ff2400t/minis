@@ -1,4 +1,4 @@
-import { html, when, map } from "/vendor/lit-html@3.3.2.js";
+import { html, map, ref, render, when } from "/vendor/lit-html@3.3.2.js";
 import {
   component,
   useEffect,
@@ -6,7 +6,6 @@ import {
   useRef,
   useState,
 } from "/vendor/haunted@6.1.0.js";
-import { ref } from "https://unpkg.com/lit-html/directives/ref.js?module";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
@@ -82,12 +81,12 @@ class VisualModal extends HTMLElement {
   constructor() {
     super();
     /**
-       * @type {{ arrayBuffer: () => any; } | null}
-       */
+     * @type {{ arrayBuffer: () => any; } | null}
+     */
     this.pdfFile = null;
     /**
-       * @type {any[]}
-       */
+     * @type {any[]}
+     */
     this.anchors = [];
     this.pdfDoc = null;
     this.currentPage = 1;
@@ -109,6 +108,7 @@ class VisualModal extends HTMLElement {
     try {
       this.updateStatus("Loading Document...");
       const arrayBuffer = await this.pdfFile.arrayBuffer();
+      // @ts-ignore
       this.pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       this.totalPages = this.pdfDoc.numPages;
       this.renderPage(1);
@@ -118,6 +118,9 @@ class VisualModal extends HTMLElement {
     }
   }
 
+  /**
+   * @param {number} num
+   */
   async renderPage(num) {
     if (!this.pdfDoc) return;
     this.currentPage = num;
@@ -128,6 +131,7 @@ class VisualModal extends HTMLElement {
       const viewport = page.getViewport({ scale: 1.5 });
 
       const canvas = this.querySelector("canvas");
+      if (canvas === null) return;
       const context = canvas.getContext("2d");
       canvas.height = viewport.height;
       canvas.width = viewport.width;
@@ -144,15 +148,23 @@ class VisualModal extends HTMLElement {
     }
   }
 
+  /**
+   * @param {string} text
+   */
   updateStatus(text) {
     const statusEl = this.querySelector("#render-status");
     if (statusEl) statusEl.textContent = text;
     const wrapper = this.querySelector(".visual-canvas-wrapper");
+    // @ts-ignore
     if (wrapper) wrapper.style.display = text ? "none" : "block";
   }
 
+  /**
+   * @param {{ clientX: number; }} e
+   */
   addAnchor(e) {
     const overlay = this.querySelector(".visual-overlay");
+    if (!overlay) return;
     const rect = overlay.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const pt = clickX / this.scale;
@@ -162,6 +174,9 @@ class VisualModal extends HTMLElement {
     this.renderAnchors();
   }
 
+  /**
+   * @param {number} idx
+   */
   removeAnchor(idx) {
     this.anchors = this.anchors.filter((_, i) => i !== idx);
     this.dispatchEvent(new CustomEvent("update", { detail: this.anchors }));
@@ -237,20 +252,27 @@ class VisualModal extends HTMLElement {
                     </div>
                 `;
 
+    // @ts-ignore
     this.querySelector("#close-btn-top").onclick = () =>
       this.dispatchEvent(new CustomEvent("close"));
+    // @ts-ignore
     this.querySelector("#save-btn").onclick = () =>
       this.dispatchEvent(new CustomEvent("close"));
+    // @ts-ignore
     this.querySelector("#clear-btn").onclick = () => {
       this.anchors = [];
       this.dispatchEvent(new CustomEvent("update", { detail: [] }));
       this.renderAnchors();
     };
+    // @ts-ignore
     this.querySelector(".visual-overlay").onclick = (e) => this.addAnchor(e);
   }
 }
 customElements.define("visual-alignment-modal", VisualModal);
 
+/**
+ * @param {{disabled: boolean, fileName: string, onFileSelected: (_: any) => void}} obj
+ */
 function DropZone({ disabled, fileName, onFileSelected }) {
   return html`
     <div class="dropzone-container">
@@ -273,22 +295,28 @@ function DropZone({ disabled, fileName, onFileSelected }) {
             />
           </svg>
           <p style="font-size: 0.875rem; color: #64748b; margin: 0;">
-            ${fileName
-              ? html`
-                Loaded: <span style="font-weight: 700; color: #16a34a;">${fileName}</span>
-                (Click to change)
-              `
-              : html`
-                <span style="font-weight: 700; color: #1e293b;">Upload Searchable PDF</span> to
-                begin
-              `}
+            ${when(
+              fileName,
+              () =>
+                html`
+                  Loaded: <span style="font-weight: 700; color: #16a34a;">${fileName}</span>
+                  (Click to change)
+                `,
+              () =>
+                html`
+                  <span style="font-weight: 700; color: #1e293b;">Upload Searchable PDF</span> to
+                  begin
+                `,
+            )}
           </p>
         </div>
         <input
           type="file"
           accept="application/pdf"
           style="display: none;"
-          @change="${(e) => {
+          @change="${(
+            /** @type {{ target: { files: any; value: null; }; }} */ e,
+          ) => {
             if (!disabled) {
               onFileSelected(e.target.files);
               e.target.value = null;
@@ -302,6 +330,7 @@ function DropZone({ disabled, fileName, onFileSelected }) {
 }
 customElements.define(
   "drop-zone",
+  // @ts-ignore
   component(DropZone, { useShadowDOM: false }),
 );
 
@@ -500,9 +529,11 @@ function App() {
       }
       dispatch({ type: "FINISH_PROCESSING" });
     } catch (err) {
-      if (err.name === "PasswordException") {
-        dispatch({ type: "SHOW_PASSWORD_PROMPT" });
-      } else dispatch({ type: "SET_ERROR", error: err.message });
+      if (err instanceof Error) {
+        if (err instanceof Error && err.name === "PasswordException") {
+          dispatch({ type: "SHOW_PASSWORD_PROMPT" });
+        } else dispatch({ type: "SET_ERROR", error: err.message });
+      }
     }
   };
 
@@ -714,6 +745,7 @@ function App() {
   `;
 }
 
+// @ts-ignore
 customElements.define("main-app", component(App, { useShadowDOM: false }));
 render(
   html`
