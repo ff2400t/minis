@@ -41,19 +41,8 @@
         useEffect,
         useState,
       } from "/vendor/haunted@6.1.0.js";
-      import { html } from "/vendor/lit-html@3.3.2.js";
-
-      // Global environment variables (required, but not used for Firebase in this app)
-      const appId = typeof __app_id !== "undefined"
-        ? __app_id
-        : "default-app-id";
-      const firebaseConfig = typeof __firebase_config !== "undefined"
-        ? JSON.parse(__firebase_config)
-        : {};
-      const initialAuthToken =
-        typeof __initial_auth_token !== "undefined"
-          ? __initial_auth_token
-          : null;
+      import { html, when } from "/vendor/lit-html@3.3.2.js";
+      import "/drop-zone.js";
 
       // --- Utility Functions (Adapted for Component Scope) ---
 
@@ -83,7 +72,6 @@
         const [statusMessage, setStatusMessage] = useState(
           "Please select files above.",
         );
-        const [includeStyles, setIncludeStyles] = useState(true);
         const [downloadUrl, setDownloadUrl] = useState(null);
         const [dropZoneHighlight, setDropZoneHighlight] = useState(
           false,
@@ -105,25 +93,13 @@
         // --- Handlers ---
 
         /** Handles file selection from input or drop events */
-        const handleFileSelection = (files) => {
+        const handleFileSelection = (event) => {
+          const files = event.detail;
           const validFiles = Array.from(files).filter((file) =>
             file.name.toLowerCase().endsWith(".xlsx") ||
             file.name.toLowerCase().endsWith(".xls")
           );
           setSelectedFiles(validFiles);
-        };
-
-        /** Handles changes from the file input element */
-        const handleFileChange = (e) => {
-          handleFileSelection(e.target.files);
-          e.target.value = null; // Reset input field
-        };
-
-        /** Handles file dropping into the drop zone */
-        const handleDrop = (e) => {
-          e.preventDefault();
-          setDropZoneHighlight(false);
-          handleFileSelection(e.dataTransfer.files);
         };
 
         /** Core Merge Logic */
@@ -133,8 +109,6 @@
           setIsProcessing(true);
           setDownloadUrl(null);
           setStatusMessage("Merging files... This may take a moment.");
-
-          const styleOption = includeStyles ? { cellStyles: true } : {};
 
           try {
             const outputWorkbook = XLSX.utils.book_new();
@@ -148,7 +122,6 @@
 
               const inputWorkbook = XLSX.read(data, {
                 type: "array",
-                ...styleOption,
               });
               const filePrefix = sanitizeFilename(file.name);
 
@@ -208,9 +181,7 @@
             setDownloadUrl(url);
 
             setStatusMessage(
-              `Merge complete! ${totalSheetsAdded} sheets combined. Styles: ${
-                includeStyles ? "Included" : "Ignored"
-              }.`,
+              `Merge complete! ${totalSheetsAdded} sheets combined.`,
             );
           } catch (error) {
             console.error("Merge error:", error);
@@ -224,45 +195,6 @@
         };
 
         // --- Template Rendering (Lit-HTML) ---
-
-        const mergeButtonText = isProcessing
-          ? html`
-            <div class="flex items-center justify-center">
-              <svg
-                class="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  class="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  stroke-width="4"
-                >
-                </circle>
-                <path
-                  class="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                >
-                </path>
-              </svg>
-              Merging Sheets...
-            </div>
-          `
-          : "Merge and Download Combined File";
-
-        const dropZoneClasses = `
-                p-5 bg-gray-50 border-2 border-dashed rounded-lg transition duration-300 
-                ${
-          dropZoneHighlight
-            ? "border-blue-500 bg-blue-100"
-            : "border-gray-300 hover:border-blue-400"
-        }
-            `;
 
         return html`
           <header class="text-center space-y-2">
@@ -285,57 +217,7 @@
             <!-- File Upload & List -->
             <div>
               <!-- File Input Area (Drop Zone) -->
-              <div
-                class="${dropZoneClasses}"
-                @dragover="${(e) => {
-                  e.preventDefault();
-                  setDropZoneHighlight(true);
-                  setStatusMessage("Drop your Excel files here...");
-                }}"
-                @dragleave="${() => {
-                  setDropZoneHighlight(false);
-                  setStatusMessage(
-                    selectedFiles.length > 0
-                      ? `${selectedFiles.length} Excel file(s) selected. Ready to merge.`
-                      : "Please select files above.",
-                  );
-                }}"
-                @drop="${handleDrop}"
-              >
-                <label for="file-input" class="cursor-pointer block text-center">
-                  <div class="flex flex-col items-center justify-center">
-                    <svg
-                      class="w-8 h-8 text-gray-400 mb-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 014 4.903M15 15l-3-3m0 0l-3 3m3-3v9"
-                      >
-                      </path>
-                    </svg>
-                    <p class="text-sm font-medium text-gray-700">
-                      Drag & Drop files here or Click to upload
-                    </p>
-                    <p class="text-xs text-gray-500">
-                      Select .xlsx or .xls files (Multiple allowed)
-                    </p>
-                  </div>
-                  <input
-                    type="file"
-                    id="file-input"
-                    accept=".xlsx, .xls"
-                    multiple
-                    class="hidden"
-                    @change="${handleFileChange}"
-                  >
-                </label>
-              </div>
+              <drop-zone @file-selected="${handleFileSelection}"></drop-zone>
 
               <!-- File List -->
               ${selectedFiles.length > 0
@@ -364,33 +246,6 @@
 
             <!-- Controls & Actions -->
             <div class="space-y-4 pt-2">
-              <!-- Style Toggle -->
-              <div
-                class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
-              >
-                <label
-                  for="style-toggle"
-                  class="text-sm font-medium text-gray-700 flex flex-col cursor-pointer"
-                >
-                  Preserve Cell Styles
-                  <span class="text-xs text-gray-500 font-normal mt-0.5"
-                  >Includes colors, fonts, borders, etc. (Slower)</span>
-                </label>
-                <input
-                  type="checkbox"
-                  id="style-toggle"
-                  .checked="${includeStyles}"
-                  @change="${(e) => setIncludeStyles(e.target.checked)}"
-                  class="
-                    relative h-6 w-11 rounded-full cursor-pointer transition-colors duration-300 ease-in-out
-                    appearance-none
-                    bg-gray-300 checked:bg-green-500
-                    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500
-                  "
-                  style="--tw-ring-offset-color: #f7f7f9;"
-                />
-              </div>
-
               <!-- Action Button: Merge -->
               <button
                 id="merge-button"
@@ -399,7 +254,34 @@
                   isProcessing}"
                 class="w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md transition duration-300 hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
-                ${mergeButtonText}
+                ${when(isProcessing, () =>
+                  html`
+                    <div class="flex items-center justify-center">
+                      <svg
+                        class="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          class="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          stroke-width="4"
+                        >
+                        </circle>
+                        <path
+                          class="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        >
+                        </path>
+                      </svg>
+                      Merging Sheets...
+                    </div>
+                  `, () => "Merge and Download Combined File")}
               </button>
 
               <!-- Download Link -->

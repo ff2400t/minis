@@ -8,7 +8,8 @@ import {
   useRef,
   useState as u1,
 } from "/vendor/haunted@6.1.0.js";
-import { BUILT_IN_PARSERS, generalDocumentParser } from "./data-extractor.js";
+import "/drop-zone.js";
+import { BUILT_IN_PARSERS, generalDocumentParser } from "/data-extractor.js";
 // --- CONSTANTS & GLOBALS ---
 const LOCAL_STORAGE_KEY = "dataExtractorCustomParsers";
 
@@ -888,28 +889,9 @@ function App() {
     processNextFile();
   }, [processNextFile]);
 
-  // --- Drag/Drop Handlers ---
-  const handleDragOver = (/** @type {DragEvent} */ e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  };
-  const handleDragLeave = (/** @type {SubmitEvent} */ e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  };
-  const handleDrop = useCallback((/** @type {DragEvent} */ e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    const files = e.dataTransfer ? e.dataTransfer.files : null;
-    if (files && files.length > 0) processFiles(files);
-  }, [processFiles]);
-
-  const handleFileInput = (/** @type {InputEvent} */ e) => {
+  const handleFileInput = (/** @type {CustomEvent} */ e) => {
     // @ts-ignore we know this will work
-    processFiles(e.target.files);
+    processFiles(e.detail);
   };
 
   // --- Modal/UI Render Helpers ---
@@ -1438,48 +1420,7 @@ function App() {
       </div>
 
       <!-- Drop Zone -->
-      <label
-        for="fileInput"
-        class="mb-8 p-10 border-2 border-dashed rounded-lg bg-blue-50 transition-all duration-200 flex flex-col items-center justify-center text-center cursor-pointer block border-blue-300 ${isDragging
-          ? "drag-active"
-          : ""}"
-        @dragover="${handleDragOver}"
-        @dragleave="${handleDragLeave}"
-        @drop="${handleDrop}"
-      >
-        <svg
-          class="w-12 h-12 text-blue-500 mb-3"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-          >
-          </path>
-        </svg>
-
-        <span class="block text-lg font-medium text-blue-700 mb-2 cursor-pointer">
-          ${isDragging ? "Drop files here" : "Click to Upload or Drag & Drop"}
-        </span>
-
-        <span class="block text-sm text-gray-500 mb-4"
-        >PDF files only (Multiple allowed)</span>
-        <span class="block text-sm font-semibold text-blue-600">${fileSummary}</span>
-
-        <input
-          type="file"
-          id="fileInput"
-          @change="${handleFileInput}"
-          accept="application/pdf"
-          class="hidden"
-          multiple
-        />
-      </label>
+      <drop-zone @file-selected="${handleFileInput}"></drop-zone>
 
       <!-- Status Container -->
       ${renderStatus()}
