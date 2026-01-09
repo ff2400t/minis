@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "/vendor/haunted@6.1.0.js";
+import "/drop-zone.js";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
@@ -175,12 +176,16 @@ class VisualModal extends HTMLElement {
   }
 
   /**
-   * @param {number} idx
+   * @param {MouseEvent} e
    */
-  removeAnchor(idx) {
-    this.anchors = this.anchors.filter((_, i) => i !== idx);
-    this.dispatchEvent(new CustomEvent("update", { detail: this.anchors }));
-    this.renderAnchors();
+  removeAnchor(e) {
+    if (e.altKey) {
+      // @ts-ignore
+      const idx = e.target.dataset.anchorIdx;
+      this.anchors = this.anchors.filter((_, i) => i !== idx);
+      this.dispatchEvent(new CustomEvent("update", { detail: this.anchors }));
+      this.renderAnchors();
+    }
   }
 
   renderAnchors() {
@@ -193,9 +198,9 @@ class VisualModal extends HTMLElement {
       marker.style.cssText = `left: ${
         x * this.scale
       }px; height: 100%; position: absolute; top: 0; width: 4px; background: #6366f1; cursor: pointer; box-shadow: 0 0 10px rgba(99, 102, 241, 0.5); border-radius: 2px;`;
+      marker.dataset.anchorIdx = i.toString();
       marker.onclick = (e) => {
         e.stopPropagation();
-        this.removeAnchor(i);
       };
       overlay.appendChild(marker);
     });
@@ -270,168 +275,166 @@ class VisualModal extends HTMLElement {
 }
 customElements.define("visual-alignment-modal", VisualModal);
 
-/**
- * @param {{disabled: boolean, fileName: string, onFileSelected: (_: any) => void}} obj
- */
-function DropZone({ disabled, fileName, onFileSelected }) {
-  return html`
-    <div class="dropzone-container">
-      <label class="dropzone-label ${fileName ? "has-file" : ""} ${disabled
-        ? "disabled"
-        : ""}">
-        <div
-          style="pointer-events: none; text-align: center; display: flex; align-items: center; gap: 1rem;"
-        >
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="${fileName ? "#16a34a" : "#94a3b8"}"
-            stroke-width="2"
-          >
-            <path
-              d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"
-            />
-          </svg>
-          <p style="font-size: 0.875rem; color: #64748b; margin: 0;">
-            ${when(
-              fileName,
-              () =>
-                html`
-                  Loaded: <span style="font-weight: 700; color: #16a34a;">${fileName}</span>
-                  (Click to change)
-                `,
-              () =>
-                html`
-                  <span style="font-weight: 700; color: #1e293b;">Upload Searchable PDF</span> to
-                  begin
-                `,
-            )}
-          </p>
-        </div>
-        <input
-          type="file"
-          accept="application/pdf"
-          style="display: none;"
-          @change="${(
-            /** @type {{ target: { files: any; value: null; }; }} */ e,
-          ) => {
-            if (!disabled) {
-              onFileSelected(e.target.files);
-              e.target.value = null;
-            }
-          }}"
-          ?disabled="${disabled}"
-        />
-      </label>
-    </div>
-  `;
-}
-customElements.define(
-  "drop-zone",
+class ColumnAdjuster extends HTMLElement {
+  constructor() {
+    super();
+
+    this.trackRef = { current: null };
+
+    /**
+     * @type {any[]}
+     */
+    this.localAnchors = [];
+    this.activeIdx = -1;
+    this.trackWidthPt = 800;
+
+    this.onMouseDown = this.onMouseDown.bind(this);
+    this.onMouseMove = this.onMouseMove.bind(this);
+    this.onMouseUp = this.onMouseUp.bind(this);
+  }
+
+  connectedCallback() {
+    this.localAnchors = this.initialAnchors || [];
+
+    this.render();
+
+    window.addEventListener("mousemove", this.onMouseMove);
+    window.addEventListener("mouseup", this.onMouseUp);
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener("mousemove", this.onMouseMove);
+    window.removeEventListener("mouseup", this.onMouseUp);
+  }
+
+  /** Public API – matches original host.getAnchors */
+  getAnchors() {
+    return [...this.localAnchors].sort((a, b) => a - b);
+  }
+
+  /** Allow external updates */
+  set initialAnchors(val) {
+    // @ts-ignore
+    this._initialAnchors = val || [];
+    this.localAnchors = [...this._initialAnchors];
+    this.render();
+  }
+
   // @ts-ignore
-  component(DropZone, { useShadowDOM: false }),
-);
+  get initialAnchors() {
+    return this._initialAnchors;
+  }
 
-function ColumnAdjuster({ initialAnchors, onOpenVisual }) {
-  const trackRef = useRef(null);
-  const [localAnchors, setLocalAnchors] = useState(initialAnchors || []);
-  const [activeIdx, setActiveIdx] = useState(-1);
-  const trackWidthPt = 800;
-  const host = this;
-
-  useEffect(() => {
-    host.getAnchors = () => [...localAnchors].sort((a, b) => a - b);
-  }, [localAnchors]);
-
-  useEffect(() => {
-    setLocalAnchors(initialAnchors || []);
-  }, [initialAnchors]);
-
-  const getPt = (e) => {
-    if (!trackRef.current) return 0;
-    const rect = trackRef.current.getBoundingClientRect();
+  /**
+   * @param {MouseEvent} e
+   */
+  getPt(e) {
+    if (!this.trackRef.current) return 0;
+    const rect = this.trackRef.current.getBoundingClientRect();
+    // @ts-ignore
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const xPct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    return xPct * trackWidthPt;
-  };
+    return xPct * this.trackWidthPt;
+  }
 
-  const onMouseDown = (e) => {
-    const pt = getPt(e);
-    const rect = trackRef.current.getBoundingClientRect();
+  /**
+   * @param {MouseEvent} e
+   */
+  onMouseDown(e) {
+    const pt = this.getPt(e);
+    const rect = this.trackRef.current.getBoundingClientRect();
     const clientX = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-    const hitIdx = localAnchors.findIndex((a) =>
-      Math.abs(((a / trackWidthPt) * rect.width) - clientX) < 10
+
+    const hitIdx = this.localAnchors.findIndex(
+      (a) => Math.abs(((a / this.trackWidthPt) * rect.width) - clientX) < 10,
     );
 
     if (hitIdx !== -1) {
       if (e.altKey) {
-        setLocalAnchors(localAnchors.filter((_, i) => i !== hitIdx));
-      } else setActiveIdx(hitIdx);
-    } else {
-      const next = [...localAnchors, pt].sort((a, b) => a - b);
-      setLocalAnchors(next);
-      setActiveIdx(next.indexOf(pt));
-    }
-  };
-
-  useEffect(() => {
-    const move = (e) => {
-      if (activeIdx !== -1) {
-        setLocalAnchors((prev) => {
-          const n = [...prev];
-          n[activeIdx] = getPt(e);
-          return n;
-        });
+        this.localAnchors = this.localAnchors.filter((_, i) => i !== hitIdx);
+        this.activeIdx = -1;
+      } else {
+        this.activeIdx = hitIdx;
       }
-    };
-    const up = () => setActiveIdx(-1);
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", up);
-    return () => {
-      window.removeEventListener("mousemove", move);
-      window.removeEventListener("mouseup", up);
-    };
-  }, [activeIdx]);
+    } else {
+      const next = [...this.localAnchors, pt].sort((a, b) => a - b);
+      this.localAnchors = next;
+      this.activeIdx = next.indexOf(pt);
+    }
 
-  return html`
-    <div
-      class="settings-card"
-      style="margin-top: 1rem; border-color: #c7d2fe; background: #f5f3ff;"
-    >
-      <div
-        style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;"
-      >
-        <span class="label-tiny">Column Editor</span>
-        <button
-          class="btn btn-ghost"
-          style="font-size: 0.65rem; color: var(--primary); font-weight: 800;"
-          @click="${onOpenVisual}"
+    this.render();
+  }
+
+  /**
+   * @param {MouseEvent} e
+   */
+  onMouseMove(e) {
+    if (this.activeIdx === -1) return;
+
+    this.localAnchors = this.localAnchors.map((a, i) =>
+      i === this.activeIdx ? this.getPt(e) : a
+    );
+
+    this.render();
+  }
+
+  onMouseUp() {
+    this.activeIdx = -1;
+  }
+
+  render() {
+    render(
+      html`
+        <div
+          class="settings-card"
+          style="margin-top:1rem;border-color:#c7d2fe;background:#f5f3ff;"
         >
-          Launch Visual Aligner
-        </button>
-      </div>
-      <div class="anchor-track" ${ref((el) =>
-        trackRef.current = el
-      )} @mousedown="${onMouseDown}">
-        ${when(localAnchors.length === 0, () =>
-          html`
-            <div class="track-hint">Click to place column markers</div>
-          `)} ${map(localAnchors, (x, i) =>
-            html`
-              <div class="anchor-marker ${activeIdx === i
-                ? "active"
-                : ""}" style="left: ${(x / trackWidthPt) * 100}%"></div>
-            `)}
-      </div>
-    </div>
-  `;
+          <div
+            style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;"
+          >
+            <span class="label-tiny">Column Editor</span>
+            <button
+              class="btn btn-ghost"
+              style="font-size:0.65rem;color:var(--primary);font-weight:800;"
+              @click="${this
+                // @ts-ignore
+                .onOpenVisual}"
+            >
+              Launch Visual Aligner
+            </button>
+          </div>
+
+          <div class="anchor-track" ${ref(
+            (el) => (this.trackRef.current = el),
+          )} @mousedown="${this.onMouseDown}">
+            ${when(
+              this.localAnchors.length === 0,
+              () =>
+                html`
+                  <div class="track-hint">Click to place column markers</div>
+                `,
+            )} ${map(
+              this.localAnchors,
+              (x, i) =>
+                html`
+                  <div
+                    class="anchor-marker ${this.activeIdx === i
+                      ? "active"
+                      : ""}"
+                    style="left:${(x / this.trackWidthPt) * 100}%"
+                  >
+                  </div>
+                `,
+            )}
+          </div>
+        </div>
+      `,
+      this,
+    );
+  }
 }
-customElements.define(
-  "column-adjuster",
-  component(ColumnAdjuster, { useShadowDOM: false }),
-);
+
+customElements.define("column-adjuster", ColumnAdjuster);
 
 function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -591,9 +594,13 @@ function App() {
                 })}"
             />
           </div>
-          <div class="input-group">
+          <div
+            class="input-group"
+          >
             <div style="display:flex; justify-content: space-between;">
-              <span class="label-tiny">Row Leniency</span><span class="value-badge"
+              <span class="label-tiny">Row Leniency</span><span
+                class="value-badge"
+                }
               >${state.rowLeniency}</span>
             </div><input
               type="range"
@@ -608,12 +615,17 @@ function App() {
                 })}"
             />
           </div>
-          <div class="input-group">
+
+          <div
+            class="input-group"
+          >
             <div style="display:flex; justify-content: space-between;">
               <span class="label-tiny">Auto-Col Cluster</span><span
                 class="value-badge"
               >${state.colLeniency}</span>
-            </div><input
+            </div>
+
+            <input
               type="range"
               min="10"
               max="150"
@@ -710,7 +722,9 @@ function App() {
           `)} ${when(state.showPasswordModal, () =>
           html`
             <div class="modal-overlay">
-              <form class="modal-content" @submit="${(e) => {
+              <form class="modal-content" @submit="${(
+                /** @type {SubmitEvent} */ e,
+              ) => {
                 e.preventDefault();
                 extractFromPdf(state.lastFile, state.manualAnchors, password);
               }}">
@@ -718,7 +732,12 @@ function App() {
                   type="password"
                   placeholder="Password"
                   .value="${password}"
-                  @input="${(e) => setPassword(e.target.value)}"
+                  @input="${(/** @type {InputEvent} */ e) =>
+                    setPassword(
+                      e?.target
+                        // @ts-ignore
+                        ?.value ?? "",
+                    )}"
                   required
                 /><div style="display:flex; gap:1rem; justify-content:flex-end;">
                   <button type="button" class="btn btn-ghost" @click="${() =>
@@ -734,7 +753,7 @@ function App() {
             <visual-alignment-modal
               .pdfFile="${state.lastFile}"
               .anchors="${state.manualAnchors || []}"
-              @update="${(e) =>
+              @update="${(/** @type {CustomEvent} */ e) =>
                 dispatch({ type: "SET_ANCHORS", anchors: e.detail })}"
               @close="${() =>
                 dispatch({ type: "TOGGLE_VISUAL_MODAL", value: false })}"
