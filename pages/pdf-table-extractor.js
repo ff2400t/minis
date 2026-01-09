@@ -42,13 +42,23 @@ function reducer(state, action) {
         isProcessing: true,
         processingStep: "Initializing...",
         error: null,
-        extractedData: [],
         lastFile: action.file || state.lastFile,
         showPasswordModal: false,
       };
     case "SET_STEP":
       return { ...state, processingStep: action.step };
     case "APPEND_PAGE_DATA":
+      // we don't remove the data when we start processing to prevent the page from jumping each time the reparse button is pressed
+      // here when the data is set for the first time we create the data array 
+      if (action.pageData.page === 1) {
+        return {
+          ...state,
+          extractedData: [action.pageData],
+          manualAnchors: action.anchors !== undefined
+            ? action.anchors
+            : state.manualAnchors,
+        };
+      }
       return {
         ...state,
         extractedData: [...state.extractedData, action.pageData],
@@ -577,7 +587,7 @@ function App() {
       <drop-zone
         ?disabled="${state.isProcessing}"
         .fileName="${state.lastFile?.name}"
-        .onFileSelected="${(f) => extractFromPdf(f[0])}"
+        @file-selected="${(e) => extractFromPdf(e.detail[0])}"
       ></drop-zone>
 
       <div class="settings-card">
