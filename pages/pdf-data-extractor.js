@@ -436,8 +436,6 @@ function App() {
     selectedParser,
   } = parserState;
 
-  const [isDragging, setIsDragging] = useState(false);
-  const [fileSummary, setFileSummary] = useState("");
   const [status, setStatus] = useState({ message: "", type: "" });
 
   // Results State
@@ -782,7 +780,6 @@ function App() {
 
   const processFiles = useCallback((/** @type {FileList} */ fileList) => {
     if (!fileList || fileList.length === 0) {
-      setFileSummary("");
       setIsResultVisible(false);
       setStatus({ message: "", type: "" });
       return;
@@ -790,10 +787,6 @@ function App() {
 
     const files = Array.from(fileList).filter((f) =>
       f.type === "application/pdf"
-    );
-    const count = files.length;
-    setFileSummary(
-      count === 1 ? `File: ${files[0].name}` : `${count} files selected`,
     );
 
     // Reset UI state
