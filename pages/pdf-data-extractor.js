@@ -712,9 +712,17 @@ function App() {
           rawText,
           status: "success",
         });
-      }
-
-      if (!parserFound) {
+      } else {
+        fileProcessingContext.current.tempDocuments.push({
+          fileName: file.name,
+          docType: "FAILED",
+          metadata: parsedData.metadataFields,
+          headers: [],
+          rows: [],
+          text: `Error: Document type unknown. Data not extracted.`,
+          rawText,
+          status: "error",
+        });
         throw new Error("Document type unknown. Data not extracted.");
       }
     },
@@ -761,14 +769,6 @@ function App() {
         // Other Error
         console.error(`Error processing ${file.name}:`, e);
 
-        const fileObj = fileProcessingContext.current.tempDocuments.find((a) =>
-          a.fileName
-        );
-        if (fileObj) {
-          fileObj.docType = "FAILED";
-          fileObj.text = `Error: ${e.message}`;
-          fileObj.status = "error";
-        }
         fpContext.currentIndex++;
         processNextFile();
       }
