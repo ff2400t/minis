@@ -15,6 +15,8 @@ export class DropZone extends HTMLElement {
     this.handleDragOver = this.handleDragOver.bind(this);
     this.handleDragLeave = this.handleDragLeave.bind(this);
     this.handleDrop = this.handleDrop.bind(this);
+      this.subtitle = undefined;
+      this.acceptedMIMEs = undefined;
   }
 
   /**
@@ -30,6 +32,8 @@ export class DropZone extends HTMLElement {
   }
 
   connectedCallback() {
+    this.subtitle = this.getAttribute('subtitle') ?? "PDF, JPG, PNG files (Multiple images allowed)";
+    this.acceptedMIMEs = this.getAttribute('accepted') ?? "application/pdf,image/jpeg,image/png";
     this.update();
   }
 
@@ -195,13 +199,13 @@ export class DropZone extends HTMLElement {
               <strong>Click to upload PDF or Images</strong> or drag and drop
             </p>
             <p class="subtitle">
-              PDF, JPG, PNG files (Multiple images allowed)
+              ${this.subtitle}
             </p>
           </div>
 
           <input
             type="file"
-            accept="application/pdf,image/jpeg,image/png"
+            accept="${this.acceptedMIMEs}"
             multiple
             ?disabled="${this.disabled}"
             @change="${this.handleFileChange}"
