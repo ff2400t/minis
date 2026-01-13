@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Excel Multi‑File Date Consolidator</title>
+
+    <!-- SheetJS (XLSX) library -->
+    <script
+      defer
+      src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"
+    ></script>
+
+    <!-- lit + haunted (ES modules) -->
+    <script type="module">
+      import {
+        html,
+        render,
+      } from "https://unpkg.com/lit-html@3.1.2/lit-html.js";
+      import {
+        component,
+        useEffect,
+        useRef,
+        useState,
+      } from "/vendor/haunted@6.1.0.js";
+      import "/drop-zone.js";
+
+      const ROW_BATCH_SIZE = 100;
+
+      function App() {
+        const [header, setHeader] = useState("Date");
+        const [rows, setRows] = useState([]);
+        const [renderedCount, setRenderedCount] = useState(0);
+        const [metrics, setMetrics] = useState(null);
+
+        const containerRef = useRef(null);
+
+        useEffect(() => {
+          const el = containerRef.current;
+          if (!el) return;
+
+          const onScroll = () => {
+            if (renderedCount >= rows.length) return;
+            if (
+              el.scrollTop + el.clientHeight >= el.scrollHeight - 50
+            ) {
+              setRenderedCount((c) =>
+                Math.min(c + ROW_BATCH_SIZE, rows.length)
+              );
+            }
+          };
+
+          el.addEventListener("scroll", onScroll);
+          return () => el.removeEventListener("scroll", onScroll);
+        }, [rows, renderedCount]);
+
+        async function handleFiles(files) {
+          if (!files.length) return;
+
+          let allRows = [];
+          let headersWritten = false;
+          let sheetsJoined = 0;
+          let rowsConsolidated = 0;
+          const fileSheetMap = {};
+
+          for (const file of files) {
+            fileSheetMap[file.name] = [];
+            const wb = XLSX.read(await file.arrayBuffer(), {
+              type: "array",
+            });
+
+            wb.SheetNames.forEach((name) => {
+              const data = XLSX.utils.sheet_to_json(wb.Sheets[name], {
+                header: 1,
+                defval: "",
+              });
+              const idx = data.findIndex((r) =>
+                r.some((c) =>
+                  typeof c === "string" &&
+                  c.trim().toLowerCase() === header.toLowerCase()
+                )
+              );
+              if (idx === -1) return;
+
+              if (!headersWritten) {
+                allRows.push([
+                  "Source File",
+                  "Source Sheet",
+                  ...data[idx],
+                ]);
+                headersWritten = true;
+              }
+
+              let added = 0;
+              for (let i = idx + 1; i < data.length; i++) {
+                if (data[i].every((v) => v === "")) continue;
+                allRows.push([file.name, name, ...data[i]]);
+                added++;
+              }
+
+              if (added) {
+                sheetsJoined++;
+                rowsConsolidated += added;
+                fileSheetMap[file.name].push(name);
+              }
+            });
+          }
+
+          setRows(allRows);
+          setRenderedCount(Math.min(ROW_BATCH_SIZE, allRows.length));
+          setMetrics({
+            files: files.length,
+            sheetsJoined,
+            rowsConsolidated,
+            fileSheetMap,
+          });
+        }
+
+        function download() {
+          if (!rows.length) return;
+          const ws = XLSX.utils.aoa_to_sheet(rows);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, "Console");
+          const out = XLSX.write(wb, {
+            bookType: "xlsx",
+            type: "array",
+          });
+          const blob = new Blob([out]);
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "Consolidated_Console.xlsx";
+          a.click();
+        }
+
+        return html`
+          <div class="app">
+            <header class="app-header">
+              <h1>Excel Multi‑File Date Consolidator</h1>
+              <p class="subtitle">
+                Select multiple Excel files or drag & drop them below.
+              </p>
+            </header>
+
+            <section class="controls">
+              <label class="field">
+                <span class="label">Header to search for</span>
+                <input class="input" .value="${header}" @input="${(e) =>
+                  setHeader(e.target.value)}" />
+              </label>
+              <drop-zone
+                subtitle="xlsx files(Multiple Files allowed)"
+                accepted="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                @file-selected="${(e) => handleFiles(e.detail)}"
+              ></drop-zone>
+            </section>
+
+            ${metrics
+              ? html`
+                <section class="metrics">
+                  <h3>Consolidation Metrics</h3>
+                  <ul>
+                    <li><strong>Files processed:</strong> ${metrics
+                      .files}</li>
+                    <li><strong>Sheets joined:</strong> ${metrics
+                      .sheetsJoined}</li>
+                    <li><strong>Total rows consolidated:</strong> ${metrics
+                      .rowsConsolidated}</li>
+                    ${Object.entries(metrics.fileSheetMap).map((
+                      [f, s],
+                    ) =>
+                      s.length
+                        ? html`
+                          <li><strong>${f}:</strong> ${s.join(
+                            ", ",
+                          )}</li>
+                        `
+                        : ""
+                    )}
+                  </ul>
+                </section>
+              `
+              : ""}
+
+            <section class="table-section">
+              <div class="container" ref="${containerRef}">
+                ${rows.length
+                  ? html`
+                    <table>
+                      <tr>${rows[0].map((h) =>
+                        html`
+                          <th>${h}</th>
+                        `
+                      )}</tr>
+                      ${rows.slice(1, renderedCount).map((r) =>
+                        html`
+                          <tr>${r.map((c) =>
+                            html`
+                              <td>${c}</td>
+                            `
+                          )}</tr>
+                        `
+                      )}
+                    </table>
+                  `
+                  : ""}
+              </div>
+            </section>
+          </div>
+        `;
+      }
+
+      customElements.define("excel-consolidator", component(App));
+
+      window.addEventListener("DOMContentLoaded", () => {
+        if (!window.XLSX) {
+          document.body.innerHTML =
+            '<p style="color:red">SheetJS failed to load.</p>';
+          return;
+        }
+        render(
+          html`
+            <excel-consolidator></excel-consolidator>
+          `,
+          document.body,
+        );
+
+        // sanity tests
+        console.assert(ROW_BATCH_SIZE === 100, "Batch size mismatch");
+        console.assert(
+          customElements.get("excel-consolidator"),
+          "Component not registered",
+        );
+      });
+    </script>
+
+    <style>
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: #f3f4f6;
+        margin: 0;
+        padding: 24px;
+      }
+
+      .app {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .app-header {
+        margin-bottom: 20px;
+      }
+
+      .subtitle {
+        color: #555;
+        margin-top: 4px;
+      }
+
+      .controls {
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        max-width: 300px;
+        margin-bottom: 12px;
+      }
+
+      .label {
+        font-size: 12px;
+        color: #444;
+        margin-bottom: 4px;
+      }
+
+      .input {
+        padding: 6px 8px;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+
+      .dropzone {
+        margin: 12px 0;
+        padding: 28px;
+        border: 2px dashed #9ca3af;
+        border-radius: 8px;
+        text-align: center;
+        color: #374151;
+        background: #f9fafb;
+      }
+
+      .actions {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-top: 8px;
+      }
+
+      .file-input {
+        font-size: 13px;
+      }
+
+      .btn {
+        padding: 8px 14px;
+        font-size: 14px;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        cursor: pointer;
+      }
+
+      .btn-primary {
+        background: #2563eb;
+        color: #fff;
+      }
+
+      .btn-primary:hover {
+        background: #1e4ed8;
+      }
+
+      .metrics {
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+
+      .metrics h3 {
+        margin-top: 0;
+      }
+
+      .metrics ul {
+        padding-left: 18px;
+        margin: 0;
+      }
+
+      .table-section {
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 8px;
+      }
+
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        background: #fff;
+      }
+
+      th, td {
+        border: 1px solid #e5e7eb;
+        padding: 6px 10px;
+        font-size: 13px;
+      }
+
+      th {
+        background: #f3f4f6;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+      }
+
+      .container {
+        max-height: 70vh;
+        overflow: auto;
+      }
+    </style>
+  </head>
+  <body></body>
+</html>
