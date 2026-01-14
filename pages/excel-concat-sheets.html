@@ -12,10 +12,7 @@
 
     <!-- lit + haunted (ES modules) -->
     <script type="module">
-      import {
-        html,
-        render,
-      } from "https://unpkg.com/lit-html@3.1.2/lit-html.js";
+      import { html, render, when } from "/vendor/lit-html@3.3.2.js";
       import {
         component,
         useEffect,
@@ -23,6 +20,7 @@
         useState,
       } from "/vendor/haunted@6.1.0.js";
       import "/drop-zone.js";
+      import "/simple-table.js";
 
       const ROW_BATCH_SIZE = 100;
 
@@ -151,6 +149,11 @@
                 accepted="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 @file-selected="${(e) => handleFiles(e.detail)}"
               ></drop-zone>
+              <br>
+              ${when(rows.length, () =>
+                html`
+                  <button @click="${download}">Download Console Sheet</button>
+                `, () => "")}
             </section>
 
             ${metrics
@@ -182,26 +185,10 @@
 
             <section class="table-section">
               <div class="container" ref="${containerRef}">
-                ${rows.length
-                  ? html`
-                    <table>
-                      <tr>${rows[0].map((h) =>
-                        html`
-                          <th>${h}</th>
-                        `
-                      )}</tr>
-                      ${rows.slice(1, renderedCount).map((r) =>
-                        html`
-                          <tr>${r.map((c) =>
-                            html`
-                              <td>${c}</td>
-                            `
-                          )}</tr>
-                        `
-                      )}
-                    </table>
-                  `
-                  : ""}
+                ${when(rows.length, () =>
+                  html`
+                    <simple-table .data="${rows}"></simple-table>
+                  `, () => "")}
               </div>
             </section>
           </div>
