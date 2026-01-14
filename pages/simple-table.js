@@ -4,8 +4,8 @@ export default class SimpleTable extends HTMLElement {
     super();
     this.attachShadow({ mode: "open" });
     /**
-       * @type {Array<Array<string>>}
-       */
+     * @type {Array<Array<string>>}
+     */
     this._data = [];
     this._currentIndex = 0;
     this._pageSize = 100;
@@ -54,8 +54,8 @@ export default class SimpleTable extends HTMLElement {
   }
 
   /**
-     * @param {Array<Array<string>>} value
-     */
+   * @param {Array<Array<string>>} value
+   */
   set data(value) {
     if (!Array.isArray(value) || value.length === 0) return;
     this._data = value;
@@ -125,19 +125,18 @@ customElements.define("simple-table", SimpleTable);
 
 // ---- DEMO WITH INCONSISTENT COLUMNS ----
 function test() {
-    const messyData = [
-        ["ID", "Name"], // Only 2 headers provided
-        [1, "Alice", "Engineer", "Berlin"], // 4 columns
-        [2, "Bob", "Designer"], // 3 columns
-        [3, "Charlie"], // 2 columns
-    ];
+  const messyData = [
+    ["ID", "Name"], // Only 2 headers provided
+    [1, "Alice", "Engineer", "Berlin"], // 4 columns
+    [2, "Bob", "Designer"], // 3 columns
+    [3, "Charlie"], // 2 columns
+  ];
 
-    // Adding 150 more rows to test progressive rendering
-    for (let i = 4; i <= 150; i++) {
-        messyData.push([i, `User ${i}`, "Extra Data"]);
-    }
+  // Adding 150 more rows to test progressive rendering
+  for (let i = 4; i <= 150; i++) {
+    messyData.push([i, `User ${i}`, "Extra Data"]);
+  }
 
-    // @ts-ignore
-    document.querySelector("pretty-table").data = messyData;
+  // @ts-ignore
+  document.querySelector("pretty-table").data = messyData;
 }
-

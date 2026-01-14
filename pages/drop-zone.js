@@ -15,8 +15,8 @@ export class DropZone extends HTMLElement {
     this.handleDragOver = this.handleDragOver.bind(this);
     this.handleDragLeave = this.handleDragLeave.bind(this);
     this.handleDrop = this.handleDrop.bind(this);
-      this.subtitle = undefined;
-      this.acceptedMIMEs = undefined;
+    this.subtitle = undefined;
+    this.acceptedMIMEs = undefined;
   }
 
   /**
@@ -32,8 +32,10 @@ export class DropZone extends HTMLElement {
   }
 
   connectedCallback() {
-    this.subtitle = this.getAttribute('subtitle') ?? "PDF, JPG, PNG files (Multiple images allowed)";
-    this.acceptedMIMEs = this.getAttribute('accepted') ?? "application/pdf,image/jpeg,image/png";
+    this.subtitle = this.getAttribute("subtitle") ??
+      "PDF, JPG, PNG files (Multiple images allowed)";
+    this.acceptedMIMEs = this.getAttribute("accepted") ??
+      "application/pdf,image/jpeg,image/png";
     this.update();
   }
 
@@ -78,8 +80,8 @@ export class DropZone extends HTMLElement {
   }
 
   /**
-     * @param {DragEvent} e
-     */
+   * @param {DragEvent} e
+   */
   handleDrop(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -87,7 +89,9 @@ export class DropZone extends HTMLElement {
 
     if (this.disabled) return;
 
-    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    if (
+      e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0
+    ) {
       this.dispatchEvent(
         new CustomEvent("file-selected", {
           detail: e.dataTransfer.files,

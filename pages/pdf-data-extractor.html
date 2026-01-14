@@ -1,86 +1,92 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+  <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Universal Data Extractor</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load PDF.js Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js">
-        // Set the workerSrc for PDF.js
-        if (typeof pdfjsLib !== "undefined") {
-          pdfjsLib.GlobalWorkerOptions.workerSrc =
-            "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js";
-        }
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"
+    >
+      // Set the workerSrc for PDF.js
+      if (typeof pdfjsLib !== "undefined") {
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js";
+      }
     </script>
     <style>
-        .data-table {
-            table-layout: auto; /* Changed from fixed to auto to accommodate dynamic columns */
-            width: 100%;
-            border-collapse: collapse;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-            font-size: 0.875rem; /* text-sm */
-        }
-        .data-table td, .data-table th {
-            border: 1px solid #e5e7eb;
-            padding: 8px;
-            text-align: left;
-            word-break: break-word;
-            white-space: normal;
-            min-width: 100px; /* Ensure columns don't squish too much */
-        }
-        .data-table tr:nth-child(even) {
-            background-color: #f9fafb;
-        }
-        .file-row td {
-            background-color: #bfdbfe !important; /* Blue-200 */
-            font-weight: bold;
-            color: #1e3a8a;
-            border-top: 2px solid #3b82f6;
-            font-size: 1rem;
-        }
-        .meta-col-header {
-            background-color: #eff6ff !important; /* Blue-50 */
-            color: #1e40af !important;
-            border-bottom: 2px solid #93c5fd !important;
-        }
-        .meta-col-cell {
-            background-color: #f0f9ff !important; /* Sky-50 */
-            color: #0369a1;
-        }
-        .drag-active {
-            border-color: #3b82f6 !important;
-            background-color: #eff6ff !important;
-            transform: scale(1.01);
-            transition: all 0.2s ease;
-        }
-        .modal-backdrop {
-            background-color: rgba(0, 0, 0, 0.5);
-        }
-        .regex-scroll::-webkit-scrollbar {
-            height: 6px;
-        }
-        .regex-scroll::-webkit-scrollbar-thumb {
-            background-color: #cbd5e1;
-            border-radius: 3px;
-        }
-        /* Checkbox styling */
-        .meta-checkbox {
-            cursor: pointer;
-            accent-color: #2563eb;
-            transform: scale(1.1);
-        }
-        .meta-key-label {
-            cursor: pointer;
-            user-select: none;
-        }
-        .meta-key-label:hover {
-            color: #2563eb;
-        }
+      .data-table {
+        table-layout: auto; /* Changed from fixed to auto to accommodate dynamic columns */
+        width: 100%;
+        border-collapse: collapse;
+        font-family:
+          ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+        font-size: 0.875rem; /* text-sm */
+      }
+      .data-table td, .data-table th {
+        border: 1px solid #e5e7eb;
+        padding: 8px;
+        text-align: left;
+        word-break: break-word;
+        white-space: normal;
+        min-width: 100px; /* Ensure columns don't squish too much */
+      }
+      .data-table tr:nth-child(even) {
+        background-color: #f9fafb;
+      }
+      .file-row td {
+        background-color: #bfdbfe !important; /* Blue-200 */
+        font-weight: bold;
+        color: #1e3a8a;
+        border-top: 2px solid #3b82f6;
+        font-size: 1rem;
+      }
+      .meta-col-header {
+        background-color: #eff6ff !important; /* Blue-50 */
+        color: #1e40af !important;
+        border-bottom: 2px solid #93c5fd !important;
+      }
+      .meta-col-cell {
+        background-color: #f0f9ff !important; /* Sky-50 */
+        color: #0369a1;
+      }
+      .drag-active {
+        border-color: #3b82f6 !important;
+        background-color: #eff6ff !important;
+        transform: scale(1.01);
+        transition: all 0.2s ease;
+      }
+      .modal-backdrop {
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+      .regex-scroll::-webkit-scrollbar {
+        height: 6px;
+      }
+      .regex-scroll::-webkit-scrollbar-thumb {
+        background-color: #cbd5e1;
+        border-radius: 3px;
+      }
+      /* Checkbox styling */
+      .meta-checkbox {
+        cursor: pointer;
+        accent-color: #2563eb;
+        transform: scale(1.1);
+      }
+      .meta-key-label {
+        cursor: pointer;
+        user-select: none;
+      }
+      .meta-key-label:hover {
+        color: #2563eb;
+      }
     </style>
-
-    <script type="module" src="pdf-data-extractor.js"> </script>
+  </head>
+  <body>
+    <script type="module" src="pdf-data-extractor.js">
+    </script>
     <app-root></app-root>
-</body>
+  </body>
 </html>

@@ -49,7 +49,7 @@ function reducer(state, action) {
       return { ...state, processingStep: action.step };
     case "APPEND_PAGE_DATA":
       // we don't remove the data when we start processing to prevent the page from jumping each time the reparse button is pressed
-      // here when the data is set for the first time we create the data array 
+      // here when the data is set for the first time we create the data array
       if (action.pageData.page === 1) {
         return {
           ...state,
