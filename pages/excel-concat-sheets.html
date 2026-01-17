@@ -2,15 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Excel Multi‑File Date Consolidator</title>
+    <title>Excel Multi-File Date Consolidator</title>
 
     <!-- SheetJS (XLSX) library -->
     <script
       defer
       src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"
     ></script>
-
-    <!-- lit + haunted (ES modules) -->
     <script type="module">
       import { html, render, when } from "/vendor/lit-html@3.3.2.js";
       import {
@@ -22,34 +20,10 @@
       import "/drop-zone.js";
       import "/simple-table.js";
 
-      const ROW_BATCH_SIZE = 100;
-
       function App() {
         const [header, setHeader] = useState("Date");
         const [rows, setRows] = useState([]);
-        const [renderedCount, setRenderedCount] = useState(0);
         const [metrics, setMetrics] = useState(null);
-
-        const containerRef = useRef(null);
-
-        useEffect(() => {
-          const el = containerRef.current;
-          if (!el) return;
-
-          const onScroll = () => {
-            if (renderedCount >= rows.length) return;
-            if (
-              el.scrollTop + el.clientHeight >= el.scrollHeight - 50
-            ) {
-              setRenderedCount((c) =>
-                Math.min(c + ROW_BATCH_SIZE, rows.length)
-              );
-            }
-          };
-
-          el.addEventListener("scroll", onScroll);
-          return () => el.removeEventListener("scroll", onScroll);
-        }, [rows, renderedCount]);
 
         async function handleFiles(files) {
           if (!files.length) return;
@@ -104,7 +78,6 @@
           }
 
           setRows(allRows);
-          setRenderedCount(Math.min(ROW_BATCH_SIZE, allRows.length));
           setMetrics({
             files: files.length,
             sheetsJoined,
@@ -115,7 +88,22 @@
 
         function download() {
           if (!rows.length) return;
-          const ws = XLSX.utils.aoa_to_sheet(rows);
+
+          const cleanedRows = rows.map((r) => {
+            let i = r.length - 1;
+            while (i >= 0 && (r[i] === "" || r[i] == null)) i--;
+            return r.slice(0, i + 1);
+          });
+
+          const ws = XLSX.utils.aoa_to_sheet(cleanedRows);
+          ws["!ref"] = XLSX.utils.encode_range({
+            s: { r: 0, c: 0 },
+            e: {
+              r: cleanedRows.length - 1,
+              c: Math.max(...cleanedRows.map((r) => r.length)) - 1,
+            },
+          });
+
           const wb = XLSX.utils.book_new();
           XLSX.utils.book_append_sheet(wb, ws, "Console");
           const out = XLSX.write(wb, {
@@ -159,38 +147,17 @@
             ${metrics
               ? html`
                 <section class="metrics">
-                  <h3>Consolidation Metrics</h3>
-                  <ul>
-                    <li><strong>Files processed:</strong> ${metrics
-                      .files}</li>
-                    <li><strong>Sheets joined:</strong> ${metrics
-                      .sheetsJoined}</li>
-                    <li><strong>Total rows consolidated:</strong> ${metrics
-                      .rowsConsolidated}</li>
-                    ${Object.entries(metrics.fileSheetMap).map((
-                      [f, s],
-                    ) =>
-                      s.length
-                        ? html`
-                          <li><strong>${f}:</strong> ${s.join(
-                            ", ",
-                          )}</li>
-                        `
-                        : ""
-                    )}
-                  </ul>
+                  <p><strong>Files:</strong> ${metrics.files}</p>
+                  <p><strong>Sheets joined:</strong> ${metrics
+                    .sheetsJoined}</p>
+                  <p><strong>Rows:</strong> ${metrics
+                    .rowsConsolidated}</p>
                 </section>
               `
-              : ""}
-
-            <section class="table-section">
-              <div class="container" ref="${containerRef}">
-                ${when(rows.length, () =>
-                  html`
-                    <simple-table .data="${rows}"></simple-table>
-                  `, () => "")}
-              </div>
-            </section>
+              : ""} ${when(rows.length, () =>
+                html`
+                  <simple-table .data="${rows}"></simple-table>
+                `, () => "")}
           </div>
         `;
       }
@@ -200,18 +167,22 @@
       window.addEventListener("DOMContentLoaded", () => {
         if (!window.XLSX) {
           document.body.innerHTML =
-            '<p style="color:red">SheetJS failed to load.</p>';
+            '<p style="color:red">SheetJS failed to load</p>';
           return;
         }
-        render(
-          html`
-            <excel-consolidator></excel-consolidator>
-          `,
-          document.body,
-        );
 
-        // sanity tests
-        console.assert(ROW_BATCH_SIZE === 100, "Batch size mismatch");
+        try {
+          render(
+            html`
+              <excel-consolidator></excel-consolidator>
+            `,
+            document.body,
+          );
+        } catch (e) {
+          document.body.innerHTML =
+            `<pre style="color:red">${e.stack}</pre>`;
+        }
+
         console.assert(
           customElements.get("excel-consolidator"),
           "Component not registered",
