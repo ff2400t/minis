@@ -1433,26 +1433,28 @@ function App() {
                 <span class="font-bold">Instructions:</span> Toggle metadata checkboxes to
                 add columns dynamically.
               </p>
-              <div class="flex flex-wrap gap-2 w-full md:w-auto">
-                <button
-                  @click="${() => setIsTableVisible(!isTableVisible)}"
-                  class="flex-shrink-0 w-full md:w-auto px-4 py-2 text-white font-bold rounded-lg shadow transition ${isTableVisible
-                    ? "bg-blue-500 hover:bg-blue-600"
-                    : "bg-gray-500 hover:bg-gray-600"}"
-                >
-                  ${isTableVisible ? "Hide Details" : "Show Details"}
-                </button>
-                <button
-                  @click="${() =>
-                    setIsConsolidatedVisible(!isConsolidatedVisible)}"
-                  class="flex-shrink-0 w-full md:w-auto px-4 py-2 text-white font-bold rounded-lg shadow transition ${isConsolidatedVisible
-                    ? "bg-purple-500 hover:bg-purple-600"
-                    : "bg-gray-500 hover:bg-gray-600"}"
-                >
-                  ${isConsolidatedVisible
-                    ? "Hide Metadata Summary"
-                    : "Show Metadata Summary"}
-                </button>
+              <div class="flex flex-col flex-wrap gap-2 w-full md:w-auto">
+                <div>
+                  <input
+                    id="isTableVisible"
+                    class="nd-switch"
+                    type="checkbox"
+                    ?checked="${isTableVisible}"
+                    @click="${() => setIsTableVisible(!isTableVisible)}"
+                  />
+                  <label for="isTableVisible">Show Details</label>
+                </div>
+                <div>
+                  <input
+                    id="isConsolidatedVisible"
+                    class="nd-switch"
+                    type="checkbox"
+                    ?checked="${isConsolidatedVisible}"
+                    @click="${() =>
+                      setIsConsolidatedVisible(!isConsolidatedVisible)}"
+                  />
+                  <label for="isConsolidatedVisible">Show Summary Table</label>
+                </div>
                 <button
                   @click="${() => copyTable("outputTable")}"
                   class="flex-shrink-0 w-full md:w-auto px-4 py-2 bg-green-500 text-white font-bold rounded-lg shadow hover:bg-green-600 transition"
@@ -1464,7 +1466,7 @@ function App() {
 
             <!-- Consolidated Summary -->
             ${when(
-              !isConsolidatedVisible || consolidatedTables.length === 0,
+              isConsolidatedVisible || consolidatedTables.length === 0,
               () => renderConsolidatedSummary(consolidatedTables, copyTable),
             )}
 
