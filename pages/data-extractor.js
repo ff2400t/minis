@@ -17,6 +17,7 @@
  * @param {string} text
  * @param {RegExp | undefined} metadata
  * @param {RegExp | undefined} table
+ * @param {string | undefined} name
  * @returns {ParserResult}
  */
 
@@ -266,6 +267,7 @@ export function generalDocumentParser(
   text,
   metadataRegex,
   tableRegex,
+  name = "",
 ) {
   let metadataRows = [];
   /** @type {{[key: string]: string}} */
@@ -283,7 +285,7 @@ export function generalDocumentParser(
         }
       }
     } catch (e) {
-      console.error("Metadata Regex Error", e);
+      console.error(name + ": Metadata Regex Error", e);
     }
   }
 
@@ -302,36 +304,25 @@ export function generalDocumentParser(
       const matches = [...text.matchAll(effectiveTableRegex)];
       if (matches.length > 0) {
         const firstMatch = matches[0];
-        if (firstMatch.groups) {
-          headers = Object.keys(firstMatch.groups).map((k) =>
+        headers = firstMatch.groups
+          ? Object.keys(firstMatch.groups).map((k) =>
             k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, " ")
-          );
-        } else {
-          headers = Array.from(
+          )
+          : Array.from(
             { length: firstMatch.length - 1 },
             (_, i) => `Col ${i + 1}`,
           );
-        }
 
-        while (headers.length < 7) headers.push("");
-        if (headers.length > 7) headers = headers.slice(0, 7);
-
-        dataRows = matches.map((m) => {
-          let row = [];
-          if (m.groups) {
-            row = Object.values(m.groups).map((val) =>
+        dataRows = matches.map((m) =>
+          m.groups
+            ? Object.values(m.groups).map((val) =>
               val ? val.trim().replace(/,/g, "") : ""
-            );
-          } else {row = m.slice(1).map((val) =>
-              val ? val.trim().replace(/,/g, "") : ""
-            );}
-
-          while (row.length < 7) row.push("");
-          return row.slice(0, 7);
-        });
+            )
+            : m.slice(1).map((val) => val ? val.trim().replace(/,/g, "") : "")
+        );
       }
     } catch (e) {
-      console.error("Table Regex Error", e);
+      console.error(name + ": Table Regex Error", e);
     }
   }
 

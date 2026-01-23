@@ -324,6 +324,7 @@ const renderDetailedTable = (
 ) => {
   // Calculate which extra columns are active (convert Set to Array)
   const activeExtraCols = Array.from(selectedMetaCols);
+  const HeaderColSpan = Math.max.apply(null, documents.map((a) => a.headers.length));
 
   return html`
     <div class="mt-6">
@@ -335,7 +336,8 @@ const renderDetailedTable = (
               // 1. Render Source Header
               const fileRow = html`
                 <tr class="file-row">
-                  <td colspan="${7 + activeExtraCols.length}">Source: ${doc
+                  <td colspan="${HeaderColSpan +
+                    activeExtraCols.length}">Source: ${doc
                     .fileName} (${doc.docType})</td>
                 </tr>
               `;
@@ -670,7 +672,7 @@ function App() {
             ? new RegExp(table, "g")
             : table;
 
-          parsedData = func(rawText, effectiveMetaRx, effectiveTableRx);
+          parsedData = func(rawText, effectiveMetaRx, effectiveTableRx, name);
           console.debug(JSON.stringify(parsedData));
           parserFound = true;
           break;
@@ -916,7 +918,7 @@ function App() {
             <button
               @click="${() => {
                 const text = customParsers.map((p) => {
-                  return `Name: ${p.name}\nmatches: ${
+                  return `name: ${p.name}\nmatches: ${
                     p.matches.join(", ")
                   }\nMetadata: ${p.metadata || ""}\nTable: ${p.table || ""}`;
                 }).join("\n\n---\n\n");
