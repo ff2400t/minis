@@ -98,6 +98,45 @@ export const BUILT_IN_PARSERS = [
     // another attempt to fix the above
     table:
       /\([a-e]\s?\) (?<Particular>[A-Z].*?) (?<TaxableValue>\d+\.\d\d|-)\s+(?<IGST>\d+\.\d\d|-)\s+(?<CGST>\d+\.\d\d|-)\s+(?<SGST>\d+\.\d\d|-)\s+(?<Cess>\d+\.\d\d|-)\s+/g,
+    func: (
+      /** @type {string} */ text,
+      /** @type {RegExp} */ metadataRegex,
+      /** @type {RegExp} */ tableRegex,
+    ) => {
+      try {
+        const metaMatch = text.match(metadataRegex);
+        let metadataFields = metaMatch && metaMatch.groups
+          ? metaMatch.groups
+          : {};
+
+        const matches = [...text.matchAll(tableRegex)];
+        let headers = matches.length > 0 && matches[0].groups
+          ? Object.keys(matches[0].groups).map((k) =>
+            k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, " ")
+          )
+          : [];
+        let dataRows = matches.length > 0 && matches[0].groups
+          ? matches.map((m) =>
+            m.groups
+              ? Object.values(m.groups).map((val) =>
+                val ? val.trim().replace(/,/g, "") : ""
+              )
+              : []
+          )
+          : [];
+
+        headers.push(...Object.keys(metadataFields));
+        const metaValues = Object.values(metadataFields);
+        dataRows.forEach((row) => row.push(...metaValues));
+
+        return {
+          allRows: [headers, ...dataRows],
+          metadataFields: {},
+        };
+      } catch (e) {
+        console.error("GSTR-3B: Table Regex Error", e);
+      }
+    },
   },
   {
     name: "TDS",
