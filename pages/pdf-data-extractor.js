@@ -4,7 +4,7 @@ import {
   component,
   useCallback,
   useMemo,
-  useReducer,
+  useReducer as u2,
   useRef,
   useState as u1,
 } from "/vendor/haunted@6.1.0.js";
@@ -27,11 +27,43 @@ const initialParserState = {
 
 /**
  * @template T
+ * @typedef {(value: T | ((prev: T) => T)) => void} SetState
+ */
+
+/**
+ * @template T
  * A simplified type alias for `useState`.
  *
- * @type {<T>(initialState: T) => [T, (e: T | ((e: T) => T)) => void]}
+ * @type {<T>(initialState: T) => [T, SetState<T>]}
  */
 let useState = u1;
+
+/**
+ * A reducer function
+ * @template S, A
+ * @typedef {(state: S, action: A) => S} Reducer
+ */
+
+/**
+ * Dispatch function
+ * @template A
+ * @typedef {(action: A) => void} Dispatch
+ */
+
+/**
+ * Tuple returned by useReducer
+ * @template S, A
+ * @typedef {readonly [S, Dispatch<A>]} UseReducerTuple
+ */
+
+/**
+ * @template S, A, I
+ * @param {Reducer<S, A>} reducer
+ * @param {S | I} initialArg
+ * @param {(arg: I) => S} [init]
+ * @returns {UseReducerTuple<S, A>}
+ */
+const useReducer = u2;
 
 /**
  * @typedef {import("./data-extractor.js").StringMap} StringMap
@@ -84,8 +116,7 @@ const parserInit = (/** @type {object} */ state) => {
 };
 
 /**
- * @param {ParserState} state
- * @param {{ type: string; payload: any | undefined}} action
+ * @type {Reducer<ParserState, {type: string, payload: any}>}
  */
 function parserReducer(state, action) {
   switch (action.type) {
@@ -324,7 +355,10 @@ const renderDetailedTable = (
 ) => {
   // Calculate which extra columns are active (convert Set to Array)
   const activeExtraCols = Array.from(selectedMetaCols);
-  const HeaderColSpan = Math.max.apply(null, documents.map((a) => a.headers.length));
+  const HeaderColSpan = Math.max.apply(
+    null,
+    documents.map((a) => a.headers.length),
+  );
 
   return html`
     <div class="mt-6">
@@ -909,204 +943,6 @@ function App() {
     `;
   };
 
-  const renderParserForm = () => {
-    const customParsersHtml = customParsers.length > 0
-      ? html`
-        <div class="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
-          <div class="flex justify-between items-center mb-3">
-            <h4 class="font-bold text-indigo-800">Active Custom Parsers:</h4>
-            <button
-              @click="${() => {
-                const text = customParsers.map((p) => {
-                  return `name: ${p.name}\nmatches: ${
-                    p.matches.join(", ")
-                  }\nMetadata: ${p.metadata || ""}\nTable: ${p.table || ""}`;
-                }).join("\n\n---\n\n");
-                dispatchParser({ type: "SET_TEMPLATES_TEXT", payload: text });
-                dispatchParser({
-                  type: "TOGGLE_TEMPLATES_MODAL",
-                  payload: true,
-                });
-              }}"
-              class="text-xs bg-indigo-600 text-white px-2 py-1 rounded hover:bg-indigo-700 transition"
-            >
-              Edit / Export All
-            </button>
-          </div>
-          <ul class="space-y-2">
-            ${customParsers.map((p, i) =>
-              html`
-                <li class="flex justify-between items-center bg-white p-2 rounded shadow-sm">
-                  <div>
-                    <span class="font-semibold text-gray-800">${p.name}</span>
-                    <span class="text-xs text-gray-500 ml-2">(Match: ${p.matches
-                      .join(", ")})</span>
-                  </div>
-                  <button
-                    @click="${() => removeCustomParser(i)}"
-                    class="text-red-500 hover:text-red-700 text-sm font-medium px-2"
-                  >
-                    Remove
-                  </button>
-                </li>
-              `
-            )}
-          </ul>
-        </div>
-      `
-      : html`
-
-      `;
-
-    const submitForm = (/** @type {SubmitEvent} */ e) => {
-      e.preventDefault();
-      /** @type {HTMLTextAreaElement | null} */
-      const configInput = document.querySelector("#configTextInput");
-      if (configInput) {
-        addCustomParser(configInput.value);
-        configInput.value = ""; // Clear input after submission
-      }
-    };
-
-    return html`
-      <div class="mb-6 border rounded-lg overflow-hidden">
-        <button
-          class="w-full text-left px-6 py-4 bg-gray-100 font-semibold text-gray-700 hover:bg-gray-200 flex justify-between items-center transition"
-          @click="${() =>
-            dispatchParser({ type: "TOGGLE_FORM", payload: undefined })}"
-        >
-          <span>🛠️ Configure Custom Parser (Add/Update/Import)</span>
-          <span>${isParserFormVisible ? "▲" : "▼"}</span>
-        </button>
-        ${when(isParserFormVisible, () =>
-          html`
-            <div class="p-6 bg-white border-t">
-              ${customParsersHtml}
-
-              <form @submit="${submitForm}">
-                <div class="mb-6">
-                  <label class="block text-sm font-medium text-gray-700 mb-1"
-                  >Quick Import (Paste Config Block)</label>
-                  <textarea
-                    id="configTextInput"
-                    class="w-full h-48 rounded-md border-gray-300 shadow-sm border p-2 text-sm font-mono focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Define your parser here using the required keys.&#10;&#10;Name: My Custom Bank Statement&#10;matches: Bank Statement, Account Summary, MyBankCorp&#10;Metadata: /Account Number: (?<AccNo>\\d+).*?Name: (?<Name>.*?)/s&#10;Table: /(?<Date>\\d{2}\\.\\d{2}\\.\\d{4})\\s+.*\\s+(?<Amount>\\d+)/g"
-                  ></textarea>
-                  <p class="text-xs text-gray-500 mt-1">
-                    Define your parser using the keys: <code class="font-semibold"
-                    >Name:</code>, <code class="font-semibold">matches:</code>
-                    (comma-separated document identifiers), <code class="font-semibold"
-                    >Metadata:</code> (single-match regex for key info), and <code
-                      class="font-semibold"
-                    >Table:</code> (global-match regex for rows).
-                  </p>
-                </div>
-
-                <button
-                  type="submit"
-                  class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition font-medium"
-                >
-                  Add / Update Parser
-                </button>
-              </form>
-            </div>
-          `)}
-      </div>
-    `;
-  };
-
-  const renderPasswordModal = () => {
-    const updatePassInput = (/** @type {SubmitEvent} */ e) => {
-      /** @type {HTMLInputElement | null} */
-      const useForSubsequentElm = document.querySelector("#useForSubsequent");
-      if (useForSubsequentElm === null) {
-        return;
-      }
-      const useForSubsequent = useForSubsequentElm.checked;
-
-      /** @type {string} */
-      // @ts-ignore
-      const passwordInput = e.target.value;
-      setPasswordModal((prev) => ({
-        ...prev,
-        passwordInput,
-        useForSubsequent,
-      }));
-    };
-
-    const updateCheckbox = (/** @type {InputEvent} */ e) => {
-      /** @type {string} */
-      // @ts-ignore
-      const passwordInput = document.querySelector("#passwordInput").value;
-
-      /** @type {boolean} */
-      // @ts-ignore
-      const useForSubsequent = e.target.checked;
-      setPasswordModal((prev) => ({
-        ...prev,
-        passwordInput,
-        useForSubsequent,
-      }));
-    };
-
-    return html`
-      <div class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop">
-        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
-          <h3 class="text-xl font-bold text-gray-800 mb-4">Password Required</h3>
-          <p class="text-sm text-gray-600 mb-2">
-            The file <span class="font-bold text-blue-600">${passwordModal
-              .fileName}</span> is
-            encrypted.
-          </p>
-
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1"
-            >Enter Password</label>
-            <input
-              type="password"
-              id="passwordInput"
-              class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Password"
-              .value="${passwordModal.passwordInput}"
-              @input="${updatePassInput}"
-              @keydown="${(/** @type {KeyboardEvent} */ e) => {
-                if (e.key === "Enter") handlePasswordSubmit();
-              }}"
-            />
-          </div>
-
-          <div class="flex items-center mb-6">
-            <input
-              type="checkbox"
-              id="useForSubsequent"
-              class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              ?checked="${passwordModal.useForSubsequent}"
-              @change="${updateCheckbox}"
-            />
-            <label for="useForSubsequent" class="ml-2 block text-sm text-gray-700">
-              Use this password for subsequent files
-            </label>
-          </div>
-
-          <div class="flex justify-end space-x-3">
-            <button
-              @click="${handlePasswordSkip}"
-              class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium text-sm transition"
-            >
-              Skip File
-            </button>
-            <button
-              @click="${handlePasswordSubmit}"
-              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm transition"
-            >
-              Decrypt & Extract
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-  };
-
   const renderParserListModal = () => {
     const builtInParsersHtml = BUILT_IN_PARSERS.map((parser, idx) => {
       const id = `builtin-${idx}`;
@@ -1260,7 +1096,353 @@ function App() {
     `;
   };
 
-  const renderTemplatesModal = () => {
+  // --- Main Render Function (Lit-HTML Template) ---
+  return html`
+    <div
+      class="container mx-auto bg-white shadow-xl rounded-xl p-6 md:p-10 relative"
+    >
+      <h1 class="text-3xl font-extrabold text-blue-800 mb-2">
+        Universal Data Extractor
+      </h1>
+      <p class="text-gray-600 mb-6">
+        Supports <strong>GST</strong>, <strong>Income Tax</strong>, and various
+        <strong>Bank Statements</strong>.
+        <br>Drag & drop PDFs or define your own <strong>Custom Parser</strong>
+        below.
+      </p>
+
+      ${renderParserForm(
+        customParsers,
+        dispatchParser,
+        removeCustomParser,
+        addCustomParser,
+        isParserFormVisible,
+      )}
+
+      <div class="mb-6 flex flex-col md:flex-row justify-between items-end gap-4">
+        <div class="w-full md:w-1/2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Processing Mode (Parser Selection)
+          </label>
+          <select
+            class="w-full border border-gray-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            .value="${selectedParser}"
+            @change="${(/** @type {Event} */ e) =>
+              dispatchParser({
+                type: "SET_SELECTED_PARSER",
+                // @ts-ignore
+                payload: e.target.value,
+              })}"
+          >
+            <option value="auto">Auto-detect (Default)</option>
+            ${allParsers.map((p) =>
+              html`
+                <option value="${p.name}">${p.name}</option>
+              `
+            )}
+          </select>
+          <p class="text-xs text-gray-500 mt-1">
+            "Auto" checks all parsers. Select a specific one to force it for all
+            files.
+          </p>
+        </div>
+
+        <button
+          @click="${() =>
+            dispatchParser({ type: "TOGGLE_LIST_MODAL", payload: true })}"
+          class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg shadow flex items-center transition h-10"
+        >
+          <span>ℹ️ Show Available Parsers</span>
+        </button>
+      </div>
+
+      <!-- Drop Zone -->
+      <drop-zone @file-selected="${handleFileInput}"></drop-zone>
+
+      <!-- Status Container -->
+      ${renderStatus()}
+
+      <!-- Results Display -->
+      ${isResultVisible
+        ? html`
+          <div>
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">
+              Extracted Data
+            </h2>
+
+            <div
+              class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg"
+            >
+              <p class="text-sm font-medium text-yellow-800 mb-3 md:mb-0">
+                <span class="font-bold">Instructions:</span> Toggle metadata checkboxes to
+                add columns dynamically.
+              </p>
+              <div class="flex flex-col flex-wrap gap-2 w-full md:w-auto">
+                <div>
+                  <input
+                    id="isTableVisible"
+                    class="nd-switch"
+                    type="checkbox"
+                    ?checked="${isTableVisible}"
+                    @click="${() => setIsTableVisible(!isTableVisible)}"
+                  />
+                  <label for="isTableVisible">Show Details</label>
+                </div>
+                <div>
+                  <input
+                    id="isConsolidatedVisible"
+                    class="nd-switch"
+                    type="checkbox"
+                    ?checked="${isConsolidatedVisible}"
+                    @click="${() =>
+                      setIsConsolidatedVisible(!isConsolidatedVisible)}"
+                  />
+                  <label for="isConsolidatedVisible">Show Summary Table</label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Consolidated Summary -->
+            ${when(
+              isConsolidatedVisible || consolidatedTables.length === 0,
+              () => renderConsolidatedSummary(consolidatedTables, copyTable),
+            )} ${when(isResultVisible, () =>
+              html`
+                <div class="flex" style="justify-content: end">
+                  <button
+                    @click="${() => copyTable("outputTable")}"
+                    class="flex-shrink-0 w-full md:w-auto px-4 py-2 bg-green-500 text-white font-bold rounded-lg shadow hover:bg-green-600 transition"
+                  >
+                    Copy Details
+                  </button>
+                </div>
+              `, () => "")}
+
+            <!-- Detailed Table -->
+            ${when(isTableVisible, () =>
+              renderDetailedTable(
+                documents,
+                selectedMetaCols,
+                toggleMetaColumn,
+              ), () =>
+              html`
+                <div class="p-8 text-center text-gray-500 border rounded-lg bg-white mt-6">
+                  The extracted data table is currently hidden.
+                </div>
+              `)}
+
+            <!-- Raw Text Display -->
+            <div class="mt-8">
+              <div class="flex justify-between items-center mb-2">
+                <h3 class="text-xl font-medium text-gray-700">
+                  Raw Extracted Text (For Debugging)
+                </h3>
+                <button
+                  @click="${() => setIsRawTextVisible(!isRawTextVisible)}"
+                  class="px-3 py-1 text-sm text-white font-bold rounded shadow transition ${isRawTextVisible
+                    ? "bg-blue-500 hover:bg-blue-600"
+                    : "bg-gray-500 hover:bg-gray-600"}"
+                >
+                  ${isRawTextVisible ? "Hide Raw Text" : "Show Raw Text"}
+                </button>
+              </div>
+
+              ${when(isRawTextVisible, () =>
+                html`
+                  <div class="space-y-4">
+                    ${documents.map((item) =>
+                      html`
+                        <div class="border rounded-lg p-3 bg-gray-50">
+                          <div class="flex justify-between items-center mb-2">
+                            <span class="font-bold text-sm text-gray-700"
+                            >SOURCE: ${item.fileName} (${item.docType})</span>
+                            <a
+                              href="https://regex101.com/?testString=${encodeURIComponent(
+                                item.rawText,
+                              )}"
+                              target="_blank"
+                              class="px-2 py-1 bg-purple-600 text-white text-xs font-bold rounded hover:bg-purple-700 transition"
+                            >
+                              Test in Regex101
+                            </a>
+                          </div>
+                          <pre
+                            class="bg-white p-3 rounded border text-xs overflow-auto max-h-64"
+                          >${item.rawText}</pre>
+                        </div>
+                      `
+                    )}
+                  </div>
+                `, () =>
+                html`
+                  <div class="p-4 bg-gray-50 border rounded text-xs text-gray-500 italic">
+                    Raw text hidden.
+                  </div>
+                `)}
+            </div>
+          </div>
+        `
+        : html`
+
+        `}
+    </div>
+
+    <!-- Modals -->
+    ${when(
+      passwordModal.isOpen,
+      () =>
+        renderPasswordModal(
+          setPasswordModal,
+          passwordModal,
+          handlePasswordSubmit,
+          handlePasswordSkip,
+        ),
+    )}
+    <!-- Seperator -->
+    ${when(
+      isTemplatesModalVisible,
+      () => renderTemplatesModal(dispatchParser, setStatus, templatesText),
+    )}
+    <!-- Seperator -->
+    ${when(
+      isParserListModalVisible,
+      () => renderParserListModal(),
+    )}
+  `;
+}
+
+// Register the Web Component
+// @ts-ignore
+customElements.define("app-root", component(App, { useShadowDOM: false }));
+
+/**
+ * @param {any[]} customParsers
+ * @param {{ (e: { type: string; payload: any | undefined; }): void}} dispatchParser
+ * @param {{ (index: number): void; (arg0: any): any; }} removeCustomParser
+ * @param {{ (configText: string): void; (arg0: string): void; }} addCustomParser
+ * @param {any} isParserFormVisible
+ */
+function renderParserForm(
+  customParsers,
+  dispatchParser,
+  removeCustomParser,
+  addCustomParser,
+  isParserFormVisible,
+) {
+  return () => {
+    const customParsersHtml = customParsers.length > 0
+      ? html`
+        <div class="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+          <div class="flex justify-between items-center mb-3">
+            <h4 class="font-bold text-indigo-800">Active Custom Parsers:</h4>
+            <button
+              @click="${() => {
+                const text = customParsers.map((p) => {
+                  return `name: ${p.name}\nmatches: ${
+                    p.matches.join(", ")
+                  }\nMetadata: ${p.metadata || ""}\nTable: ${p.table || ""}`;
+                }).join("\n\n---\n\n");
+                dispatchParser({ type: "SET_TEMPLATES_TEXT", payload: text });
+                dispatchParser({
+                  type: "TOGGLE_TEMPLATES_MODAL",
+                  payload: true,
+                });
+              }}"
+              class="text-xs bg-indigo-600 text-white px-2 py-1 rounded hover:bg-indigo-700 transition"
+            >
+              Edit / Export All
+            </button>
+          </div>
+          <ul class="space-y-2">
+            ${customParsers.map((p, i) =>
+              html`
+                <li class="flex justify-between items-center bg-white p-2 rounded shadow-sm">
+                  <div>
+                    <span class="font-semibold text-gray-800">${p.name}</span>
+                    <span class="text-xs text-gray-500 ml-2">(Match: ${p.matches
+                      .join(", ")})</span>
+                  </div>
+                  <button
+                    @click="${() => removeCustomParser(i)}"
+                    class="text-red-500 hover:text-red-700 text-sm font-medium px-2"
+                  >
+                    Remove
+                  </button>
+                </li>
+              `
+            )}
+          </ul>
+        </div>
+      `
+      : html`
+
+      `;
+
+    const submitForm = (/** @type {SubmitEvent} */ e) => {
+      e.preventDefault();
+      /** @type {HTMLTextAreaElement | null} */
+      const configInput = document.querySelector("#configTextInput");
+      if (configInput) {
+        addCustomParser(configInput.value);
+        configInput.value = ""; // Clear input after submission
+      }
+    };
+
+    return html`
+      <div class="mb-6 border rounded-lg overflow-hidden">
+        <button
+          class="w-full text-left px-6 py-4 bg-gray-100 font-semibold text-gray-700 hover:bg-gray-200 flex justify-between items-center transition"
+          @click="${() =>
+            dispatchParser({ type: "TOGGLE_FORM", payload: undefined })}"
+        >
+          <span>🛠️ Configure Custom Parser (Add/Update/Import)</span>
+          <span>${isParserFormVisible ? "▲" : "▼"}</span>
+        </button>
+        ${when(isParserFormVisible, () =>
+          html`
+            <div class="p-6 bg-white border-t">
+              ${customParsersHtml}
+
+              <form @submit="${submitForm}">
+                <div class="mb-6">
+                  <label class="block text-sm font-medium text-gray-700 mb-1"
+                  >Quick Import (Paste Config Block)</label>
+                  <textarea
+                    id="configTextInput"
+                    class="w-full h-48 rounded-md border-gray-300 shadow-sm border p-2 text-sm font-mono focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Define your parser here using the required keys.&#10;&#10;name:My Custom Bank Statement;;&#10;matches: Bank Statement, Account Summary, MyBankCorp;;&#10;metadata:Account Number: (?<AccNo>\\d+).*?Name: (?<Name>.*?);;&#10;table:(?<Date>\\d{2}\\.\\d{2}\\.\\d{4})\\s+.*\\s+(?<Amount>\\d+)"
+                  ></textarea>
+                  <p class="text-xs text-gray-500 mt-1">
+                    Define your parser using the keys: <code class="font-semibold"
+                    >Name:</code>, <code class="font-semibold">matches:</code>
+                    (comma-separated document identifiers), <code class="font-semibold"
+                    >Metadata:</code> (single-match regex for key info), and <code
+                      class="font-semibold"
+                    >Table:</code> (global-match regex for rows).
+                  </p>
+                </div>
+
+                <button
+                  type="submit"
+                  class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition font-medium"
+                >
+                  Add / Update Parser
+                </button>
+              </form>
+            </div>
+          `)}
+      </div>
+    `;
+  };
+}
+
+/**
+ * @param {{ (e: { type: string; payload: any | undefined; }): ParserState; (arg0: { type: string; payload: any; }): void; }} dispatchParser
+ * @param {SetState<{message: string, type: string}>} setStatus
+ * @param {string} templatesText
+ */
+function renderTemplatesModal(dispatchParser, setStatus, templatesText) {
+  return () => {
     const saveTemplates = () => {
       /** @type {string} */
       // @ts-ignore
@@ -1359,206 +1541,109 @@ function App() {
       </div>
     `;
   };
-
-  // --- Main Render Function (Lit-HTML Template) ---
-  return html`
-    <div
-      class="container mx-auto bg-white shadow-xl rounded-xl p-6 md:p-10 relative"
-    >
-      <h1 class="text-3xl font-extrabold text-blue-800 mb-2">
-        Universal Data Extractor
-      </h1>
-      <p class="text-gray-600 mb-6">
-        Supports <strong>GST</strong>, <strong>Income Tax</strong>, and various
-        <strong>Bank Statements</strong>.
-        <br>Drag & drop PDFs or define your own <strong>Custom Parser</strong>
-        below.
-      </p>
-
-      ${renderParserForm()}
-
-      <div class="mb-6 flex flex-col md:flex-row justify-between items-end gap-4">
-        <div class="w-full md:w-1/2">
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Processing Mode (Parser Selection)
-          </label>
-          <select
-            class="w-full border border-gray-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            .value="${selectedParser}"
-            @change="${(/** @type {Event} */ e) =>
-              dispatchParser({
-                type: "SET_SELECTED_PARSER",
-                // @ts-ignore
-                payload: e.target.value,
-              })}"
-          >
-            <option value="auto">Auto-detect (Default)</option>
-            ${allParsers.map((p) =>
-              html`
-                <option value="${p.name}">${p.name}</option>
-              `
-            )}
-          </select>
-          <p class="text-xs text-gray-500 mt-1">
-            "Auto" checks all parsers. Select a specific one to force it for all
-            files.
-          </p>
-        </div>
-
-        <button
-          @click="${() =>
-            dispatchParser({ type: "TOGGLE_LIST_MODAL", payload: true })}"
-          class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg shadow flex items-center transition h-10"
-        >
-          <span>ℹ️ Show Available Parsers</span>
-        </button>
-      </div>
-
-      <!-- Drop Zone -->
-      <drop-zone @file-selected="${handleFileInput}"></drop-zone>
-
-      <!-- Status Container -->
-      ${renderStatus()}
-
-      <!-- Results Display -->
-      ${isResultVisible
-        ? html`
-          <div>
-            <h2 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">
-              Extracted Data
-            </h2>
-
-            <div
-              class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg"
-            >
-              <p class="text-sm font-medium text-yellow-800 mb-3 md:mb-0">
-                <span class="font-bold">Instructions:</span> Toggle metadata checkboxes to
-                add columns dynamically.
-              </p>
-              <div class="flex flex-col flex-wrap gap-2 w-full md:w-auto">
-                <div>
-                  <input
-                    id="isTableVisible"
-                    class="nd-switch"
-                    type="checkbox"
-                    ?checked="${isTableVisible}"
-                    @click="${() => setIsTableVisible(!isTableVisible)}"
-                  />
-                  <label for="isTableVisible">Show Details</label>
-                </div>
-                <div>
-                  <input
-                    id="isConsolidatedVisible"
-                    class="nd-switch"
-                    type="checkbox"
-                    ?checked="${isConsolidatedVisible}"
-                    @click="${() =>
-                      setIsConsolidatedVisible(!isConsolidatedVisible)}"
-                  />
-                  <label for="isConsolidatedVisible">Show Summary Table</label>
-                </div>
-                <button
-                  @click="${() => copyTable("outputTable")}"
-                  class="flex-shrink-0 w-full md:w-auto px-4 py-2 bg-green-500 text-white font-bold rounded-lg shadow hover:bg-green-600 transition"
-                >
-                  Copy Details
-                </button>
-              </div>
-            </div>
-
-            <!-- Consolidated Summary -->
-            ${when(
-              isConsolidatedVisible || consolidatedTables.length === 0,
-              () => renderConsolidatedSummary(consolidatedTables, copyTable),
-            )}
-
-            <!-- Detailed Table -->
-            ${when(isTableVisible, () =>
-              renderDetailedTable(
-                documents,
-                selectedMetaCols,
-                toggleMetaColumn,
-              ), () =>
-              html`
-                <div class="p-8 text-center text-gray-500 border rounded-lg bg-white mt-6">
-                  The extracted data table is currently hidden.
-                </div>
-              `)}
-
-            <!-- Raw Text Display -->
-            <div class="mt-8">
-              <div class="flex justify-between items-center mb-2">
-                <h3 class="text-xl font-medium text-gray-700">
-                  Raw Extracted Text (For Debugging)
-                </h3>
-                <button
-                  @click="${() => setIsRawTextVisible(!isRawTextVisible)}"
-                  class="px-3 py-1 text-sm text-white font-bold rounded shadow transition ${isRawTextVisible
-                    ? "bg-blue-500 hover:bg-blue-600"
-                    : "bg-gray-500 hover:bg-gray-600"}"
-                >
-                  ${isRawTextVisible ? "Hide Raw Text" : "Show Raw Text"}
-                </button>
-              </div>
-
-              ${when(isRawTextVisible, () =>
-                html`
-                  <div class="space-y-4">
-                    ${documents.map((item) =>
-                      html`
-                        <div class="border rounded-lg p-3 bg-gray-50">
-                          <div class="flex justify-between items-center mb-2">
-                            <span class="font-bold text-sm text-gray-700"
-                            >SOURCE: ${item.fileName} (${item.docType})</span>
-                            <a
-                              href="https://regex101.com/?testString=${encodeURIComponent(
-                                item.rawText,
-                              )}"
-                              target="_blank"
-                              class="px-2 py-1 bg-purple-600 text-white text-xs font-bold rounded hover:bg-purple-700 transition"
-                            >
-                              Test in Regex101
-                            </a>
-                          </div>
-                          <pre
-                            class="bg-white p-3 rounded border text-xs overflow-auto max-h-64"
-                          >${item.rawText}</pre>
-                        </div>
-                      `
-                    )}
-                  </div>
-                `, () =>
-                html`
-                  <div class="p-4 bg-gray-50 border rounded text-xs text-gray-500 italic">
-                    Raw text hidden.
-                  </div>
-                `)}
-            </div>
-          </div>
-        `
-        : html`
-
-        `}
-    </div>
-
-    <!-- Modals -->
-    ${when(
-      passwordModal.isOpen,
-      () => renderPasswordModal(),
-    )}
-    <!-- Seperator -->
-    ${when(
-      isTemplatesModalVisible,
-      () => renderTemplatesModal(),
-    )}
-    <!-- Seperator -->
-    ${when(
-      isParserListModalVisible,
-      () => renderParserListModal(),
-    )}
-  `;
 }
 
-// Register the Web Component
-// @ts-ignore
-customElements.define("app-root", component(App, { useShadowDOM: false }));
+/**
+ * @param {{ (e: PasswordModalState | ((e: PasswordModalState) => PasswordModalState)): void; (arg0: { (prev: any): any; (prev: any): any; }): void; }} setPasswordModal
+ * @param {{ isOpen?: boolean; fileName: any; passwordInput: any; useForSubsequent: any; fileToProcess?: File | null; }} passwordModal
+ * @param {() => void} handlePasswordSubmit
+ * @param {() => void} handlePasswordSkip
+ */
+function renderPasswordModal(
+  setPasswordModal,
+  passwordModal,
+  handlePasswordSubmit,
+  handlePasswordSkip,
+) {
+  return () => {
+    const updatePassInput = (/** @type {SubmitEvent} */ e) => {
+      /** @type {HTMLInputElement | null} */
+      const useForSubsequentElm = document.querySelector("#useForSubsequent");
+      if (useForSubsequentElm === null) {
+        return;
+      }
+      const useForSubsequent = useForSubsequentElm.checked;
+
+      /** @type {string} */
+      // @ts-ignore
+      const passwordInput = e.target.value;
+      setPasswordModal((prev) => ({
+        ...prev,
+        passwordInput,
+        useForSubsequent,
+      }));
+    };
+
+    const updateCheckbox = (/** @type {InputEvent} */ e) => {
+      /** @type {string} */
+      // @ts-ignore
+      const passwordInput = document.querySelector("#passwordInput").value;
+
+      /** @type {boolean} */
+      // @ts-ignore
+      const useForSubsequent = e.target.checked;
+      setPasswordModal((prev) => ({
+        ...prev,
+        passwordInput,
+        useForSubsequent,
+      }));
+    };
+
+    return html`
+      <div class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">Password Required</h3>
+          <p class="text-sm text-gray-600 mb-2">
+            The file <span class="font-bold text-blue-600">${passwordModal
+              .fileName}</span> is
+            encrypted.
+          </p>
+
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+            >Enter Password</label>
+            <input
+              type="password"
+              id="passwordInput"
+              class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Password"
+              .value="${passwordModal.passwordInput}"
+              @input="${updatePassInput}"
+              @keydown="${(/** @type {KeyboardEvent} */ e) => {
+                if (e.key === "Enter") handlePasswordSubmit();
+              }}"
+            />
+          </div>
+
+          <div class="flex items-center mb-6">
+            <input
+              type="checkbox"
+              id="useForSubsequent"
+              class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              ?checked="${passwordModal.useForSubsequent}"
+              @change="${updateCheckbox}"
+            />
+            <label for="useForSubsequent" class="ml-2 block text-sm text-gray-700">
+              Use this password for subsequent files
+            </label>
+          </div>
+
+          <div class="flex justify-end space-x-3">
+            <button
+              @click="${handlePasswordSkip}"
+              class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium text-sm transition"
+            >
+              Skip File
+            </button>
+            <button
+              @click="${handlePasswordSubmit}"
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm transition"
+            >
+              Decrypt & Extract
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  };
+}
