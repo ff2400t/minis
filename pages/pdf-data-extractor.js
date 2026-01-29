@@ -454,6 +454,98 @@ const documentsInitial = [];
 /** @type {DocMetadata[]} */
 const consolidatedMetadataInitial = [];
 
+/** @typedef {object} AppState
+ * @property {{message: string, type: string}} status
+ * @property {Docs[]} documents
+ * @property {DocMetadata[]} consolidatedMetadata
+ * @property {boolean} isResultVisible
+ * @property {boolean} isTableVisible
+ * @property {boolean} isRawTextVisible
+ * @property {boolean} isConsolidatedVisible
+ * @property {Set<string>} selectedMetaCols
+ * @property {PasswordModalState} passwordModal
+ * @property {string} savedPassword
+ */
+
+/** @type {AppState} */
+const initialAppState = {
+  status: { message: "", type: "" },
+  documents: documentsInitial,
+  consolidatedMetadata: consolidatedMetadataInitial,
+  isResultVisible: false,
+  isTableVisible: true,
+  isRawTextVisible: false,
+  isConsolidatedVisible: false,
+  selectedMetaCols: new Set(""),
+  passwordModal: INITIAL_MODAL_STATE,
+  savedPassword: "",
+};
+
+/**
+ * @type {Reducer<AppState, {type: string, payload: any}>}
+ */
+function appReducer(state, action) {
+  switch (action.type) {
+    case "SET_STATUS":
+      return { ...state, status: action.payload };
+    case "SET_DOCUMENTS":
+      return { ...state, documents: action.payload };
+    case "SET_CONSOLIDATED_METADATA":
+      return { ...state, consolidatedMetadata: action.payload };
+    case "SET_IS_RESULT_VISIBLE":
+      return { ...state, isResultVisible: action.payload };
+    case "SET_IS_TABLE_VISIBLE":
+      return { ...state, isTableVisible: action.payload };
+    case "SET_IS_RAW_TEXT_VISIBLE":
+      return { ...state, isRawTextVisible: action.payload };
+    case "SET_IS_CONSOLIDATED_VISIBLE":
+      return { ...state, isConsolidatedVisible: action.payload };
+    case "SET_SELECTED_META_COLS":
+      return { ...state, selectedMetaCols: action.payload };
+    case "TOGGLE_META_COLUMN": {
+      const key = action.payload;
+      const newSet = new Set(state.selectedMetaCols);
+      if (newSet.has(key)) {
+        newSet.delete(key);
+      } else {
+        newSet.add(key);
+      }
+      return { ...state, selectedMetaCols: newSet };
+    }
+    case "SET_PASSWORD_MODAL": // Payload replaces the whole object
+      return { ...state, passwordModal: action.payload };
+    case "UPDATE_PASSWORD_MODAL": // Payload merges
+      return {
+        ...state,
+        passwordModal: { ...state.passwordModal, ...action.payload },
+      };
+    case "SET_SAVED_PASSWORD":
+      return { ...state, savedPassword: action.payload };
+
+    // Compound actions
+    case "FINALIZE_PROCESSING":
+      return {
+        ...state,
+        documents: action.payload.documents,
+        consolidatedMetadata: action.payload.consolidatedMetadata,
+        isResultVisible: true,
+        status: action.payload.status,
+      };
+    case "START_FILE_PROCESSING": // Corresponds to processFiles reset
+      return {
+        ...state,
+        isResultVisible: false,
+        documents: [],
+        selectedMetaCols: new Set(),
+        consolidatedMetadata: [],
+        savedPassword: "",
+        status: { message: "", type: "" },
+      };
+    default:
+      return state;
+  }
+}
+
 function App() {
   // --- State Declarations ---
   /** @type {[ParserState, (e: {type: string, payload: any| undefined}) => ParserState ]} */
@@ -472,23 +564,22 @@ function App() {
     selectedParser,
   } = parserState;
 
-  const [status, setStatus] = useState({ message: "", type: "" });
+  // --- App State (Replaces multiple useState calls) ---
+  /** @type {[AppState, (action: {type: string, payload: any}) => void]} */
+  const [appState, dispatchApp] = useReducer(appReducer, initialAppState);
 
-  // Results State
-  const [documents, setDocuments] = useState(documentsInitial); // Stores structured
-  const [consolidatedMetadata, setConsolidatedMetadata] = useState(
-    consolidatedMetadataInitial,
-  );
-  const [isResultVisible, setIsResultVisible] = useState(false);
-  const [isTableVisible, setIsTableVisible] = useState(true);
-  const [isRawTextVisible, setIsRawTextVisible] = useState(false);
-  const [isConsolidatedVisible, setIsConsolidatedVisible] = useState(false);
-
-  // Dynamic Columns Stat
-  const [selectedMetaCols, setSelectedMetaCols] = useState(new Set(""));
-
-  const [passwordModal, setPasswordModal] = useState(INITIAL_MODAL_STATE);
-  const [savedPassword, setSavedPassword] = useState("");
+  const {
+    status,
+    documents,
+    consolidatedMetadata,
+    isResultVisible,
+    isTableVisible,
+    isRawTextVisible,
+    isConsolidatedVisible,
+    selectedMetaCols,
+    passwordModal,
+    savedPassword,
+  } = appState;
 
   // File Processing Context (Mutable, non-reactive state managed internally)
   /** @type {{current: FileProcessingContext}}*/
@@ -518,13 +609,7 @@ function App() {
   // --- Handlers (Memoized) ---
 
   const toggleMetaColumn = (/** @type {string} */ key) => {
-    const newSet = new Set(selectedMetaCols);
-    if (newSet.has(key)) {
-      newSet.delete(key);
-    } else {
-      newSet.add(key);
-    }
-    setSelectedMetaCols(newSet);
+    dispatchApp({ type: "TOGGLE_META_COLUMN", payload: key });
   };
 
   const addCustomParser = (/** @type {string} */ configText) => {
@@ -533,10 +618,13 @@ function App() {
     const { name, matches, metadata, table } = data;
 
     if (!name || !matches) {
-      setStatus({
-        message:
-          "Parser Name (name:) and Match Strings (matches:) are required.",
-        type: "error",
+      dispatchApp({
+        type: "SET_STATUS",
+        payload: {
+          message:
+            "Parser Name (name:) and Match Strings (matches:) are required.",
+          type: "error",
+        },
       });
       return;
     }
@@ -545,7 +633,10 @@ function App() {
       if (table) new RegExp(table, "g");
     } catch (e) {
       if (e instanceof Error) {
-        setStatus({ message: `Invalid Regex: ${e.message}`, type: "error" });
+        dispatchApp({
+          type: "SET_STATUS",
+          payload: { message: `Invalid Regex: ${e.message}`, type: "error" },
+        });
       }
       return;
     }
@@ -560,9 +651,12 @@ function App() {
     };
 
     if (newParser.matches.length === 0) {
-      setStatus({
-        message: "The matches: value cannot be empty.",
-        type: "error",
+      dispatchApp({
+        type: "SET_STATUS",
+        payload: {
+          message: "The matches: value cannot be empty.",
+          type: "error",
+        },
       });
       return;
     }
@@ -584,9 +678,12 @@ function App() {
 
     dispatchParser({ type: "UPDATE_PARSERS", payload: newParserList });
     dispatchParser({ type: "CLOSE_FORM", payload: undefined });
-    setStatus({
-      message: `Custom parser "${name}" successfully ${action}!`,
-      type: "success",
+    dispatchApp({
+      type: "SET_STATUS",
+      payload: {
+        message: `Custom parser "${name}" successfully ${action}!`,
+        type: "success",
+      },
     });
   };
 
@@ -595,7 +692,10 @@ function App() {
     const current = [...customParsers];
     current.splice(index, 1);
     dispatchParser({ type: "UPDATE_PARSERS", payload: current });
-    setStatus({ message: `Custom parser "${name}" removed.`, type: "info" });
+    dispatchApp({
+      type: "SET_STATUS",
+      payload: { message: `Custom parser "${name}" removed.`, type: "info" },
+    });
   };
 
   /**
@@ -608,18 +708,27 @@ function App() {
     if (!table) return;
 
     // Simple version for standard tables
-    const rows = Array.from(table.rows).map((row) =>
-      Array.from(row.cells).map((cell) => cell.innerText).join("\t")
-    ).join("\n");
+    const rows = Array.from(table.rows)
+      .map((row) =>
+        Array.from(row.cells)
+          .map((cell) => cell.innerText)
+          .join("\t")
+      )
+      .join("\n");
 
     // try the new clipboard api before the old one
-    navigator?.clipboard.writeText(rows)
+    navigator?.clipboard
+      .writeText(rows)
       .then(() => {
-        setStatus({
-          message: "Table content copied to clipboard!",
-          type: "success",
+        dispatchApp({
+          type: "SET_STATUS",
+          payload: {
+            message: "Table content copied to clipboard!",
+            type: "success",
+          },
         });
-      }).catch(() => {
+      })
+      .catch(() => {
         const tempTextArea = document.createElement("textarea");
         tempTextArea.style.position = "fixed";
         tempTextArea.style.opacity = "0";
@@ -629,18 +738,39 @@ function App() {
         console.log(tempTextArea.value);
         try {
           document.execCommand("copy");
-          setStatus({
-            message: "Table content copied to clipboard!",
-            type: "success",
+          dispatchApp({
+            type: "SET_STATUS",
+            payload: {
+              message: "Table content copied to clipboard!",
+              type: "success",
+            },
           });
         } catch (err) {
-          setStatus({ message: "Manual copy required.", type: "error" });
+          dispatchApp({
+            type: "SET_STATUS",
+            payload: { message: "Manual copy required.", type: "error" },
+          });
         } finally {
           document.body.removeChild(tempTextArea);
-          setTimeout(() => setStatus({ message: "", type: "" }), 3000);
+          setTimeout(
+            () =>
+              dispatchApp({
+                type: "SET_STATUS",
+                payload: { message: "", type: "" },
+              }),
+            3000,
+          );
         }
-      }).finally(() => {
-        setTimeout(() => setStatus({ message: "", type: "" }), 3000);
+      })
+      .finally(() => {
+        setTimeout(
+          () =>
+            dispatchApp({
+              type: "SET_STATUS",
+              payload: { message: "", type: "" },
+            }),
+          3000,
+        );
       });
   };
 
@@ -650,120 +780,123 @@ function App() {
     const { tempDocuments, tempMetadata, successCount, fileList } =
       fileProcessingContext.current;
 
-    setDocuments(tempDocuments);
-    setConsolidatedMetadata(tempMetadata);
-    setIsResultVisible(true);
-
+    let statusMsg = { message: "", type: "" };
     if (tempDocuments.length === 0 && tempMetadata.length === 0) {
-      setStatus({
+      statusMsg = {
         message: "Processed files but found no recognized data.",
         type: "info",
-      });
+      };
     } else {
-      setStatus({
+      statusMsg = {
         message:
           `Successfully processed ${successCount} of ${fileList.length} files!`,
         type: "success",
-      });
+      };
     }
+
+    dispatchApp({
+      type: "FINALIZE_PROCESSING",
+      payload: {
+        documents: tempDocuments,
+        consolidatedMetadata: tempMetadata,
+        status: statusMsg,
+      },
+    });
   };
 
-  const processFileContent = useCallback(
-    async (
-      /** @type {File} */ file,
-      /** @type {string} */ password,
-    ) => {
-      /** @type {string} */
-      let rawText = await extractAllPdfText(file, password);
-      rawText = rawText.replace(/   /g, " ");
+  const processFileContent = async (
+    /** @type {File} */ file,
+    /** @type {string} */ password,
+  ) => {
+    /** @type {string} */
+    let rawText = await extractAllPdfText(file, password);
+    rawText = rawText.replace(/   /g, " ");
 
-      /** @type {import("./data-extractor.js").ParserResult} */
-      let parsedData = { allRows: [], metadataFields: {} };
-      let docType = "Unknown";
-      const cleanCheckText = rawText.replace(/\s+/g, " ");
+    /** @type {import("./data-extractor.js").ParserResult} */
+    let parsedData = { allRows: [], metadataFields: {} };
+    let docType = "Unknown";
+    const cleanCheckText = rawText.replace(/\s+/g, " ");
 
-      let parserFound = false;
+    let parserFound = false;
 
-      for (
-        const { name, matches, metadata, table, func = generalDocumentParser }
-          of allParsers
-      ) {
-        let isMatch = false;
-        if (selectedParser === "auto") {
-          isMatch = matches.every((s) =>
-            cleanCheckText.toLowerCase().includes(s.toLowerCase())
-          );
-        } else {
-          isMatch = name === selectedParser;
-        }
-
-        if (isMatch) {
-          docType = name;
-          let effectiveMetaRx = typeof metadata === "string"
-            ? new RegExp(metadata, "s")
-            : metadata;
-          let effectiveTableRx = typeof table === "string"
-            ? new RegExp(table, "g")
-            : table;
-
-          parsedData = func(rawText, effectiveMetaRx, effectiveTableRx, name);
-          console.debug(JSON.stringify(parsedData));
-          parserFound = true;
-          break;
-        }
+    for (
+      const { name, matches, metadata, table, func = generalDocumentParser }
+        of allParsers
+    ) {
+      let isMatch = false;
+      if (selectedParser === "auto") {
+        isMatch = matches.every((s) =>
+          cleanCheckText.toLowerCase().includes(s.toLowerCase())
+        );
+      } else {
+        isMatch = name === selectedParser;
       }
 
-      if (parserFound) {
-        if (
-          parsedData.metadataFields &&
-          Object.keys(parsedData.metadataFields).length > 0
-        ) {
-          fileProcessingContext.current.tempMetadata.push({
-            fileName: file.name,
-            docType: docType,
-            fields: parsedData.metadataFields,
-          });
-        }
+      if (isMatch) {
+        docType = name;
+        let effectiveMetaRx = typeof metadata === "string"
+          ? new RegExp(metadata, "s")
+          : metadata;
+        let effectiveTableRx = typeof table === "string"
+          ? new RegExp(table, "g")
+          : table;
 
-        // Separation of concerns: We now split the "allRows" into metadata section, header, and data
-        const metaKeys = Object.keys(parsedData.metadataFields);
-        const metaCount = metaKeys.length;
+        parsedData = func(rawText, effectiveMetaRx, effectiveTableRx, name);
+        console.debug(JSON.stringify(parsedData));
+        parserFound = true;
+        break;
+      }
+    }
 
-        // The standard parser output is: Metadata Rows -> Header -> Data Rows
-        // We assume parsedData.allRows[metaCount] is the header based on generalDocumentParser logic
-        const headerRow = parsedData.allRows.length > metaCount
-          ? parsedData.allRows[metaCount]
-          : [];
-        const dataRows = parsedData.allRows.length > metaCount + 1
-          ? parsedData.allRows.slice(metaCount + 1)
-          : [];
-
-        fileProcessingContext.current.tempDocuments.push({
+    if (parserFound) {
+      if (
+        parsedData.metadataFields &&
+        Object.keys(parsedData.metadataFields).length > 0
+      ) {
+        fileProcessingContext.current.tempMetadata.push({
           fileName: file.name,
           docType: docType,
-          metadata: parsedData.metadataFields,
-          headers: headerRow,
-          rows: dataRows,
-          text: "",
-          rawText,
-          status: "success",
+          fields: parsedData.metadataFields,
         });
-      } else {
-        fileProcessingContext.current.tempDocuments.push({
-          fileName: file.name,
-          docType: "FAILED",
-          metadata: parsedData.metadataFields,
-          headers: [],
-          rows: [],
-          text: `Error: Document type unknown. Data not extracted.`,
-          rawText,
-          status: "error",
-        });
-        throw new Error("Document type unknown. Data not extracted.");
       }
-    },
-    [customParsers, selectedParser],
-  );
+
+      // Separation of concerns: We now split the "allRows" into metadata section, header, and data
+      const metaKeys = Object.keys(parsedData.metadataFields);
+      const metaCount = metaKeys.length;
+
+      // The standard parser output is: Metadata Rows -> Header -> Data Rows
+      // We assume parsedData.allRows[metaCount] is the header based on generalDocumentParser logic
+      const headerRow = parsedData.allRows.length > metaCount
+        ? parsedData.allRows[metaCount]
+        : [];
+      const dataRows = parsedData.allRows.length > metaCount + 1
+        ? parsedData.allRows.slice(metaCount + 1)
+        : [];
+
+      fileProcessingContext.current.tempDocuments.push({
+        fileName: file.name,
+        docType: docType,
+        metadata: parsedData.metadataFields,
+        headers: headerRow,
+        rows: dataRows,
+        text: "",
+        rawText,
+        status: "success",
+      });
+    } else {
+      fileProcessingContext.current.tempDocuments.push({
+        fileName: file.name,
+        docType: "FAILED",
+        metadata: parsedData.metadataFields,
+        headers: [],
+        rows: [],
+        text: `Error: Document type unknown. Data not extracted.`,
+        rawText,
+        status: "error",
+      });
+      throw new Error("Document type unknown. Data not extracted.");
+    }
+  };
 
   const processNextFile = useCallback(async () => {
     const fpContext = fileProcessingContext.current;
@@ -775,11 +908,14 @@ function App() {
     }
 
     const file = fileList[currentIndex];
-    setStatus({
-      message: `Processing ${
-        currentIndex + 1
-      } of ${fileList.length}: ${file.name}...`,
-      type: "info",
+    dispatchApp({
+      type: "SET_STATUS",
+      payload: {
+        message: `Processing ${
+          currentIndex + 1
+        } of ${fileList.length}: ${file.name}...`,
+        type: "info",
+      },
     });
 
     try {
@@ -792,13 +928,15 @@ function App() {
       if (e instanceof Error) {
         if (e.name === "PasswordException") {
           // PAUSE: Open modal
-          setPasswordModal((prev) => ({
-            ...prev,
-            isOpen: true,
-            fileName: file.name,
-            fileToProcess: file,
-            passwordInput: "",
-          }));
+          dispatchApp({
+            type: "UPDATE_PASSWORD_MODAL",
+            payload: {
+              isOpen: true,
+              fileName: file.name,
+              fileToProcess: file,
+              passwordInput: "",
+            },
+          });
           return;
         }
 
@@ -816,8 +954,8 @@ function App() {
 
   const processFiles = useCallback((/** @type {FileList} */ fileList) => {
     if (!fileList || fileList.length === 0) {
-      setIsResultVisible(false);
-      setStatus({ message: "", type: "" });
+      dispatchApp({ type: "SET_IS_RESULT_VISIBLE", payload: false });
+      dispatchApp({ type: "SET_STATUS", payload: { message: "", type: "" } });
       return;
     }
 
@@ -826,11 +964,7 @@ function App() {
     );
 
     // Reset UI state
-    setIsResultVisible(false);
-    setDocuments([]);
-    setSelectedMetaCols(new Set()); // Reset selected columns on new upload
-    setConsolidatedMetadata([]);
-    setSavedPassword("");
+    dispatchApp({ type: "START_FILE_PROCESSING", payload: undefined });
 
     // Reset mutable context
     fileProcessingContext.current = {
@@ -850,14 +984,23 @@ function App() {
     const useSubsequent = useForSubsequent;
 
     if (password.length === 0) {
-      setStatus({ message: "Please enter a password.", type: "error" });
+      dispatchApp({
+        type: "SET_STATUS",
+        payload: { message: "Please enter a password.", type: "error" },
+      });
       return;
     }
 
     // 1. Close modal and set saved password
-    setPasswordModal(INITIAL_MODAL_STATE);
-    setSavedPassword(useSubsequent ? password : "");
-    setStatus({ message: "", type: "" });
+    dispatchApp({ type: "SET_PASSWORD_MODAL", payload: INITIAL_MODAL_STATE });
+    dispatchApp({
+      type: "SET_SAVED_PASSWORD",
+      payload: useSubsequent ? password : "",
+    });
+    dispatchApp({
+      type: "SET_STATUS",
+      payload: { message: "", type: "" },
+    });
 
     // 2. Attempt to re-process the file with the new password
     if (fileToProcess) {
@@ -870,17 +1013,22 @@ function App() {
       } catch (e) {
         if (e instanceof Error) {
           if (e.name === "PasswordException") {
-            setStatus({
-              message: "Incorrect password. Please try again.",
-              type: "error",
+            dispatchApp({
+              type: "SET_STATUS",
+              payload: {
+                message: "Incorrect password. Please try again.",
+                type: "error",
+              },
             });
-            setPasswordModal((prev) => ({
-              ...prev,
-              isOpen: true,
-              fileName: fileToProcess.name,
-              fileToProcess: fileToProcess,
-              passwordInput: password,
-            }));
+            dispatchApp({
+              type: "UPDATE_PASSWORD_MODAL",
+              payload: {
+                isOpen: true,
+                fileName: fileToProcess.name,
+                fileToProcess: fileToProcess,
+                passwordInput: password,
+              },
+            });
             return;
           }
         }
@@ -898,8 +1046,8 @@ function App() {
   ]);
 
   const handlePasswordSkip = useCallback(() => {
-    setPasswordModal(INITIAL_MODAL_STATE);
-    setStatus({ message: "", type: "" });
+    dispatchApp({ type: "SET_PASSWORD_MODAL", payload: INITIAL_MODAL_STATE });
+    dispatchApp({ type: "SET_STATUS", payload: { message: "", type: "" } });
 
     if (
       fileProcessingContext.current.fileList.length >
@@ -918,11 +1066,6 @@ function App() {
     processNextFile();
   }, [processNextFile]);
 
-  const handleFileInput = (/** @type {CustomEvent} */ e) => {
-    // @ts-ignore we know this will work
-    processFiles(e.detail);
-  };
-
   // --- Modal/UI Render Helpers ---
 
   const renderStatus = () => {
@@ -939,159 +1082,6 @@ function App() {
     return html`
       <div class="p-4 rounded-lg text-sm mb-6 ${baseClass}" role="alert">
         ${status.message}
-      </div>
-    `;
-  };
-
-  const renderParserListModal = () => {
-    const builtInParsersHtml = BUILT_IN_PARSERS.map((parser, idx) => {
-      const id = `builtin-${idx}`;
-      const name = parser.name;
-      const matches = parser.matches;
-      const metaRegex = parser.metadata;
-      const table = parser.table;
-      const isExpanded = expandedParsers[id];
-
-      return html`
-        <li class="border rounded-lg p-3 bg-gray-50">
-          <div class="flex justify-between items-center">
-            <div>
-              <span class="font-bold text-gray-800 block">${name}</span>
-              <span class="text-xs text-gray-500">Matches: ${matches.join(
-                ", ",
-              )}</span>
-            </div>
-            <button
-              @click="${() =>
-                dispatchParser({ type: "TOGGLE_EXPAND_PARSER", payload: id })}"
-              class="text-blue-600 hover:text-blue-800 text-xs font-semibold px-2 py-1 border border-blue-200 rounded hover:bg-blue-50 transition"
-            >
-              ${isExpanded ? "Hide Regex" : "Show Regex"}
-            </button>
-          </div>
-          ${isExpanded
-            ? html`
-              <div
-                class="mt-3 text-xs font-mono bg-white p-2 rounded border border-gray-200 regex-scroll overflow-x-auto"
-              >
-                <div class="mb-2">
-                  <strong class="text-purple-700">Metadata Regex:</strong><br />
-                  <span class="text-gray-700">${metaRegex
-                    ? metaRegex.toString()
-                    : "N/A"}</span>
-                </div>
-                <div>
-                  <strong class="text-teal-700">Table Regex:</strong><br />
-                  <span class="text-gray-700">${table
-                    ? table.toString()
-                    : "N/A"}</span>
-                </div>
-              </div>
-            `
-            : html`
-
-            `}
-        </li>
-      `;
-    });
-
-    const customParsersHtml = customParsers.length > 0
-      ? html`
-        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-2 mt-6">
-          Custom Parsers
-        </h4>
-        <ul class="space-y-2">
-          ${customParsers.map((parser, idx) => {
-            const id = `custom-${idx}`;
-            const isExpanded = expandedParsers[id];
-            console.log(parser);
-
-            return html`
-              <li class="border rounded-lg p-3 bg-indigo-50 border-indigo-100">
-                <div class="flex justify-between items-center">
-                  <div>
-                    <span class="font-bold text-indigo-900 block">${parser
-                      .name}</span>
-                    <span class="text-xs text-indigo-600">Matches: ${parser
-                      .matches.join(", ")}</span>
-                  </div>
-                  <button
-                    @click="${() =>
-                      dispatchParser({
-                        type: "TOGGLE_EXPAND_PARSER",
-                        payload: id,
-                      })}"
-                    class="text-indigo-600 hover:text-indigo-800 text-xs font-semibold px-2 py-1 border border-indigo-200 rounded hover:bg-indigo-100 transition"
-                  >
-                    ${isExpanded ? "Hide Regex" : "Show Regex"}
-                  </button>
-                </div>
-                ${isExpanded
-                  ? html`
-                    <div
-                      class="mt-3 text-xs font-mono bg-white p-2 rounded border border-gray-200 regex-scroll overflow-x-auto"
-                    >
-                      <div class="mb-2">
-                        <strong class="text-purple-700">Metadata Regex:</strong><br />
-                        <span class="text-gray-700">${parser.metadata ||
-                          "N/A"}</span>
-                      </div>
-                      <div>
-                        <strong class="text-teal-700">Table Regex:</strong><br />
-                        <span class="text-gray-700">${parser.table ||
-                          "N/A"}</span>
-                      </div>
-                    </div>
-                  `
-                  : html`
-
-                  `}
-              </li>
-            `;
-          })}
-        </ul>
-      `
-      : html`
-
-      `;
-
-    return html`
-      <div class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop">
-        <div
-          class="bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4 flex flex-col max-h-[90vh]"
-        >
-          <div class="flex justify-between items-center mb-4">
-            <h3 class="text-xl font-bold text-gray-800">Available Parsers</h3>
-            <button
-              @click="${() =>
-                dispatchParser({ type: "TOGGLE_LIST_MODAL", payload: false })}"
-              class="text-gray-500 hover:text-gray-700"
-            >
-              ✕
-            </button>
-          </div>
-
-          <div class="flex-grow overflow-y-auto pr-2">
-            <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">
-              Built-in Parsers
-            </h4>
-            <ul class="space-y-2 mb-6">
-              ${builtInParsersHtml}
-            </ul>
-
-            ${customParsersHtml}
-          </div>
-
-          <div class="mt-4 pt-4 border-t flex justify-end">
-            <button
-              @click="${() =>
-                dispatchParser({ type: "TOGGLE_LIST_MODAL", payload: false })}"
-              class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium text-sm transition"
-            >
-              Close
-            </button>
-          </div>
-        </div>
       </div>
     `;
   };
@@ -1157,7 +1147,10 @@ function App() {
       </div>
 
       <!-- Drop Zone -->
-      <drop-zone @file-selected="${handleFileInput}"></drop-zone>
+      <drop-zone @file-selected="${(/** @type {CustomEvent} */ e) => {
+        // @ts-ignore we know this will work
+        processFiles(e.detail);
+      }}"></drop-zone>
 
       <!-- Status Container -->
       ${renderStatus()}
@@ -1184,7 +1177,11 @@ function App() {
                     class="nd-switch"
                     type="checkbox"
                     ?checked="${isTableVisible}"
-                    @click="${() => setIsTableVisible(!isTableVisible)}"
+                    @click="${() =>
+                      dispatchApp({
+                        type: "SET_IS_TABLE_VISIBLE",
+                        payload: !isTableVisible,
+                      })}"
                   />
                   <label for="isTableVisible">Show Details</label>
                 </div>
@@ -1195,7 +1192,10 @@ function App() {
                     type="checkbox"
                     ?checked="${isConsolidatedVisible}"
                     @click="${() =>
-                      setIsConsolidatedVisible(!isConsolidatedVisible)}"
+                      dispatchApp({
+                        type: "SET_IS_CONSOLIDATED_VISIBLE",
+                        payload: !isConsolidatedVisible,
+                      })}"
                   />
                   <label for="isConsolidatedVisible">Show Summary Table</label>
                 </div>
@@ -1238,7 +1238,11 @@ function App() {
                   Raw Extracted Text (For Debugging)
                 </h3>
                 <button
-                  @click="${() => setIsRawTextVisible(!isRawTextVisible)}"
+                  @click="${() =>
+                    dispatchApp({
+                      type: "SET_IS_RAW_TEXT_VISIBLE",
+                      payload: !isRawTextVisible,
+                    })}"
                   class="px-3 py-1 text-sm text-white font-bold rounded shadow transition ${isRawTextVisible
                     ? "bg-blue-500 hover:bg-blue-600"
                     : "bg-gray-500 hover:bg-gray-600"}"
@@ -1292,7 +1296,7 @@ function App() {
       passwordModal.isOpen,
       () =>
         renderPasswordModal(
-          setPasswordModal,
+          dispatchApp,
           passwordModal,
           handlePasswordSubmit,
           handlePasswordSkip,
@@ -1301,12 +1305,13 @@ function App() {
     <!-- Seperator -->
     ${when(
       isTemplatesModalVisible,
-      () => renderTemplatesModal(dispatchParser, setStatus, templatesText),
+      () => renderTemplatesModal(dispatchParser, dispatchApp, templatesText),
     )}
     <!-- Seperator -->
     ${when(
       isParserListModalVisible,
-      () => renderParserListModal(),
+      () =>
+        renderParserListModal(expandedParsers, dispatchParser, customParsers),
     )}
   `;
 }
@@ -1314,6 +1319,164 @@ function App() {
 // Register the Web Component
 // @ts-ignore
 customElements.define("app-root", component(App, { useShadowDOM: false }));
+
+/**
+ * @param {{ [x: string]: any; }} expandedParsers
+ * @param {{ (e: { type: string; payload: any }): void}} dispatchParser
+ * @param {Parser[]} customParsers
+ */
+function renderParserListModal(expandedParsers, dispatchParser, customParsers) {
+  const builtInParsersHtml = BUILT_IN_PARSERS.map((parser, idx) => {
+    const id = `builtin-${idx}`;
+    const name = parser.name;
+    const matches = parser.matches;
+    const metaRegex = parser.metadata;
+    const table = parser.table;
+    const isExpanded = expandedParsers[id];
+
+    return html`
+      <li class="border rounded-lg p-3 bg-gray-50">
+        <div class="flex justify-between items-center">
+          <div>
+            <span class="font-bold text-gray-800 block">${name}</span>
+            <span class="text-xs text-gray-500">Matches: ${matches.join(
+              ", ",
+            )}</span>
+          </div>
+          <button
+            @click="${() =>
+              dispatchParser({ type: "TOGGLE_EXPAND_PARSER", payload: id })}"
+            class="text-blue-600 hover:text-blue-800 text-xs font-semibold px-2 py-1 border border-blue-200 rounded hover:bg-blue-50 transition"
+          >
+            ${isExpanded ? "Hide Regex" : "Show Regex"}
+          </button>
+        </div>
+        ${isExpanded
+          ? html`
+            <div
+              class="mt-3 text-xs font-mono bg-white p-2 rounded border border-gray-200 regex-scroll overflow-x-auto"
+            >
+              <div class="mb-2">
+                <strong class="text-purple-700">Metadata Regex:</strong><br />
+                <span class="text-gray-700">${metaRegex
+                  ? metaRegex.toString()
+                  : "N/A"}</span>
+              </div>
+              <div>
+                <strong class="text-teal-700">Table Regex:</strong><br />
+                <span class="text-gray-700">${table
+                  ? table.toString()
+                  : "N/A"}</span>
+              </div>
+            </div>
+          `
+          : html`
+
+          `}
+      </li>
+    `;
+  });
+
+  const customParsersHtml = customParsers.length > 0
+    ? html`
+      <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-2 mt-6">
+        Custom Parsers
+      </h4>
+      <ul class="space-y-2">
+        ${customParsers.map((parser, idx) => {
+          const id = `custom-${idx}`;
+          const isExpanded = expandedParsers[id];
+          console.log(parser);
+
+          return html`
+            <li class="border rounded-lg p-3 bg-indigo-50 border-indigo-100">
+              <div class="flex justify-between items-center">
+                <div>
+                  <span class="font-bold text-indigo-900 block">${parser
+                    .name}</span>
+                  <span class="text-xs text-indigo-600">Matches: ${parser
+                    .matches.join(", ")}</span>
+                </div>
+                <button
+                  @click="${() =>
+                    dispatchParser({
+                      type: "TOGGLE_EXPAND_PARSER",
+                      payload: id,
+                    })}"
+                  class="text-indigo-600 hover:text-indigo-800 text-xs font-semibold px-2 py-1 border border-indigo-200 rounded hover:bg-indigo-100 transition"
+                >
+                  ${isExpanded ? "Hide Regex" : "Show Regex"}
+                </button>
+              </div>
+              ${isExpanded
+                ? html`
+                  <div
+                    class="mt-3 text-xs font-mono bg-white p-2 rounded border border-gray-200 regex-scroll overflow-x-auto"
+                  >
+                    <div class="mb-2">
+                      <strong class="text-purple-700">Metadata Regex:</strong><br />
+                      <span class="text-gray-700">${parser.metadata ||
+                        "N/A"}</span>
+                    </div>
+                    <div>
+                      <strong class="text-teal-700">Table Regex:</strong><br />
+                      <span class="text-gray-700">${parser.table ||
+                        "N/A"}</span>
+                    </div>
+                  </div>
+                `
+                : html`
+
+                `}
+            </li>
+          `;
+        })}
+      </ul>
+    `
+    : html`
+
+    `;
+
+  return html`
+    <div class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop">
+      <div
+        class="bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4 flex flex-col max-h-[90vh]"
+      >
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-xl font-bold text-gray-800">Available Parsers</h3>
+          <button
+            @click="${() =>
+              dispatchParser({ type: "TOGGLE_LIST_MODAL", payload: false })}"
+            class="text-gray-500 hover:text-gray-700"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="flex-grow overflow-y-auto pr-2">
+          <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">
+            Built-in Parsers
+          </h4>
+          <ul class="space-y-2 mb-6">
+            ${builtInParsersHtml}
+          </ul>
+
+          ${customParsersHtml}
+        </div>
+
+        <div class="mt-4 pt-4 border-t flex justify-end">
+          <button
+            @click="${() =>
+              dispatchParser({ type: "TOGGLE_LIST_MODAL", payload: false })}"
+            class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium text-sm transition"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
 
 /**
  * @param {any[]} customParsers
@@ -1438,10 +1601,10 @@ function renderParserForm(
 
 /**
  * @param {{ (e: { type: string; payload: any | undefined; }): ParserState; (arg0: { type: string; payload: any; }): void; }} dispatchParser
- * @param {SetState<{message: string, type: string}>} setStatus
+ * @param {{ (action: { type: string; payload: any; }): void; }} dispatchApp
  * @param {string} templatesText
  */
-function renderTemplatesModal(dispatchParser, setStatus, templatesText) {
+function renderTemplatesModal(dispatchParser, dispatchApp, templatesText) {
   return () => {
     const saveTemplates = () => {
       /** @type {string} */
@@ -1477,9 +1640,12 @@ function renderTemplatesModal(dispatchParser, setStatus, templatesText) {
       dispatchParser({ type: "UPDATE_PARSERS", payload: newParsers });
       dispatchParser({ type: "TOGGLE_TEMPLATES_MODAL", payload: false });
       dispatchParser({ type: "SET_TEMPLATES_TEXT", payload: "" });
-      setStatus({
-        message: `Updated ${newParsers.length} custom parsers.`,
-        type: "success",
+      dispatchApp({
+        type: "SET_STATUS",
+        payload: {
+          message: `Updated ${newParsers.length} custom parsers.`,
+          type: "success",
+        },
       });
     };
 
@@ -1544,13 +1710,13 @@ function renderTemplatesModal(dispatchParser, setStatus, templatesText) {
 }
 
 /**
- * @param {{ (e: PasswordModalState | ((e: PasswordModalState) => PasswordModalState)): void; (arg0: { (prev: any): any; (prev: any): any; }): void; }} setPasswordModal
+ * @param {{ (action: { type: string; payload: any; }): void; }} dispatchApp
  * @param {{ isOpen?: boolean; fileName: any; passwordInput: any; useForSubsequent: any; fileToProcess?: File | null; }} passwordModal
  * @param {() => void} handlePasswordSubmit
  * @param {() => void} handlePasswordSkip
  */
 function renderPasswordModal(
-  setPasswordModal,
+  dispatchApp,
   passwordModal,
   handlePasswordSubmit,
   handlePasswordSkip,
@@ -1567,11 +1733,13 @@ function renderPasswordModal(
       /** @type {string} */
       // @ts-ignore
       const passwordInput = e.target.value;
-      setPasswordModal((prev) => ({
-        ...prev,
-        passwordInput,
-        useForSubsequent,
-      }));
+      dispatchApp({
+        type: "UPDATE_PASSWORD_MODAL",
+        payload: {
+          passwordInput,
+          useForSubsequent,
+        },
+      });
     };
 
     const updateCheckbox = (/** @type {InputEvent} */ e) => {
@@ -1582,11 +1750,13 @@ function renderPasswordModal(
       /** @type {boolean} */
       // @ts-ignore
       const useForSubsequent = e.target.checked;
-      setPasswordModal((prev) => ({
-        ...prev,
-        passwordInput,
-        useForSubsequent,
-      }));
+      dispatchApp({
+        type: "UPDATE_PASSWORD_MODAL",
+        payload: {
+          passwordInput,
+          useForSubsequent,
+        },
+      });
     };
 
     return html`
