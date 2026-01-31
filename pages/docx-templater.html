@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel to Docx Templater</title>
+    <script src="https://unpkg.com/pizzip@3.1.4/dist/pizzip.js"></script>
+    <script
+      src="https://unpkg.com/docxtemplater@3.37.2/build/docxtemplater.js"
+    ></script>
+    <style>
+      :root {
+        --bg-dark: #0f172a;
+        --panel-dark: #1e293b;
+        --text-dark: #e5e7eb;
+        --muted-dark: #9ca3af;
+        --primary: #2563eb;
+        --primary-hover: #1d4ed8;
+        --error: #f87171;
+        --border: #334155;
+      }
+
+      body {
+        background-color: var(--bg-dark);
+        color: var(--text-dark);
+        font-family: system-ui, -apple-system, sans-serif;
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        justify-content: center;
+      }
+
+      #app {
+        width: 100%;
+        max-width: 900px;
+        display: block;
+      }
+
+      .card {
+        background-color: var(--panel-dark);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 24px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      }
+
+      h1, h2, h3 {
+        margin-top: 0;
+      }
+
+      .form-group {
+        margin-bottom: 16px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--muted-dark);
+        font-size: 0.9rem;
+      }
+
+      textarea, select, input[type="text"] {
+        width: 100%;
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background-color: var(--bg-dark);
+        color: var(--text-dark);
+        font-family: inherit;
+        box-sizing: border-box;
+      }
+
+      textarea {
+        min-height: 150px;
+        resize: vertical;
+        white-space: pre;
+        overflow-x: auto;
+      }
+
+      input[type="file"] {
+        display: block;
+        width: 100%;
+        padding: 10px;
+        border: 1px dashed var(--border);
+        border-radius: 6px;
+        background-color: var(--bg-dark);
+        cursor: pointer;
+      }
+
+      button {
+        background-color: var(--primary);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 500;
+        transition: background-color 0.2s;
+      }
+
+      button:hover {
+        background-color: var(--primary-hover);
+      }
+
+      button:disabled {
+        background-color: var(--muted-dark);
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
+
+      .preview-table-container {
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        margin-top: 10px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 0.9rem;
+      }
+
+      th, td {
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+      }
+
+      th {
+        background-color: rgba(255, 255, 255, 0.05);
+        font-weight: 600;
+      }
+
+      tr:last-child td {
+        border-bottom: none;
+      }
+
+      .error-msg {
+        color: var(--error);
+        margin-top: 8px;
+        font-size: 0.9rem;
+      }
+
+      .help-text {
+        color: var(--muted-dark);
+        font-size: 0.85rem;
+        margin-top: 4px;
+      }
+
+      code {
+        background-color: rgba(0, 0, 0, 0.3);
+        padding: 2px 4px;
+        border-radius: 4px;
+        font-family: monospace;
+        color: #d8b4fe;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <script type="module">
+      import { html, render } from "/vendor/lit-html@3.3.2.js";
+
+      // --- Helpers ---
+      const toSnakeCase = (str) =>
+        str &&
+        str.match(
+          /[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+/g,
+        )
+          .map((x) => x.toLowerCase())
+          .join("_");
+
+      const parseData = (text) => {
+        if (!text.trim()) {
+          return { parsedData: [], headers: [], error: "" };
+        }
+        try {
+          const rows = text.trim().split(/\r?\n/).map((row) =>
+            row.split("\t")
+          );
+          if (rows.length < 2) {
+            return {
+              parsedData: [],
+              headers: [],
+              error: "Please paste at least two rows (header + data).",
+            };
+          }
+
+          const headers = rows[0].map((h) => ({
+            original: h,
+            key: toSnakeCase(h),
+          }));
+          const parsedData = rows.slice(1).map((row) => {
+            const obj = {};
+            headers.forEach((h, i) => obj[h.key] = row[i] || "");
+            return obj;
+          });
+
+          return { parsedData, headers, error: "" };
+        } catch (err) {
+          return {
+            parsedData: [],
+            headers: [],
+            error: "Error parsing data: " + err.message,
+          };
+        }
+      };
+
+      const generateDocxZip = (
+        templateContent,
+        data,
+        selectedColumn,
+      ) => {
+        const files = data.map((row, index) => {
+          // Wrap ArrayBuffer in Uint8Array for PizZip compatibility
+          const docZip = new PizZip(new Uint8Array(templateContent));
+          const doc = new window.docxtemplater(docZip, {
+            paragraphLoop: true,
+            linebreaks: true,
+          });
+          doc.render(row);
+
+          const content = doc.getZip().generate({
+            type: "uint8array",
+            mimeType:
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            compression: "DEFLATE",
+          });
+
+          let filename = "document_" + (index + 1);
+          if (selectedColumn && row[selectedColumn]) {
+            filename = row[selectedColumn].toString().replace(
+              /[^a-z0-9]/gi,
+              "_",
+            );
+          }
+          return {
+            name: filename + ".docx",
+            content,
+          };
+        });
+
+        const documents = new PizZip();
+        const docFolder = documents.folder("documents");
+        files.forEach((a) => docFolder.file(a.name, a.content));
+
+        return documents.generate({ type: "blob" });
+      };
+
+      // --- State Management ---
+      const initialState = {
+        parsedData: [],
+        headers: [],
+        selectedColumn: "",
+        templateFile: null,
+        error: "",
+        isGenerating: false,
+        downloadUrl: "",
+      };
+
+      const reducer = (state, action) => {
+        switch (action.type) {
+          case "PASTE_DATA": {
+            const { parsedData, headers, error } = parseData(
+              action.value,
+            );
+            return {
+              ...state,
+              parsedData,
+              headers,
+              error,
+              selectedColumn: headers[0]?.key || "",
+              downloadUrl: "",
+            };
+          }
+          case "FILE_SELECTED":
+            return {
+              ...state,
+              templateFile: action.file,
+              downloadUrl: "",
+            };
+          case "COLUMN_SELECTED":
+            return { ...state, selectedColumn: action.value };
+          case "START_GENERATION":
+            return { ...state, isGenerating: true, error: "" };
+          case "GENERATION_SUCCESS":
+            return {
+              ...state,
+              isGenerating: false,
+              downloadUrl: action.url,
+            };
+          case "GENERATION_ERROR":
+            return {
+              ...state,
+              isGenerating: false,
+              error: action.error,
+            };
+          default:
+            return state;
+        }
+      };
+
+      let state = initialState;
+
+      const dispatch = (action) => {
+        state = reducer(state, action);
+        renderApp();
+      };
+
+      // --- Async Actions ---
+      const handleGenerate = async () => {
+        if (!state.templateFile || state.parsedData.length === 0) {
+          return;
+        }
+
+        dispatch({ type: "START_GENERATION" });
+
+        try {
+          const reader = new FileReader();
+          reader.readAsArrayBuffer(state.templateFile);
+          reader.onload = (evt) => {
+            try {
+              const content = evt.target.result;
+              const zipBlob = generateDocxZip(
+                content,
+                state.parsedData,
+                state.selectedColumn,
+              );
+              const url = URL.createObjectURL(zipBlob);
+              dispatch({ type: "GENERATION_SUCCESS", url });
+            } catch (err) {
+              console.error(err);
+              dispatch({
+                type: "GENERATION_ERROR",
+                error: "Error processing template: " + err.message,
+              });
+            }
+          };
+          reader.onerror = () =>
+            dispatch({
+              type: "GENERATION_ERROR",
+              error: "Error reading file.",
+            });
+        } catch (err) {
+          dispatch({
+            type: "GENERATION_ERROR",
+            error: "Unexpected error: " + err.message,
+          });
+        }
+      };
+
+      // --- Views ---
+      const dataPreview = (data, headers) =>
+        html`
+          <div class="form-group">
+            <label>Data Preview (${data.length} rows)</label>
+            <div class="preview-table-container">
+              <table>
+                <thead>
+                  <tr>
+                    ${headers.map((h) =>
+                      html`
+                        <th title="Template key: ${h.key}">
+                          ${h.original}<br><small><code>{${h
+                            .key}}</code></small>
+                        </th>
+                      `
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.slice(0, 5).map((row) =>
+                    html`
+                      <tr>
+                        ${headers.map((h) =>
+                          html`
+                            <td>${row[h.key]}</td>
+                          `
+                        )}
+                      </tr>
+                    `
+                  )}
+                </tbody>
+              </table>
+            </div>
+            ${data.length > 5
+              ? html`
+                <p class="help-text">...and ${data.length -
+                  5} more rows.</p>
+              `
+              : ""}
+          </div>
+        `;
+
+      const appTemplate = (s) =>
+        html`
+          <div class="card">
+            <h1>Excel to Docx Templater</h1>
+            <p class="help-text">
+              Paste your Excel data (copy from Excel/Sheets), select a template,
+              and generate individual .docx files.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="form-group">
+              <label>1. Paste Data (Header row required)</label>
+              <textarea
+                placeholder="Paste Excel data here..."
+                @input="${(e) =>
+                  dispatch({
+                    type: "PASTE_DATA",
+                    value: e.target.value,
+                  })}"
+              ></textarea>
+              ${s.error
+                ? html`
+                  <div class="error-msg">${s.error}</div>
+                `
+                : ""}
+            </div>
+
+            ${s.parsedData.length > 0
+              ? html`
+                ${dataPreview(s.parsedData, s.headers)}
+
+                <div class="form-group">
+                  <label>2. Upload Docx Template</label>
+                  <input type="file" accept=".docx" @change="${(e) =>
+                    dispatch({
+                      type: "FILE_SELECTED",
+                      file: e.target.files[0],
+                    })}">
+                  <p class="help-text">
+                    Use <code>{snake_case_header}</code> in your Word document.
+                  </p>
+                </div>
+
+                <div class="form-group">
+                  <label>3. Select Filename Column</label>
+                  <select .value="${s.selectedColumn}" @change="${(e) =>
+                    dispatch({
+                      type: "COLUMN_SELECTED",
+                      value: e.target.value,
+                    })}">
+                    ${s.headers.map((h) =>
+                      html`
+                        <option value="${h.key}">${h.original} ({${h
+                          .key}})</option>
+                      `
+                    )}
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <button
+                    @click="${handleGenerate}"
+                    ?disabled="${!s.templateFile || s.isGenerating}"
+                  >
+                    ${s.isGenerating ? "Generating..." : "Generate Zip"}
+                  </button>
+
+                  ${s.downloadUrl
+                    ? html`
+                      <a
+                        href="${s.downloadUrl}"
+                        download="generated_documents.zip"
+                        style="margin-left: 10px; color: var(--primary); text-decoration: none; font-weight: bold;"
+                      >
+                        Download ZIP
+                      </a>
+                    `
+                    : ""}
+                </div>
+              `
+              : ""}
+          </div>
+        `;
+
+      const renderApp = () => {
+        render(appTemplate(state), document.getElementById("app"));
+      };
+
+      renderApp();
+    </script>
+  </body>
+</html>
