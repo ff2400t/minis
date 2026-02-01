@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "/vendor/haunted@6.1.0.js";
-import "/drop-zone.js";
+import "/components/drop-zone.js";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";

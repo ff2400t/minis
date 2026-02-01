@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "/vendor/haunted@6.1.0.js";
-import "/drop-zone.js";
+import "/components/drop-zone.js";
 // Access jsPDF from the global window object
 // @ts-ignore
 const { jsPDF } = globalThis.jspdf;
