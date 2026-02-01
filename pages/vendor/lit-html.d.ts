@@ -3,8 +3,8 @@
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-import type { Directive } from './directive.js';
-import type { TrustedHTML } from 'trusted-types/lib/index.js';
+import type { Directive } from "./directive.js";
+import type { TrustedHTML } from "trusted-types/lib/index.js";
 /**
  * Contains types that are part of the unstable debug API.
  *
@@ -12,133 +12,149 @@ import type { TrustedHTML } from 'trusted-types/lib/index.js';
  * even on patch releases.
  */
 export declare namespace LitUnstable {
-    /**
-     * When Lit is running in dev mode and `window.emitLitDebugLogEvents` is true,
-     * we will emit 'lit-debug' events to window, with live details about the update and render
-     * lifecycle. These can be useful for writing debug tooling and visualizations.
-     *
-     * Please be aware that running with window.emitLitDebugLogEvents has performance overhead,
-     * making certain operations that are normally very cheap (like a no-op render) much slower,
-     * because we must copy data and dispatch events.
-     */
-    namespace DebugLog {
-        type Entry = TemplatePrep | TemplateInstantiated | TemplateInstantiatedAndUpdated | TemplateUpdating | BeginRender | EndRender | CommitPartEntry | SetPartValue;
-        interface TemplatePrep {
-            kind: 'template prep';
-            template: Template;
-            strings: TemplateStringsArray;
-            clonableTemplate: HTMLTemplateElement;
-            parts: TemplatePart[];
-        }
-        interface BeginRender {
-            kind: 'begin render';
-            id: number;
-            value: unknown;
-            container: RenderRootNode;
-            options: RenderOptions | undefined;
-            part: ChildPart | undefined;
-        }
-        interface EndRender {
-            kind: 'end render';
-            id: number;
-            value: unknown;
-            container: RenderRootNode;
-            options: RenderOptions | undefined;
-            part: ChildPart;
-        }
-        interface TemplateInstantiated {
-            kind: 'template instantiated';
-            template: Template | CompiledTemplate;
-            instance: TemplateInstance;
-            options: RenderOptions | undefined;
-            fragment: Node;
-            parts: Array<Part | undefined>;
-            values: unknown[];
-        }
-        interface TemplateInstantiatedAndUpdated {
-            kind: 'template instantiated and updated';
-            template: Template | CompiledTemplate;
-            instance: TemplateInstance;
-            options: RenderOptions | undefined;
-            fragment: Node;
-            parts: Array<Part | undefined>;
-            values: unknown[];
-        }
-        interface TemplateUpdating {
-            kind: 'template updating';
-            template: Template | CompiledTemplate;
-            instance: TemplateInstance;
-            options: RenderOptions | undefined;
-            parts: Array<Part | undefined>;
-            values: unknown[];
-        }
-        interface SetPartValue {
-            kind: 'set part';
-            part: Part;
-            value: unknown;
-            valueIndex: number;
-            values: unknown[];
-            templateInstance: TemplateInstance;
-        }
-        type CommitPartEntry = CommitNothingToChildEntry | CommitText | CommitNode | CommitAttribute | CommitProperty | CommitBooleanAttribute | CommitEventListener | CommitToElementBinding;
-        interface CommitNothingToChildEntry {
-            kind: 'commit nothing to child';
-            start: ChildNode;
-            end: ChildNode | null;
-            parent: Disconnectable | undefined;
-            options: RenderOptions | undefined;
-        }
-        interface CommitText {
-            kind: 'commit text';
-            node: Text;
-            value: unknown;
-            options: RenderOptions | undefined;
-        }
-        interface CommitNode {
-            kind: 'commit node';
-            start: Node;
-            parent: Disconnectable | undefined;
-            value: Node;
-            options: RenderOptions | undefined;
-        }
-        interface CommitAttribute {
-            kind: 'commit attribute';
-            element: Element;
-            name: string;
-            value: unknown;
-            options: RenderOptions | undefined;
-        }
-        interface CommitProperty {
-            kind: 'commit property';
-            element: Element;
-            name: string;
-            value: unknown;
-            options: RenderOptions | undefined;
-        }
-        interface CommitBooleanAttribute {
-            kind: 'commit boolean attribute';
-            element: Element;
-            name: string;
-            value: boolean;
-            options: RenderOptions | undefined;
-        }
-        interface CommitEventListener {
-            kind: 'commit event listener';
-            element: Element;
-            name: string;
-            value: unknown;
-            oldListener: unknown;
-            options: RenderOptions | undefined;
-            removeListener: boolean;
-            addListener: boolean;
-        }
-        interface CommitToElementBinding {
-            kind: 'commit to element binding';
-            element: Element;
-            value: unknown;
-            options: RenderOptions | undefined;
-        }
+  /**
+   * When Lit is running in dev mode and `window.emitLitDebugLogEvents` is true,
+   * we will emit 'lit-debug' events to window, with live details about the update and render
+   * lifecycle. These can be useful for writing debug tooling and visualizations.
+   *
+   * Please be aware that running with window.emitLitDebugLogEvents has performance overhead,
+   * making certain operations that are normally very cheap (like a no-op render) much slower,
+   * because we must copy data and dispatch events.
+   */
+  namespace DebugLog {
+    type Entry =
+      | TemplatePrep
+      | TemplateInstantiated
+      | TemplateInstantiatedAndUpdated
+      | TemplateUpdating
+      | BeginRender
+      | EndRender
+      | CommitPartEntry
+      | SetPartValue;
+    interface TemplatePrep {
+      kind: "template prep";
+      template: Template;
+      strings: TemplateStringsArray;
+      clonableTemplate: HTMLTemplateElement;
+      parts: TemplatePart[];
     }
+    interface BeginRender {
+      kind: "begin render";
+      id: number;
+      value: unknown;
+      container: RenderRootNode;
+      options: RenderOptions | undefined;
+      part: ChildPart | undefined;
+    }
+    interface EndRender {
+      kind: "end render";
+      id: number;
+      value: unknown;
+      container: RenderRootNode;
+      options: RenderOptions | undefined;
+      part: ChildPart;
+    }
+    interface TemplateInstantiated {
+      kind: "template instantiated";
+      template: Template | CompiledTemplate;
+      instance: TemplateInstance;
+      options: RenderOptions | undefined;
+      fragment: Node;
+      parts: Array<Part | undefined>;
+      values: unknown[];
+    }
+    interface TemplateInstantiatedAndUpdated {
+      kind: "template instantiated and updated";
+      template: Template | CompiledTemplate;
+      instance: TemplateInstance;
+      options: RenderOptions | undefined;
+      fragment: Node;
+      parts: Array<Part | undefined>;
+      values: unknown[];
+    }
+    interface TemplateUpdating {
+      kind: "template updating";
+      template: Template | CompiledTemplate;
+      instance: TemplateInstance;
+      options: RenderOptions | undefined;
+      parts: Array<Part | undefined>;
+      values: unknown[];
+    }
+    interface SetPartValue {
+      kind: "set part";
+      part: Part;
+      value: unknown;
+      valueIndex: number;
+      values: unknown[];
+      templateInstance: TemplateInstance;
+    }
+    type CommitPartEntry =
+      | CommitNothingToChildEntry
+      | CommitText
+      | CommitNode
+      | CommitAttribute
+      | CommitProperty
+      | CommitBooleanAttribute
+      | CommitEventListener
+      | CommitToElementBinding;
+    interface CommitNothingToChildEntry {
+      kind: "commit nothing to child";
+      start: ChildNode;
+      end: ChildNode | null;
+      parent: Disconnectable | undefined;
+      options: RenderOptions | undefined;
+    }
+    interface CommitText {
+      kind: "commit text";
+      node: Text;
+      value: unknown;
+      options: RenderOptions | undefined;
+    }
+    interface CommitNode {
+      kind: "commit node";
+      start: Node;
+      parent: Disconnectable | undefined;
+      value: Node;
+      options: RenderOptions | undefined;
+    }
+    interface CommitAttribute {
+      kind: "commit attribute";
+      element: Element;
+      name: string;
+      value: unknown;
+      options: RenderOptions | undefined;
+    }
+    interface CommitProperty {
+      kind: "commit property";
+      element: Element;
+      name: string;
+      value: unknown;
+      options: RenderOptions | undefined;
+    }
+    interface CommitBooleanAttribute {
+      kind: "commit boolean attribute";
+      element: Element;
+      name: string;
+      value: boolean;
+      options: RenderOptions | undefined;
+    }
+    interface CommitEventListener {
+      kind: "commit event listener";
+      element: Element;
+      name: string;
+      value: unknown;
+      oldListener: unknown;
+      options: RenderOptions | undefined;
+      removeListener: boolean;
+      addListener: boolean;
+    }
+    interface CommitToElementBinding {
+      kind: "commit to element binding";
+      element: Element;
+      value: unknown;
+      options: RenderOptions | undefined;
+    }
+  }
 }
 /**
  * Used to sanitize any value before it is written into the DOM. This can be
@@ -161,7 +177,11 @@ export declare namespace LitUnstable {
  *     be to a property or a node.
  * @return A function that will sanitize this class of writes.
  */
-export type SanitizerFactory = (node: Node, name: string, type: 'property' | 'attribute') => ValueSanitizer;
+export type SanitizerFactory = (
+  node: Node,
+  name: string,
+  type: "property" | "attribute",
+) => ValueSanitizer;
 /**
  * A function which can sanitize values that will be written to a specific kind
  * of DOM sink.
@@ -197,12 +217,11 @@ declare const COMMENT_PART = 7;
  * `TemplateResult` objects do not create any DOM on their own. To create or
  * update DOM you need to render the `TemplateResult`. See
  * [Rendering](https://lit.dev/docs/components/rendering) for more information.
- *
  */
 export type UncompiledTemplateResult<T extends ResultType = ResultType> = {
-    ['_$litType$']: T;
-    strings: TemplateStringsArray;
-    values: unknown[];
+  ["_$litType$"]: T;
+  strings: TemplateStringsArray;
+  values: unknown[];
 };
 /**
  * This is a template result that may be either uncompiled or compiled.
@@ -213,7 +232,9 @@ export type UncompiledTemplateResult<T extends ResultType = ResultType> = {
  * of Lit. This can be useful for code that wants to prepare for the next
  * major version of Lit.
  */
-export type MaybeCompiledTemplateResult<T extends ResultType = ResultType> = UncompiledTemplateResult<T> | CompiledTemplateResult;
+export type MaybeCompiledTemplateResult<T extends ResultType = ResultType> =
+  | UncompiledTemplateResult<T>
+  | CompiledTemplateResult;
 /**
  * The return type of the template tag functions, {@linkcode html} and
  * {@linkcode svg}.
@@ -232,7 +253,8 @@ export type MaybeCompiledTemplateResult<T extends ResultType = ResultType> = Unc
  * one, use either {@linkcode CompiledTemplateResult} or
  * {@linkcode UncompiledTemplateResult} explicitly.
  */
-export type TemplateResult<T extends ResultType = ResultType> = UncompiledTemplateResult<T>;
+export type TemplateResult<T extends ResultType = ResultType> =
+  UncompiledTemplateResult<T>;
 export type HTMLTemplateResult = TemplateResult<typeof HTML_RESULT>;
 export type SVGTemplateResult = TemplateResult<typeof SVG_RESULT>;
 export type MathMLTemplateResult = TemplateResult<typeof MATHML_RESULT>;
@@ -241,12 +263,12 @@ export type MathMLTemplateResult = TemplateResult<typeof MATHML_RESULT>;
  * prepare step.
  */
 export interface CompiledTemplateResult {
-    ['_$litType$']: CompiledTemplate;
-    values: unknown[];
+  ["_$litType$"]: CompiledTemplate;
+  values: unknown[];
 }
-export interface CompiledTemplate extends Omit<Template, 'el'> {
-    el?: HTMLTemplateElement;
-    h: TemplateStringsArray;
+export interface CompiledTemplate extends Omit<Template, "el"> {
+  el?: HTMLTemplateElement;
+  h: TemplateStringsArray;
 }
 /**
  * Interprets a template literal as an HTML template that can efficiently
@@ -261,7 +283,10 @@ export interface CompiledTemplate extends Omit<Template, 'el'> {
  * if a template comes from the same expression as a previously rendered result,
  * it's efficiently updated instead of replaced.
  */
-export declare const html: (strings: TemplateStringsArray, ...values: unknown[]) => TemplateResult<1>;
+export declare const html: (
+  strings: TemplateStringsArray,
+  ...values: unknown[]
+) => TemplateResult<1>;
 /**
  * Interprets a template literal as an SVG fragment that can efficiently render
  * to and update a container.
@@ -286,7 +311,10 @@ export declare const html: (strings: TemplateStringsArray, ...values: unknown[])
  * shadow root and thus not be properly contained within an `<svg>` HTML
  * element.
  */
-export declare const svg: (strings: TemplateStringsArray, ...values: unknown[]) => TemplateResult<2>;
+export declare const svg: (
+  strings: TemplateStringsArray,
+  ...values: unknown[]
+) => TemplateResult<2>;
 /**
  * Interprets a template literal as MathML fragment that can efficiently render
  * to and update a container.
@@ -311,7 +339,10 @@ export declare const svg: (strings: TemplateStringsArray, ...values: unknown[]) 
  * element's shadow root and thus not be properly contained within a `<math>`
  * HTML element.
  */
-export declare const mathml: (strings: TemplateStringsArray, ...values: unknown[]) => TemplateResult<3>;
+export declare const mathml: (
+  strings: TemplateStringsArray,
+  ...values: unknown[]
+) => TemplateResult<3>;
 /**
  * A sentinel value that signals that a value was handled by a directive and
  * should not be written to the DOM.
@@ -346,185 +377,221 @@ export declare const nothing: unique symbol;
  * combination.
  */
 export interface RenderOptions {
-    /**
-     * An object to use as the `this` value for event listeners. It's often
-     * useful to set this to the host component rendering a template.
-     */
-    host?: object;
-    /**
-     * A DOM node before which to render content in the container.
-     */
-    renderBefore?: ChildNode | null;
-    /**
-     * Node used for cloning the template (`importNode` will be called on this
-     * node). This controls the `ownerDocument` of the rendered DOM, along with
-     * any inherited context. Defaults to the global `document`.
-     */
-    creationScope?: {
-        importNode(node: Node, deep?: boolean): Node;
-    };
-    /**
-     * The initial connected state for the top-level part being rendered. If no
-     * `isConnected` option is set, `AsyncDirective`s will be connected by
-     * default. Set to `false` if the initial render occurs in a disconnected tree
-     * and `AsyncDirective`s should see `isConnected === false` for their initial
-     * render. The `part.setConnected()` method must be used subsequent to initial
-     * render to change the connected state of the part.
-     */
-    isConnected?: boolean;
+  /**
+   * An object to use as the `this` value for event listeners. It's often
+   * useful to set this to the host component rendering a template.
+   */
+  host?: object;
+  /**
+   * A DOM node before which to render content in the container.
+   */
+  renderBefore?: ChildNode | null;
+  /**
+   * Node used for cloning the template (`importNode` will be called on this
+   * node). This controls the `ownerDocument` of the rendered DOM, along with
+   * any inherited context. Defaults to the global `document`.
+   */
+  creationScope?: {
+    importNode(node: Node, deep?: boolean): Node;
+  };
+  /**
+   * The initial connected state for the top-level part being rendered. If no
+   * `isConnected` option is set, `AsyncDirective`s will be connected by
+   * default. Set to `false` if the initial render occurs in a disconnected tree
+   * and `AsyncDirective`s should see `isConnected === false` for their initial
+   * render. The `part.setConnected()` method must be used subsequent to initial
+   * render to change the connected state of the part.
+   */
+  isConnected?: boolean;
 }
 /**
  * The root DOM node for rendering.
  */
 export type RenderRootNode = HTMLElement | SVGElement | DocumentFragment;
 export interface DirectiveParent {
-    _$parent?: DirectiveParent;
-    _$isConnected: boolean;
-    __directive?: Directive;
-    __directives?: Array<Directive | undefined>;
+  _$parent?: DirectiveParent;
+  _$isConnected: boolean;
+  __directive?: Directive;
+  __directives?: Array<Directive | undefined>;
 }
 declare class Template {
-    parts: Array<TemplatePart>;
-    constructor({ strings, ['_$litType$']: type }: UncompiledTemplateResult, options?: RenderOptions);
-    /** @nocollapse */
-    static createElement(html: TrustedHTML, _options?: RenderOptions): HTMLTemplateElement;
+  parts: Array<TemplatePart>;
+  constructor(
+    { strings, ["_$litType$"]: type }: UncompiledTemplateResult,
+    options?: RenderOptions,
+  );
+  /** @nocollapse */
+  static createElement(
+    html: TrustedHTML,
+    _options?: RenderOptions,
+  ): HTMLTemplateElement;
 }
 export interface Disconnectable {
-    _$parent?: Disconnectable;
-    _$disconnectableChildren?: Set<Disconnectable>;
-    _$isConnected: boolean;
+  _$parent?: Disconnectable;
+  _$disconnectableChildren?: Set<Disconnectable>;
+  _$isConnected: boolean;
 }
-declare function resolveDirective(part: ChildPart | AttributePart | ElementPart, value: unknown, parent?: DirectiveParent, attributeIndex?: number): unknown;
+declare function resolveDirective(
+  part: ChildPart | AttributePart | ElementPart,
+  value: unknown,
+  parent?: DirectiveParent,
+  attributeIndex?: number,
+): unknown;
 export type { TemplateInstance };
 /**
  * An updateable instance of a Template. Holds references to the Parts used to
  * update the template instance.
  */
 declare class TemplateInstance implements Disconnectable {
-    _$template: Template;
-    _$parts: Array<Part | undefined>;
-    constructor(template: Template, parent: ChildPart);
-    get parentNode(): Node;
-    get _$isConnected(): boolean;
-    _clone(options: RenderOptions | undefined): Node;
-    _update(values: Array<unknown>): void;
+  _$template: Template;
+  _$parts: Array<Part | undefined>;
+  constructor(template: Template, parent: ChildPart);
+  get parentNode(): Node;
+  get _$isConnected(): boolean;
+  _clone(options: RenderOptions | undefined): Node;
+  _update(values: Array<unknown>): void;
 }
 type AttributeTemplatePart = {
-    readonly type: typeof ATTRIBUTE_PART;
-    readonly index: number;
-    readonly name: string;
-    readonly ctor: typeof AttributePart;
-    readonly strings: ReadonlyArray<string>;
+  readonly type: typeof ATTRIBUTE_PART;
+  readonly index: number;
+  readonly name: string;
+  readonly ctor: typeof AttributePart;
+  readonly strings: ReadonlyArray<string>;
 };
 type ChildTemplatePart = {
-    readonly type: typeof CHILD_PART;
-    readonly index: number;
+  readonly type: typeof CHILD_PART;
+  readonly index: number;
 };
 type ElementTemplatePart = {
-    readonly type: typeof ELEMENT_PART;
-    readonly index: number;
+  readonly type: typeof ELEMENT_PART;
+  readonly index: number;
 };
 type CommentTemplatePart = {
-    readonly type: typeof COMMENT_PART;
-    readonly index: number;
+  readonly type: typeof COMMENT_PART;
+  readonly index: number;
 };
 /**
  * A TemplatePart represents a dynamic part in a template, before the template
  * is instantiated. When a template is instantiated Parts are created from
  * TemplateParts.
  */
-type TemplatePart = ChildTemplatePart | AttributeTemplatePart | ElementTemplatePart | CommentTemplatePart;
-export type Part = ChildPart | AttributePart | PropertyPart | BooleanAttributePart | ElementPart | EventPart;
+type TemplatePart =
+  | ChildTemplatePart
+  | AttributeTemplatePart
+  | ElementTemplatePart
+  | CommentTemplatePart;
+export type Part =
+  | ChildPart
+  | AttributePart
+  | PropertyPart
+  | BooleanAttributePart
+  | ElementPart
+  | EventPart;
 export type { ChildPart };
 declare class ChildPart implements Disconnectable {
-    readonly type = 2;
-    readonly options: RenderOptions | undefined;
-    _$committedValue: unknown;
-    private _textSanitizer;
-    get _$isConnected(): boolean;
-    constructor(startNode: ChildNode, endNode: ChildNode | null, parent: TemplateInstance | ChildPart | undefined, options: RenderOptions | undefined);
-    /**
-     * The parent node into which the part renders its content.
-     *
-     * A ChildPart's content consists of a range of adjacent child nodes of
-     * `.parentNode`, possibly bordered by 'marker nodes' (`.startNode` and
-     * `.endNode`).
-     *
-     * - If both `.startNode` and `.endNode` are non-null, then the part's content
-     * consists of all siblings between `.startNode` and `.endNode`, exclusively.
-     *
-     * - If `.startNode` is non-null but `.endNode` is null, then the part's
-     * content consists of all siblings following `.startNode`, up to and
-     * including the last child of `.parentNode`. If `.endNode` is non-null, then
-     * `.startNode` will always be non-null.
-     *
-     * - If both `.endNode` and `.startNode` are null, then the part's content
-     * consists of all child nodes of `.parentNode`.
-     */
-    get parentNode(): Node;
-    /**
-     * The part's leading marker node, if any. See `.parentNode` for more
-     * information.
-     */
-    get startNode(): Node | null;
-    /**
-     * The part's trailing marker node, if any. See `.parentNode` for more
-     * information.
-     */
-    get endNode(): Node | null;
-    _$setValue(value: unknown, directiveParent?: DirectiveParent): void;
-    private _insert;
-    private _commitNode;
-    private _commitText;
-    private _commitTemplateResult;
-    private _commitIterable;
+  readonly type = 2;
+  readonly options: RenderOptions | undefined;
+  _$committedValue: unknown;
+  private _textSanitizer;
+  get _$isConnected(): boolean;
+  constructor(
+    startNode: ChildNode,
+    endNode: ChildNode | null,
+    parent: TemplateInstance | ChildPart | undefined,
+    options: RenderOptions | undefined,
+  );
+  /**
+   * The parent node into which the part renders its content.
+   *
+   * A ChildPart's content consists of a range of adjacent child nodes of
+   * `.parentNode`, possibly bordered by 'marker nodes' (`.startNode` and
+   * `.endNode`).
+   *
+   * - If both `.startNode` and `.endNode` are non-null, then the part's content
+   * consists of all siblings between `.startNode` and `.endNode`, exclusively.
+   *
+   * - If `.startNode` is non-null but `.endNode` is null, then the part's
+   * content consists of all siblings following `.startNode`, up to and
+   * including the last child of `.parentNode`. If `.endNode` is non-null, then
+   * `.startNode` will always be non-null.
+   *
+   * - If both `.endNode` and `.startNode` are null, then the part's content
+   * consists of all child nodes of `.parentNode`.
+   */
+  get parentNode(): Node;
+  /**
+   * The part's leading marker node, if any. See `.parentNode` for more
+   * information.
+   */
+  get startNode(): Node | null;
+  /**
+   * The part's trailing marker node, if any. See `.parentNode` for more
+   * information.
+   */
+  get endNode(): Node | null;
+  _$setValue(value: unknown, directiveParent?: DirectiveParent): void;
+  private _insert;
+  private _commitNode;
+  private _commitText;
+  private _commitTemplateResult;
+  private _commitIterable;
 }
 /**
  * A top-level `ChildPart` returned from `render` that manages the connected
  * state of `AsyncDirective`s created throughout the tree below it.
  */
 export interface RootPart extends ChildPart {
-    /**
-     * Sets the connection state for `AsyncDirective`s contained within this root
-     * ChildPart.
-     *
-     * lit-html does not automatically monitor the connectedness of DOM rendered;
-     * as such, it is the responsibility of the caller to `render` to ensure that
-     * `part.setConnected(false)` is called before the part object is potentially
-     * discarded, to ensure that `AsyncDirective`s have a chance to dispose of
-     * any resources being held. If a `RootPart` that was previously
-     * disconnected is subsequently re-connected (and its `AsyncDirective`s should
-     * re-connect), `setConnected(true)` should be called.
-     *
-     * @param isConnected Whether directives within this tree should be connected
-     * or not
-     */
-    setConnected(isConnected: boolean): void;
+  /**
+   * Sets the connection state for `AsyncDirective`s contained within this root
+   * ChildPart.
+   *
+   * lit-html does not automatically monitor the connectedness of DOM rendered;
+   * as such, it is the responsibility of the caller to `render` to ensure that
+   * `part.setConnected(false)` is called before the part object is potentially
+   * discarded, to ensure that `AsyncDirective`s have a chance to dispose of
+   * any resources being held. If a `RootPart` that was previously
+   * disconnected is subsequently re-connected (and its `AsyncDirective`s should
+   * re-connect), `setConnected(true)` should be called.
+   *
+   * @param isConnected Whether directives within this tree should be connected
+   * or not
+   */
+  setConnected(isConnected: boolean): void;
 }
 export type { AttributePart };
 declare class AttributePart implements Disconnectable {
-    readonly type: typeof ATTRIBUTE_PART | typeof PROPERTY_PART | typeof BOOLEAN_ATTRIBUTE_PART | typeof EVENT_PART;
-    readonly element: HTMLElement;
-    readonly name: string;
-    readonly options: RenderOptions | undefined;
-    /**
-     * If this attribute part represents an interpolation, this contains the
-     * static strings of the interpolation. For single-value, complete bindings,
-     * this is undefined.
-     */
-    readonly strings?: ReadonlyArray<string>;
-    protected _sanitizer: ValueSanitizer | undefined;
-    get tagName(): string;
-    get _$isConnected(): boolean;
-    constructor(element: HTMLElement, name: string, strings: ReadonlyArray<string>, parent: Disconnectable, options: RenderOptions | undefined);
+  readonly type:
+    | typeof ATTRIBUTE_PART
+    | typeof PROPERTY_PART
+    | typeof BOOLEAN_ATTRIBUTE_PART
+    | typeof EVENT_PART;
+  readonly element: HTMLElement;
+  readonly name: string;
+  readonly options: RenderOptions | undefined;
+  /**
+   * If this attribute part represents an interpolation, this contains the
+   * static strings of the interpolation. For single-value, complete bindings,
+   * this is undefined.
+   */
+  readonly strings?: ReadonlyArray<string>;
+  protected _sanitizer: ValueSanitizer | undefined;
+  get tagName(): string;
+  get _$isConnected(): boolean;
+  constructor(
+    element: HTMLElement,
+    name: string,
+    strings: ReadonlyArray<string>,
+    parent: Disconnectable,
+    options: RenderOptions | undefined,
+  );
 }
 export type { PropertyPart };
 declare class PropertyPart extends AttributePart {
-    readonly type = 3;
+  readonly type = 3;
 }
 export type { BooleanAttributePart };
 declare class BooleanAttributePart extends AttributePart {
-    readonly type = 4;
+  readonly type = 4;
 }
 /**
  * An AttributePart that manages an event listener via add/removeEventListener.
@@ -539,19 +606,29 @@ declare class BooleanAttributePart extends AttributePart {
  */
 export type { EventPart };
 declare class EventPart extends AttributePart {
-    readonly type = 5;
-    constructor(element: HTMLElement, name: string, strings: ReadonlyArray<string>, parent: Disconnectable, options: RenderOptions | undefined);
-    handleEvent(event: Event): void;
+  readonly type = 5;
+  constructor(
+    element: HTMLElement,
+    name: string,
+    strings: ReadonlyArray<string>,
+    parent: Disconnectable,
+    options: RenderOptions | undefined,
+  );
+  handleEvent(event: Event): void;
 }
 export type { ElementPart };
 declare class ElementPart implements Disconnectable {
-    element: Element;
-    readonly type = 6;
-    _$committedValue: undefined;
-    options: RenderOptions | undefined;
-    constructor(element: Element, parent: Disconnectable, options: RenderOptions | undefined);
-    get _$isConnected(): boolean;
-    _$setValue(value: unknown): void;
+  element: Element;
+  readonly type = 6;
+  _$committedValue: undefined;
+  options: RenderOptions | undefined;
+  constructor(
+    element: Element,
+    parent: Disconnectable,
+    options: RenderOptions | undefined,
+  );
+  get _$isConnected(): boolean;
+  _$setValue(value: unknown): void;
 }
 /**
  * END USERS SHOULD NOT RELY ON THIS OBJECT.
@@ -572,20 +649,23 @@ declare class ElementPart implements Disconnectable {
  * @private
  */
 export declare const _$LH: {
-    _boundAttributeSuffix: string;
-    _marker: string;
-    _markerMatch: string;
-    _HTML_RESULT: number;
-    _getTemplateHtml: (strings: TemplateStringsArray, type: ResultType) => [TrustedHTML, Array<string>];
-    _TemplateInstance: typeof TemplateInstance;
-    _isIterable: (value: unknown) => value is Iterable<unknown>;
-    _resolveDirective: typeof resolveDirective;
-    _ChildPart: typeof ChildPart;
-    _AttributePart: typeof AttributePart;
-    _BooleanAttributePart: typeof BooleanAttributePart;
-    _EventPart: typeof EventPart;
-    _PropertyPart: typeof PropertyPart;
-    _ElementPart: typeof ElementPart;
+  _boundAttributeSuffix: string;
+  _marker: string;
+  _markerMatch: string;
+  _HTML_RESULT: number;
+  _getTemplateHtml: (
+    strings: TemplateStringsArray,
+    type: ResultType,
+  ) => [TrustedHTML, Array<string>];
+  _TemplateInstance: typeof TemplateInstance;
+  _isIterable: (value: unknown) => value is Iterable<unknown>;
+  _resolveDirective: typeof resolveDirective;
+  _ChildPart: typeof ChildPart;
+  _AttributePart: typeof AttributePart;
+  _BooleanAttributePart: typeof BooleanAttributePart;
+  _EventPart: typeof EventPart;
+  _PropertyPart: typeof PropertyPart;
+  _ElementPart: typeof ElementPart;
 };
 /**
  * Renders a value, usually a lit-html TemplateResult, to the container.
@@ -613,9 +693,97 @@ export declare const _$LH: {
  * {@link https://lit.dev/docs/libraries/standalone-templates/#rendering-lit-html-templates| Rendering Lit HTML Templates}
  */
 export declare const render: {
-    (value: unknown, container: RenderRootNode, options?: RenderOptions): RootPart;
-    setSanitizer: (newSanitizer: SanitizerFactory) => void;
-    createSanitizer: SanitizerFactory;
-    _testOnlyClearSanitizerFactoryDoNotCallOrElse: () => void;
+  (
+    value: unknown,
+    container: RenderRootNode,
+    options?: RenderOptions,
+  ): RootPart;
+  setSanitizer: (newSanitizer: SanitizerFactory) => void;
+  createSanitizer: SanitizerFactory;
+  _testOnlyClearSanitizerFactoryDoNotCallOrElse: () => void;
 };
 //# sourceMappingURL=lit-html.d.ts.map
+
+/**
+ * @license
+ * Copyright 2021 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+type Falsy = null | undefined | false | 0 | -0 | 0n | "";
+/**
+ * When `condition` is true, returns the result of calling `trueCase()`, else
+ * returns the result of calling `falseCase()` if `falseCase` is defined.
+ *
+ * This is a convenience wrapper around a ternary expression that makes it a
+ * little nicer to write an inline conditional without an else.
+ *
+ * @example
+ *
+ * ```ts
+ * render() {
+ *   return html`
+ *     ${when(this.user, () => html`User: ${this.user.username}`, () => html`Sign In...`)}
+ *   `;
+ * }
+ * ```
+ */
+export declare function when<C extends Falsy, T, F = undefined>(
+  condition: C,
+  trueCase: (c: C) => T,
+  falseCase?: (c: C) => F,
+): F;
+export declare function when<C, T, F>(
+  condition: C extends Falsy ? never : C,
+  trueCase: (c: C) => T,
+  falseCase?: (c: C) => F,
+): T;
+export declare function when<C, T, F = undefined>(
+  condition: C,
+  trueCase: (c: Exclude<C, Falsy>) => T,
+  falseCase?: (c: Extract<C, Falsy>) => F,
+): C extends Falsy ? F : T;
+//# sourceMappingURL=when.d.ts.map
+
+/**
+ * A key-value set of class names to truthy values.
+ */
+export interface ClassInfo {
+  [name: string]: string | boolean | number;
+}
+declare class ClassMapDirective extends Directive {
+  /**
+   * Stores the ClassInfo object applied to a given AttributePart.
+   * Used to unset existing values when a new ClassInfo object is applied.
+   */
+  private _previousClasses?;
+  private _staticClasses?;
+  constructor(partInfo: PartInfo);
+  render(classInfo: ClassInfo): string;
+  update(
+    part: AttributePart,
+    [classInfo]: DirectiveParameters<this>,
+  ): string | typeof noChange;
+}
+/**
+ * A directive that applies dynamic CSS classes.
+ *
+ * This must be used in the `class` attribute and must be the only part used in
+ * the attribute. It takes each property in the `classInfo` argument and adds
+ * the property name to the element's `classList` if the property value is
+ * truthy; if the property value is falsy, the property name is removed from
+ * the element's `class`.
+ *
+ * For example `{foo: bar}` applies the class `foo` if the value of `bar` is
+ * truthy.
+ *
+ * @param classInfo
+ */
+export declare const classMap: (
+  classInfo: ClassInfo,
+) => import("../directive.js").DirectiveResult<typeof ClassMapDirective>;
+/**
+ * The type of the class that powers this directive. Necessary for naming the
+ * directive's return type.
+ */
+export type { ClassMapDirective };
+//# sourceMappingURL=class-map.d.ts.map
