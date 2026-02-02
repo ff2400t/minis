@@ -1,4 +1,4 @@
-import { html, render } from "/vendor/lit-html@3.3.2.js";
+import { html, render } from "/vendor/lit-html.js";
 
 export class DropZone extends HTMLElement {
   static get observedAttributes() {

@@ -1,12 +1,12 @@
 // Load haunted and its dependencies from CDN
-import { classMap, html, styleMap, when } from "/vendor/lit-html@3.3.2.js";
+import { classMap, html, styleMap, when } from "/vendor/lit-html.js";
 import {
   component,
   useCallback,
   useReducer,
   useRef,
   useState,
-} from "/vendor/haunted@6.1.0.js";
+} from "/vendor/haunted.js";
 import "/components/drop-zone.js";
 // Access jsPDF from the global window object
 // @ts-ignore
@@ -200,7 +200,6 @@ function appReducer(state, action) {
  */
 function useAppState() {
   // 1. Complex State (Reducer)
-  /** @type {[AppState, Function]} */
   const [state, dispatch] = useReducer(appReducer, initialState);
 
   // 2. Mutable Context (Ref) - Things that don't need to trigger re-renders directly

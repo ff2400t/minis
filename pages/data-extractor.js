@@ -2,9 +2,9 @@
  * @typedef {Object} Parser
  * @property {string} name
  * @property {string[]} matches - Array of keywords to match
- * @property {RegExp} metadata - The regular expression used to extract metadata from the text.
- * @property {RegExp} [table] - The regular expression used to match table data from the text.
- * @property {ParseFunc} [func] - A function that processes the text and applies regex patterns to extract metadata and table data.
+ * @property {RegExp | undefined} metadata - The regular expression used to extract metadata from the text.
+ * @property {RegExp | undefined} table - The regular expression used to match table data from the text.
+ * @property {ParseFunc | undefined} func - A function that processes the text and applies regex patterns to extract metadata and table data.
  */
 
 /**
@@ -18,10 +18,10 @@
  * @param {RegExp | undefined} metadata
  * @param {RegExp | undefined} table
  * @param {string | undefined} name
- * @returns {ParserResult}
+ * @returns {ParserResult | undefined}
  */
 
-/*
+/**
  * @type {Parser[]}
  */
 export const BUILT_IN_PARSERS = [
@@ -33,7 +33,7 @@ export const BUILT_IN_PARSERS = [
       /Date : (?<DepositDate>\d\d[\/-]\d\d[\/-]\d{4}) .* GSTIN: (?<GSTIN>.*?) .* Name:\s+(?<Name>.*?) Address.* \s+(?<StateName>[^\d]+?)\s+SGST/s,
     table:
       /(?<name>\w+)\(.*?\)\s+(?<tax>-|\d+)\s+(?<interest>-|\d+)\s+(?<penalty>-|\d+)\s+(?<fees>-|\d+)\s+(?<others>-|\d+)\s+(?<total>-|\d+)\s+/g,
-    /** @type ParseFunc **/
+    /** @type {ParseFunc} **/
     func: (text, metaRx, tableRx) => {
       /** @type {StringMap} */
       const metadataFields = {};
@@ -99,11 +99,11 @@ export const BUILT_IN_PARSERS = [
     // another attempt to fix the above
     table:
       /\([a-e]\s?\) (?<Particular>[A-Z].*?) (?<TaxableValue>\d+\.\d\d|-)\s+(?<IGST>\d+\.\d\d|-)\s+(?<CGST>\d+\.\d\d|-)\s+(?<SGST>\d+\.\d\d|-)\s+(?<Cess>\d+\.\d\d|-)\s+/g,
-    func: (
-      /** @type {string} */ text,
-      /** @type {RegExp} */ metadataRegex,
-      /** @type {RegExp} */ tableRegex,
-    ) => {
+    /** @type {ParseFunc}*/
+    func: (text, metadataRegex, tableRegex) => {
+      if (metadataRegex === undefined || tableRegex === undefined) {
+        return;
+      }
       try {
         const metaMatch = text.match(metadataRegex);
         let metadataFields = metaMatch && metaMatch.groups
@@ -144,6 +144,7 @@ export const BUILT_IN_PARSERS = [
     matches: ["INCOME TAX DEPARTMENT", "Challan Receipt"],
     metadata:
       /Name : (?<Name>.*?)\s+Ass.* Nature of Payment : (?<SectionNo>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<Amount>\d[\d,.]*).*(?<DepositDate>\d\d\-\s?\w{3}-\d{4})/,
+    table: undefined,
   },
   {
     name: "Union Bank Statement",
@@ -168,7 +169,6 @@ export const BUILT_IN_PARSERS = [
       /Account Name: (?<Account_Name>.*?) Home Branch: .* in Account Number:\s+(?<Account_Number>\d+)\s+.* Opening Balance: ₹ (?<Opening_Balance>[\d,]+\.\d{2})\s+Count Of Debit: \d+\s+Closing Balance: ₹ (?<Closing_Balance>[\d,]+\.\d{2})/s,
     table:
       /(?<date>\d\d\/\d\d\/\d{4})\s+\d\d\/\d\d\/\d{4}\s+(?<particular>.*?)\s+(?<amt>[\d,]+\.\s?\d\s?\d)\s+(?<bal>[\d,]+\s?\.\s?\d\s?\d)/g,
-    func: generalDocumentParser,
   },
   {
     name: "IDBI Bank Statement",

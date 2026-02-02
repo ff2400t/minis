@@ -1,14 +1,15 @@
 // Load haunted and its dependencies from CDN
-import { classMap, html, nothing, when } from "/vendor/lit-html@3.3.2.js";
+import { classMap, html, nothing, when } from "/vendor/lit-html.js";
 import {
+  // @ts-ignore
   component,
   useCallback,
   useMemo,
-  useReducer as u2,
+  useReducer,
   useRef,
-  useState as u1,
-} from "/vendor/haunted@6.1.0.js";
+} from "/vendor/haunted.js";
 import "/components/drop-zone.js";
+import "/components/simple-table.js";
 import { BUILT_IN_PARSERS, generalDocumentParser } from "/data-extractor.js";
 // --- CONSTANTS & GLOBALS ---
 const LOCAL_STORAGE_KEY = "dataExtractorCustomParsers";
@@ -24,46 +25,6 @@ const initialParserState = {
   parsers: [],
   selectedParser: "auto",
 };
-
-/**
- * @template T
- * @typedef {(value: T | ((prev: T) => T)) => void} SetState
- */
-
-/**
- * @template T
- * A simplified type alias for `useState`.
- *
- * @type {<T>(initialState: T) => [T, SetState<T>]}
- */
-let useState = u1;
-
-/**
- * A reducer function
- * @template S, A
- * @typedef {(state: S, action: A) => S} Reducer
- */
-
-/**
- * Dispatch function
- * @template A
- * @typedef {(action: A) => void} Dispatch
- */
-
-/**
- * Tuple returned by useReducer
- * @template S, A
- * @typedef {readonly [S, Dispatch<A>]} UseReducerTuple
- */
-
-/**
- * @template S, A, I
- * @param {Reducer<S, A>} reducer
- * @param {S | I} initialArg
- * @param {(arg: I) => S} [init]
- * @returns {UseReducerTuple<S, A>}
- */
-const useReducer = u2;
 
 /**
  * @typedef {import("./data-extractor.js").StringMap} StringMap
@@ -92,18 +53,12 @@ const useReducer = u2;
 }} ParserState
  */
 
-/** @typedef {object} FileProcessingContext
- * @property {File[]} fileList
- * @property {number} currentIndex
- * @property {Docs[]} tempDocuments
- * @property {DocMetadata[]} tempMetadata
- * @property {number} successCount
- */
-
-const parserInit = (/** @type {object} */ state) => {
+/* @returns {ParserState} */
+const parserInit = (/** @type {ParserState} */ state) => {
   try {
     const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (stored) {
+      /** @type {Parser[]} */
       const parsers = JSON.parse(stored);
       if (Array.isArray(parsers)) {
         return { ...state, customParsers: parsers };
@@ -116,7 +71,7 @@ const parserInit = (/** @type {object} */ state) => {
 };
 
 /**
- * @type {Reducer<ParserState, {type: string, payload: any}>}
+ * @type {import("vendor/haunted.d.ts").Reducer<ParserState, {type: string, payload: any}>}
  */
 function parserReducer(state, action) {
   switch (action.type) {
@@ -482,7 +437,7 @@ const initialAppState = {
 };
 
 /**
- * @type {Reducer<AppState, {type: string, payload: any}>}
+ * @type {import("vendor/haunted.d.ts").Reducer<AppState, {type: string, payload: any}>}
  */
 function appReducer(state, action) {
   switch (action.type) {
@@ -546,9 +501,347 @@ function appReducer(state, action) {
   }
 }
 
+class FileProcessor {
+  /**
+   * @type {File[]}
+   */
+  fileList = [];
+  currentIndex = 0;
+  /** @type {Docs[]} */
+  tempDocuments = [];
+  /** @type {DocMetadata[]} */
+  tempMetadata = [];
+  successCount = 0;
+  /** @type {Parser[]} */
+  allParsers = [];
+  selectedParser = "auto";
+  savedPassword = "";
+  /**
+   * @param {any} dispatchApp
+   * @param {any} dispatchParser
+   */
+  constructor(dispatchApp, dispatchParser) {
+    this.dispatchApp = dispatchApp;
+    this.dispatchParser = dispatchParser;
+    this.reset();
+  }
+
+  reset() {
+    this.fileList = [];
+    this.currentIndex = 0;
+    this.tempDocuments = [];
+    this.tempMetadata = [];
+    this.successCount = 0;
+    this.allParsers = [];
+    this.selectedParser = "auto";
+    this.savedPassword = "";
+  }
+
+  /**
+   * @param {FileList} fileList
+   * @param {any[]} allParsers
+   * @param {string} selectedParser
+   * @param {string} savedPassword
+   */
+  async start(fileList, allParsers, selectedParser, savedPassword) {
+    if (!fileList || fileList.length === 0) {
+      this.dispatchApp({ type: "SET_IS_RESULT_VISIBLE", payload: false });
+      this.dispatchApp({
+        type: "SET_STATUS",
+        payload: { message: "", type: "" },
+      });
+      return;
+    }
+
+    const files = Array.from(fileList).filter((f) =>
+      f.type === "application/pdf"
+    );
+
+    if (files.length === 0) {
+      this.dispatchApp({ type: "SET_IS_RESULT_VISIBLE", payload: false });
+      this.dispatchApp({
+        type: "SET_STATUS",
+        payload: { message: "", type: "" },
+      });
+      return;
+    }
+
+    this.reset();
+    this.fileList = files;
+    this.allParsers = allParsers;
+    this.selectedParser = selectedParser;
+    this.savedPassword = savedPassword;
+
+    // Reset UI state
+    this.dispatchApp({ type: "START_FILE_PROCESSING", payload: undefined });
+
+    await this.processNextFile();
+  }
+
+  async processNextFile() {
+    if (this.currentIndex >= this.fileList.length) {
+      this.finalize();
+      return;
+    }
+
+    const file = this.fileList[this.currentIndex];
+    this.dispatchApp({
+      type: "SET_STATUS",
+      payload: {
+        message: `Processing ${
+          this.currentIndex + 1
+        } of ${this.fileList.length}: ${file.name}...`,
+        type: "info",
+      },
+    });
+
+    try {
+      await this.processFileContent(file, this.savedPassword);
+
+      this.successCount++;
+      this.currentIndex++;
+      await this.processNextFile();
+    } catch (e) {
+      if (
+        e instanceof PasswordRequiredError ||
+        (e instanceof Error && e.name === "PasswordException")
+      ) {
+        // PAUSE: Open modal
+        this.dispatchApp({
+          type: "UPDATE_PASSWORD_MODAL",
+          payload: {
+            isOpen: true,
+            fileName: file.name,
+            fileToProcess: file,
+            passwordInput: "",
+          },
+        });
+        return;
+      }
+
+      // Other Error
+      console.error(`Error processing ${file.name}:`, e);
+
+      this.currentIndex++;
+      await this.processNextFile();
+    }
+  }
+
+  /**
+   * @param {File} file
+   * @param {string} password
+   */
+  async processFileContent(file, password) {
+    /** @type {string} */
+    let rawText = await extractAllPdfText(file, password);
+    rawText = rawText.replace(/   /g, " ");
+
+    /** @type {import("./data-extractor.js").ParserResult} */
+    let parsedData = { allRows: [], metadataFields: {} };
+    let docType = "Unknown";
+    const cleanCheckText = rawText.replace(/\s+/g, " ");
+
+    let parserFound = false;
+
+    for (
+      const { name, matches, metadata, table, func = generalDocumentParser }
+        of this.allParsers
+    ) {
+      let isMatch = false;
+      if (this.selectedParser === "auto") {
+        isMatch = matches.every((s) =>
+          cleanCheckText.toLowerCase().includes(s.toLowerCase())
+        );
+      } else {
+        isMatch = name === this.selectedParser;
+      }
+
+      if (isMatch) {
+        docType = name;
+        let effectiveMetaRx = typeof metadata === "string"
+          ? new RegExp(metadata, "s")
+          : metadata;
+        let effectiveTableRx = typeof table === "string"
+          ? new RegExp(table, "g")
+          : table;
+
+        let temp = func(rawText, effectiveMetaRx, effectiveTableRx, name);
+        if (temp === undefined) break;
+        parsedData = temp;
+        console.debug(JSON.stringify(parsedData));
+        parserFound = true;
+        break;
+      }
+    }
+
+    if (parserFound) {
+      if (
+        parsedData.metadataFields &&
+        Object.keys(parsedData.metadataFields).length > 0
+      ) {
+        this.tempMetadata.push({
+          fileName: file.name,
+          docType: docType,
+          fields: parsedData.metadataFields,
+        });
+      }
+
+      const metaKeys = Object.keys(parsedData.metadataFields);
+      const metaCount = metaKeys.length;
+
+      const headerRow = parsedData.allRows.length > metaCount
+        ? parsedData.allRows[metaCount]
+        : [];
+      const dataRows = parsedData.allRows.length > metaCount + 1
+        ? parsedData.allRows.slice(metaCount + 1)
+        : [];
+
+      this.tempDocuments.push({
+        fileName: file.name,
+        docType: docType,
+        metadata: parsedData.metadataFields,
+        headers: headerRow,
+        rows: dataRows,
+        text: "",
+        rawText,
+        status: "success",
+      });
+    } else {
+      this.tempDocuments.push({
+        fileName: file.name,
+        docType: "FAILED",
+        metadata: parsedData.metadataFields,
+        headers: [],
+        rows: [],
+        text: `Error: Document type unknown. Data not extracted.`,
+        rawText,
+        status: "error",
+      });
+      throw new Error("Document type unknown. Data not extracted.");
+    }
+  }
+
+  finalize() {
+    let statusMsg = { message: "", type: "" };
+    if (this.tempDocuments.length === 0 && this.tempMetadata.length === 0) {
+      statusMsg = {
+        message: "Processed files but found no recognized data.",
+        type: "info",
+      };
+    } else {
+      statusMsg = {
+        message:
+          `Successfully processed ${this.successCount} of ${this.fileList.length} files!`,
+        type: "success",
+      };
+    }
+
+    this.dispatchApp({
+      type: "FINALIZE_PROCESSING",
+      payload: {
+        documents: this.tempDocuments,
+        consolidatedMetadata: this.tempMetadata,
+        status: statusMsg,
+      },
+    });
+  }
+
+  /**
+   * @param {File} fileToProcess
+   * @param {string} password
+   * @param {boolean} useSubsequent
+   */
+  async handlePasswordSubmit(fileToProcess, password, useSubsequent) {
+    if (password.length === 0) {
+      this.dispatchApp({
+        type: "SET_STATUS",
+        payload: { message: "Please enter a password.", type: "error" },
+      });
+      return;
+    }
+
+    // 1. Close modal and set saved password
+    this.dispatchApp({
+      type: "SET_PASSWORD_MODAL",
+      payload: INITIAL_MODAL_STATE,
+    });
+    this.savedPassword = useSubsequent ? password : "";
+    this.dispatchApp({
+      type: "SET_SAVED_PASSWORD",
+      payload: this.savedPassword,
+    });
+    this.dispatchApp({
+      type: "SET_STATUS",
+      payload: { message: "", type: "" },
+    });
+
+    // 2. Attempt to re-process the file with the new password
+    try {
+      await this.processFileContent(fileToProcess, password);
+
+      this.successCount++;
+      this.currentIndex++;
+      await this.processNextFile();
+    } catch (e) {
+      if (
+        e instanceof PasswordRequiredError ||
+        (e instanceof Error && e.name === "PasswordException")
+      ) {
+        this.dispatchApp({
+          type: "SET_STATUS",
+          payload: {
+            message: "Incorrect password. Please try again.",
+            type: "error",
+          },
+        });
+        this.dispatchApp({
+          type: "UPDATE_PASSWORD_MODAL",
+          payload: {
+            isOpen: true,
+            fileName: fileToProcess.name,
+            fileToProcess: fileToProcess,
+            passwordInput: password,
+          },
+        });
+        return;
+      }
+
+      // Other error: log and skip this file, continue the main loop
+      console.error("Error after password retry:", e);
+      this.currentIndex++;
+      await this.processNextFile();
+    }
+  }
+
+  async handlePasswordSkip() {
+    this.dispatchApp({
+      type: "SET_PASSWORD_MODAL",
+      payload: INITIAL_MODAL_STATE,
+    });
+    this.dispatchApp({
+      type: "SET_STATUS",
+      payload: { message: "", type: "" },
+    });
+
+    if (this.currentIndex < this.fileList.length) {
+      this.tempDocuments.push({
+        fileName: this.fileList[this.currentIndex].name,
+        docType: "SKIPPED",
+        metadata: {},
+        headers: [],
+        rows: [],
+        text: "Skipped by user.",
+        rawText: "",
+        status: "skipped",
+      });
+    }
+    this.currentIndex++;
+    await this.processNextFile();
+  }
+}
+
 function App() {
   // --- State Declarations ---
-  /** @type {[ParserState, (e: {type: string, payload: any| undefined}) => ParserState ]} */
   const [parserState, dispatchParser] = useReducer(
     parserReducer,
     initialParserState,
@@ -565,7 +858,6 @@ function App() {
   } = parserState;
 
   // --- App State (Replaces multiple useState calls) ---
-  /** @type {[AppState, (action: {type: string, payload: any}) => void]} */
   const [appState, dispatchApp] = useReducer(appReducer, initialAppState);
 
   const {
@@ -581,15 +873,13 @@ function App() {
     savedPassword,
   } = appState;
 
-  // File Processing Context (Mutable, non-reactive state managed internally)
-  /** @type {{current: FileProcessingContext}}*/
-  const fileProcessingContext = useRef({
-    fileList: [],
-    currentIndex: 0,
-    tempDocuments: [], // New structured temp storage
-    tempMetadata: [],
-    successCount: 0,
-  });
+  // File Processor Instance
+  /** @type {{current: FileProcessor}}*/
+  // @ts-ignore this will be define dsoon
+  const fileProcessor = useRef(null);
+  if (!fileProcessor.current) {
+    fileProcessor.current = new FileProcessor(dispatchApp, dispatchParser);
+  }
 
   /** @type {ConsolidatedTable[]} */
   const consolidatedTables = useMemo(
@@ -597,7 +887,6 @@ function App() {
     [consolidatedMetadata],
   );
 
-  /** @type {Parser[]} */
   const allParsers = useMemo(() => [
     ...customParsers.map((/** @type {Parser} */ p) => ({
       ...p,
@@ -668,6 +957,7 @@ function App() {
     let action;
 
     if (existingIndex !== -1) {
+      // @ts-ignore
       currentParsers[existingIndex] = newParser;
       newParserList = currentParsers;
       action = "updated";
@@ -776,295 +1066,28 @@ function App() {
 
   // --- File Processing Logic ---
 
-  const finalizeProcessing = () => {
-    const { tempDocuments, tempMetadata, successCount, fileList } =
-      fileProcessingContext.current;
-
-    let statusMsg = { message: "", type: "" };
-    if (tempDocuments.length === 0 && tempMetadata.length === 0) {
-      statusMsg = {
-        message: "Processed files but found no recognized data.",
-        type: "info",
-      };
-    } else {
-      statusMsg = {
-        message:
-          `Successfully processed ${successCount} of ${fileList.length} files!`,
-        type: "success",
-      };
-    }
-
-    dispatchApp({
-      type: "FINALIZE_PROCESSING",
-      payload: {
-        documents: tempDocuments,
-        consolidatedMetadata: tempMetadata,
-        status: statusMsg,
-      },
-    });
-  };
-
-  const processFileContent = async (
-    /** @type {File} */ file,
-    /** @type {string} */ password,
-  ) => {
-    /** @type {string} */
-    let rawText = await extractAllPdfText(file, password);
-    rawText = rawText.replace(/   /g, " ");
-
-    /** @type {import("./data-extractor.js").ParserResult} */
-    let parsedData = { allRows: [], metadataFields: {} };
-    let docType = "Unknown";
-    const cleanCheckText = rawText.replace(/\s+/g, " ");
-
-    let parserFound = false;
-
-    for (
-      const { name, matches, metadata, table, func = generalDocumentParser }
-        of allParsers
-    ) {
-      let isMatch = false;
-      if (selectedParser === "auto") {
-        isMatch = matches.every((s) =>
-          cleanCheckText.toLowerCase().includes(s.toLowerCase())
-        );
-      } else {
-        isMatch = name === selectedParser;
-      }
-
-      if (isMatch) {
-        docType = name;
-        let effectiveMetaRx = typeof metadata === "string"
-          ? new RegExp(metadata, "s")
-          : metadata;
-        let effectiveTableRx = typeof table === "string"
-          ? new RegExp(table, "g")
-          : table;
-
-        parsedData = func(rawText, effectiveMetaRx, effectiveTableRx, name);
-        console.debug(JSON.stringify(parsedData));
-        parserFound = true;
-        break;
-      }
-    }
-
-    if (parserFound) {
-      if (
-        parsedData.metadataFields &&
-        Object.keys(parsedData.metadataFields).length > 0
-      ) {
-        fileProcessingContext.current.tempMetadata.push({
-          fileName: file.name,
-          docType: docType,
-          fields: parsedData.metadataFields,
-        });
-      }
-
-      // Separation of concerns: We now split the "allRows" into metadata section, header, and data
-      const metaKeys = Object.keys(parsedData.metadataFields);
-      const metaCount = metaKeys.length;
-
-      // The standard parser output is: Metadata Rows -> Header -> Data Rows
-      // We assume parsedData.allRows[metaCount] is the header based on generalDocumentParser logic
-      const headerRow = parsedData.allRows.length > metaCount
-        ? parsedData.allRows[metaCount]
-        : [];
-      const dataRows = parsedData.allRows.length > metaCount + 1
-        ? parsedData.allRows.slice(metaCount + 1)
-        : [];
-
-      fileProcessingContext.current.tempDocuments.push({
-        fileName: file.name,
-        docType: docType,
-        metadata: parsedData.metadataFields,
-        headers: headerRow,
-        rows: dataRows,
-        text: "",
-        rawText,
-        status: "success",
-      });
-    } else {
-      fileProcessingContext.current.tempDocuments.push({
-        fileName: file.name,
-        docType: "FAILED",
-        metadata: parsedData.metadataFields,
-        headers: [],
-        rows: [],
-        text: `Error: Document type unknown. Data not extracted.`,
-        rawText,
-        status: "error",
-      });
-      throw new Error("Document type unknown. Data not extracted.");
-    }
-  };
-
-  const processNextFile = useCallback(async () => {
-    const fpContext = fileProcessingContext.current;
-    const { fileList, currentIndex } = fpContext;
-
-    if (currentIndex >= fileList.length) {
-      finalizeProcessing();
-      return;
-    }
-
-    const file = fileList[currentIndex];
-    dispatchApp({
-      type: "SET_STATUS",
-      payload: {
-        message: `Processing ${
-          currentIndex + 1
-        } of ${fileList.length}: ${file.name}...`,
-        type: "info",
-      },
-    });
-
-    try {
-      await processFileContent(file, savedPassword);
-
-      fpContext.successCount++;
-      fpContext.currentIndex++;
-      processNextFile();
-    } catch (e) {
-      if (e instanceof Error) {
-        if (e.name === "PasswordException") {
-          // PAUSE: Open modal
-          dispatchApp({
-            type: "UPDATE_PASSWORD_MODAL",
-            payload: {
-              isOpen: true,
-              fileName: file.name,
-              fileToProcess: file,
-              passwordInput: "",
-            },
-          });
-          return;
-        }
-
-        // Other Error
-        console.error(`Error processing ${file.name}:`, e);
-
-        fpContext.currentIndex++;
-        processNextFile();
-      }
-    }
-  }, [
-    processFileContent,
-    savedPassword,
-  ]);
-
   const processFiles = useCallback((/** @type {FileList} */ fileList) => {
-    if (!fileList || fileList.length === 0) {
-      dispatchApp({ type: "SET_IS_RESULT_VISIBLE", payload: false });
-      dispatchApp({ type: "SET_STATUS", payload: { message: "", type: "" } });
-      return;
-    }
-
-    const files = Array.from(fileList).filter((f) =>
-      f.type === "application/pdf"
+    fileProcessor.current.start(
+      fileList,
+      allParsers,
+      selectedParser,
+      savedPassword,
     );
-
-    // Reset UI state
-    dispatchApp({ type: "START_FILE_PROCESSING", payload: undefined });
-
-    // Reset mutable context
-    fileProcessingContext.current = {
-      fileList: files,
-      currentIndex: 0,
-      tempDocuments: [],
-      tempMetadata: [],
-      successCount: 0,
-    };
-
-    processNextFile();
-  }, [processNextFile]);
+  }, [allParsers, selectedParser, savedPassword]);
 
   const handlePasswordSubmit = useCallback(async () => {
     const { fileToProcess, passwordInput, useForSubsequent } = passwordModal;
-    const password = passwordInput;
-    const useSubsequent = useForSubsequent;
 
-    if (password.length === 0) {
-      dispatchApp({
-        type: "SET_STATUS",
-        payload: { message: "Please enter a password.", type: "error" },
-      });
-      return;
-    }
-
-    // 1. Close modal and set saved password
-    dispatchApp({ type: "SET_PASSWORD_MODAL", payload: INITIAL_MODAL_STATE });
-    dispatchApp({
-      type: "SET_SAVED_PASSWORD",
-      payload: useSubsequent ? password : "",
-    });
-    dispatchApp({
-      type: "SET_STATUS",
-      payload: { message: "", type: "" },
-    });
-
-    // 2. Attempt to re-process the file with the new password
     if (fileToProcess) {
-      try {
-        await processFileContent(fileToProcess, password);
-
-        fileProcessingContext.current.successCount++;
-        fileProcessingContext.current.currentIndex++;
-        processNextFile();
-      } catch (e) {
-        if (e instanceof Error) {
-          if (e.name === "PasswordException") {
-            dispatchApp({
-              type: "SET_STATUS",
-              payload: {
-                message: "Incorrect password. Please try again.",
-                type: "error",
-              },
-            });
-            dispatchApp({
-              type: "UPDATE_PASSWORD_MODAL",
-              payload: {
-                isOpen: true,
-                fileName: fileToProcess.name,
-                fileToProcess: fileToProcess,
-                passwordInput: password,
-              },
-            });
-            return;
-          }
-        }
-
-        // Other error: log and skip this file, continue the main loop
-        console.error("Error after password retry:", e);
-        fileProcessingContext.current.currentIndex++;
-        processNextFile();
-      }
-    }
-  }, [
-    passwordModal,
-    processFileContent,
-    processNextFile,
-  ]);
-
-  const handlePasswordSkip = useCallback(() => {
-    dispatchApp({ type: "SET_PASSWORD_MODAL", payload: INITIAL_MODAL_STATE });
-    dispatchApp({ type: "SET_STATUS", payload: { message: "", type: "" } });
-
-    if (
-      fileProcessingContext.current.fileList.length >
-        fileProcessingContext.current.currentIndex
-    ) {
-      const fileObj = fileProcessingContext.current.tempDocuments.find((a) =>
-        a.fileName
+      await fileProcessor.current.handlePasswordSubmit(
+        fileToProcess,
+        passwordInput,
+        useForSubsequent,
       );
-      if (fileObj) {
-        fileObj.docType = "SKIPPED";
-        fileObj.text = "Skipped by user.";
-        fileObj.status = "skipped";
-      }
     }
-    fileProcessingContext.current.currentIndex++;
-    processNextFile();
-  }, [processNextFile]); // --- Modal/UI Render Helpers ---
+  }, [passwordModal]);
+
+  const handlePasswordSkip = () => fileProcessor.current.handlePasswordSkip();
 
   // --- Main Render Function (Lit-HTML Template) ---
   return html`
@@ -1174,7 +1197,7 @@ function renderStatus(status) {
 
 /**
  * @param {string} selectedParser
- * @param {{ (e: { type: string; payload: any | undefined; }): ParserState; (arg0: { type: string; payload: any; }): any; }} dispatchParser
+ * @param {(arg0: { type: string; payload: any; }) => void} dispatchParser
  * @param {any[]} allParsers
  */
 function renderControls(selectedParser, dispatchParser, allParsers) {
@@ -1644,7 +1667,7 @@ function renderParserForm(
 }
 
 /**
- * @param {{ (e: { type: string; payload: any | undefined; }): ParserState; (arg0: { type: string; payload: any; }): void; }} dispatchParser
+ * @param {{(action: { type: string; payload: any; }): void; }} dispatchParser
  * @param {{ (action: { type: string; payload: any; }): void; }} dispatchApp
  * @param {string} templatesText
  */
@@ -1676,6 +1699,7 @@ function renderTemplatesModal(dispatchParser, dispatchApp, templatesText) {
             .filter((/** @type {string | any[]} */ s) => s.length > 0),
           metadata: data.metadata || "",
           table: data.table || "",
+          func: undefined,
         });
       }
     }

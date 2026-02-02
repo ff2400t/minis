@@ -1,13 +1,8 @@
-import { html, map, ref, render, when } from "/vendor/lit-html@3.3.2.js";
-import {
-  component,
-  useEffect,
-  useReducer,
-  useRef,
-  useState,
-} from "/vendor/haunted@6.1.0.js";
+import { html, map, ref, render, when } from "/vendor/lit-html.js";
+import { component, useReducer, useRef, useState } from "/vendor/haunted.js";
 import "/components/drop-zone.js";
 
+// @ts-ignore
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
@@ -16,70 +11,69 @@ const initialState = {
   processingStep: "",
   extractedData: [],
   error: null,
+  /** @type {File | null} */
   lastFile: null,
   triggerWord: "Date",
   rowLeniency: 8,
   colLeniency: 45,
   copyStatus: {},
   showManualSettings: false,
-  manualAnchors: null,
+  manualAnchors: [],
   showAllPages: false,
   showPasswordModal: false,
   showVisualModal: false,
 };
 
 /**
- * @param {{ lastFile: any; extractedData: any; manualAnchors: any; }} state
- * @param {{ type: any; key: any; value: any; file: any; step: any; pageData: any; anchors: undefined; error: any; status: any; }} action
+ * @type {import("vendor/haunted.d.ts").Reducer<typeof initialState, {type: string, payload: any}>}
  */
 function reducer(state, action) {
-  switch (action.type) {
+  const { type, payload } = action;
+  switch (type) {
     case "SET_CONFIG":
-      return { ...state, [action.key]: action.value };
+      return { ...state, [payload.key]: payload.value };
     case "START_PROCESSING":
       return {
         ...state,
         isProcessing: true,
         processingStep: "Initializing...",
         error: null,
-        lastFile: action.file || state.lastFile,
+        lastFile: payload?.file || state.lastFile,
         showPasswordModal: false,
       };
     case "SET_STEP":
-      return { ...state, processingStep: action.step };
+      return { ...state, processingStep: payload.step };
     case "APPEND_PAGE_DATA":
-      // we don't remove the data when we start processing to prevent the page from jumping each time the reparse button is pressed
-      // here when the data is set for the first time we create the data array
-      if (action.pageData.page === 1) {
+      if (payload.pageData.page === 1) {
         return {
           ...state,
-          extractedData: [action.pageData],
-          manualAnchors: action.anchors !== undefined
-            ? action.anchors
+          extractedData: [payload.pageData],
+          manualAnchors: payload.anchors !== undefined
+            ? payload.anchors
             : state.manualAnchors,
         };
       }
       return {
         ...state,
-        extractedData: [...state.extractedData, action.pageData],
-        manualAnchors: action.anchors !== undefined
-          ? action.anchors
-          : state.manualAnchors,
+        extractedData: [...state.extractedData, payload.pageData],
       };
     case "FINISH_PROCESSING":
       return { ...state, isProcessing: false, processingStep: "" };
     case "SET_ERROR":
-      return { ...state, isProcessing: false, error: action.error };
+      return { ...state, isProcessing: false, error: payload.error };
     case "SHOW_PASSWORD_PROMPT":
       return { ...state, isProcessing: false, showPasswordModal: true };
     case "RESET":
       return { ...initialState };
     case "SET_ANCHORS":
-      return { ...state, manualAnchors: action.anchors };
+      return { ...state, manualAnchors: payload.anchors };
     case "SET_COPY_STATUS":
-      return { ...state, copyStatus: action.status };
+      return {
+        ...state,
+        copyStatus: { ...state.copyStatus, ...payload.status },
+      };
     case "TOGGLE_VISUAL_MODAL":
-      return { ...state, showVisualModal: action.value };
+      return { ...state, showVisualModal: payload.value };
     default:
       return state;
   }
@@ -108,10 +102,6 @@ class VisualModal extends HTMLElement {
   connectedCallback() {
     this.render();
     this.loadPdf();
-  }
-
-  static get observedAttributes() {
-    return ["page"];
   }
 
   async loadPdf() {
@@ -170,9 +160,6 @@ class VisualModal extends HTMLElement {
     if (wrapper) wrapper.style.display = text ? "none" : "block";
   }
 
-  /**
-   * @param {{ clientX: number; }} e
-   */
   addAnchor(e) {
     const overlay = this.querySelector(".visual-overlay");
     if (!overlay) return;
@@ -183,19 +170,6 @@ class VisualModal extends HTMLElement {
     this.anchors = [...this.anchors, pt].sort((a, b) => a - b);
     this.dispatchEvent(new CustomEvent("update", { detail: this.anchors }));
     this.renderAnchors();
-  }
-
-  /**
-   * @param {MouseEvent} e
-   */
-  removeAnchor(e) {
-    if (e.altKey) {
-      // @ts-ignore
-      const idx = e.target.dataset.anchorIdx;
-      this.anchors = this.anchors.filter((_, i) => i !== idx);
-      this.dispatchEvent(new CustomEvent("update", { detail: this.anchors }));
-      this.renderAnchors();
-    }
   }
 
   renderAnchors() {
@@ -211,6 +185,9 @@ class VisualModal extends HTMLElement {
       marker.dataset.anchorIdx = i.toString();
       marker.onclick = (e) => {
         e.stopPropagation();
+        this.anchors = this.anchors.filter((_, idx) => idx !== i);
+        this.dispatchEvent(new CustomEvent("update", { detail: this.anchors }));
+        this.renderAnchors();
       };
       overlay.appendChild(marker);
     });
@@ -257,7 +234,7 @@ class VisualModal extends HTMLElement {
                                 </div>
                             </div>
                             <div class="modal-footer">
-                                <span style="color: #94a3b8; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">Click on PDF to place column markers</span>
+                                <span style="color: #94a3b8; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">Click on PDF to place column markers • Click marker to remove</span>
                                 <div style="display:flex; gap:1rem;">
                                     <button id="clear-btn" class="btn btn-ghost">Clear All</button>
                                     <button id="save-btn" class="btn btn-primary">Done</button>
@@ -288,26 +265,17 @@ customElements.define("visual-alignment-modal", VisualModal);
 class ColumnAdjuster extends HTMLElement {
   constructor() {
     super();
-
     this.trackRef = { current: null };
-
-    /**
-     * @type {any[]}
-     */
     this.localAnchors = [];
     this.activeIdx = -1;
     this.trackWidthPt = 800;
-
     this.onMouseDown = this.onMouseDown.bind(this);
     this.onMouseMove = this.onMouseMove.bind(this);
     this.onMouseUp = this.onMouseUp.bind(this);
   }
 
   connectedCallback() {
-    this.localAnchors = this.initialAnchors || [];
-
     this.render();
-
     window.addEventListener("mousemove", this.onMouseMove);
     window.addEventListener("mouseup", this.onMouseUp);
   }
@@ -317,27 +285,15 @@ class ColumnAdjuster extends HTMLElement {
     window.removeEventListener("mouseup", this.onMouseUp);
   }
 
-  /** Public API – matches original host.getAnchors */
   getAnchors() {
     return [...this.localAnchors].sort((a, b) => a - b);
   }
 
-  /** Allow external updates */
-  set initialAnchors(val) {
-    // @ts-ignore
-    this._initialAnchors = val || [];
-    this.localAnchors = [...this._initialAnchors];
+  set anchors(val) {
+    this.localAnchors = val || [];
     this.render();
   }
 
-  // @ts-ignore
-  get initialAnchors() {
-    return this._initialAnchors;
-  }
-
-  /**
-   * @param {MouseEvent} e
-   */
   getPt(e) {
     if (!this.trackRef.current) return 0;
     const rect = this.trackRef.current.getBoundingClientRect();
@@ -347,9 +303,6 @@ class ColumnAdjuster extends HTMLElement {
     return xPct * this.trackWidthPt;
   }
 
-  /**
-   * @param {MouseEvent} e
-   */
   onMouseDown(e) {
     const pt = this.getPt(e);
     const rect = this.trackRef.current.getBoundingClientRect();
@@ -362,6 +315,9 @@ class ColumnAdjuster extends HTMLElement {
     if (hitIdx !== -1) {
       if (e.altKey) {
         this.localAnchors = this.localAnchors.filter((_, i) => i !== hitIdx);
+        this.dispatchEvent(
+          new CustomEvent("update", { detail: this.localAnchors }),
+        );
         this.activeIdx = -1;
       } else {
         this.activeIdx = hitIdx;
@@ -370,21 +326,21 @@ class ColumnAdjuster extends HTMLElement {
       const next = [...this.localAnchors, pt].sort((a, b) => a - b);
       this.localAnchors = next;
       this.activeIdx = next.indexOf(pt);
+      this.dispatchEvent(
+        new CustomEvent("update", { detail: this.localAnchors }),
+      );
     }
-
     this.render();
   }
 
-  /**
-   * @param {MouseEvent} e
-   */
   onMouseMove(e) {
     if (this.activeIdx === -1) return;
-
     this.localAnchors = this.localAnchors.map((a, i) =>
       i === this.activeIdx ? this.getPt(e) : a
     );
-
+    this.dispatchEvent(
+      new CustomEvent("update", { detail: this.localAnchors }),
+    );
     this.render();
   }
 
@@ -406,36 +362,24 @@ class ColumnAdjuster extends HTMLElement {
             <button
               class="btn btn-ghost"
               style="font-size:0.65rem;color:var(--primary);font-weight:800;"
-              @click="${this
-                // @ts-ignore
-                .onOpenVisual}"
+              @click="${this.onOpenVisual}"
             >
               Launch Visual Aligner
             </button>
           </div>
 
-          <div class="anchor-track" ${ref(
-            (el) => (this.trackRef.current = el),
-          )} @mousedown="${this.onMouseDown}">
-            ${when(
-              this.localAnchors.length === 0,
-              () =>
+          <div class="anchor-track" ${ref((
+            el,
+          ) => (this.trackRef.current = el))} @mousedown="${this.onMouseDown}">
+            ${when(this.localAnchors.length === 0, () =>
+              html`
+                <div class="track-hint">Click to place column markers</div>
+              `)} ${map(this.localAnchors, (x, i) =>
                 html`
-                  <div class="track-hint">Click to place column markers</div>
-                `,
-            )} ${map(
-              this.localAnchors,
-              (x, i) =>
-                html`
-                  <div
-                    class="anchor-marker ${this.activeIdx === i
-                      ? "active"
-                      : ""}"
-                    style="left:${(x / this.trackWidthPt) * 100}%"
-                  >
-                  </div>
-                `,
-            )}
+                  <div class="anchor-marker ${this.activeIdx === i
+                    ? "active"
+                    : ""}" style="left:${(x / this.trackWidthPt) * 100}%"></div>
+                `)}
           </div>
         </div>
       `,
@@ -443,7 +387,6 @@ class ColumnAdjuster extends HTMLElement {
     );
   }
 }
-
 customElements.define("column-adjuster", ColumnAdjuster);
 
 function App() {
@@ -451,34 +394,39 @@ function App() {
   const [password, setPassword] = useState("");
   const adjusterRef = useRef(null);
 
-  const handleReparse = () => {
-    let currentAnchors = state.manualAnchors;
-    if (state.showManualSettings && adjusterRef.current?.getAnchors) {
-      currentAnchors = adjusterRef.current.getAnchors();
-    }
-    extractFromPdf(state.lastFile, currentAnchors, password);
-  };
-
   const extractFromPdf = async (
-    file,
+    /** @type {File} */ file,
     providedAnchors = null,
     pdfPassword = "",
   ) => {
     if (!file) return;
-    dispatch({ type: "START_PROCESSING", file });
+
+    // Use provided anchors, or existing manual anchors if in manual mode
+    let anchorsToUse = providedAnchors;
+    if (anchorsToUse === null && state.showManualSettings) {
+      anchorsToUse = state.manualAnchors;
+    }
+
+    dispatch({ type: "START_PROCESSING", payload: { file } });
     try {
       const arrayBuffer = await file.arrayBuffer();
+      // @ts-ignore
       const pdf = await pdfjsLib.getDocument({
         data: arrayBuffer,
         password: pdfPassword,
       }).promise;
 
-      let anchors = providedAnchors;
+      let anchors = anchorsToUse;
       if (!anchors?.length && !state.showManualSettings) {
+        dispatch({
+          type: "SET_STEP",
+          payload: { step: "Auto-detecting columns..." },
+        });
         const page = await pdf.getPage(1);
         const content = await page.getTextContent();
         const clusters = [];
         content.items.forEach((it) => {
+          // @ts-ignore
           const x = it.transform[4] + (it.width / 2);
           let c = clusters.find((cl) =>
             Math.abs(cl.avg - x) < state.colLeniency
@@ -492,15 +440,21 @@ function App() {
       }
 
       for (let i = 1; i <= pdf.numPages; i++) {
-        dispatch({ type: "SET_STEP", step: `Reading Page ${i}...` });
+        dispatch({
+          type: "SET_STEP",
+          payload: { step: `Reading Page ${i}/${pdf.numPages}...` },
+        });
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
         const viewport = page.getViewport({ scale: 1.0 });
         const scale = 800 / viewport.width;
 
         const items = content.items.map((it) => ({
+          // @ts-ignore
           str: it.str,
+          // @ts-ignore
           y: it.transform[5],
+          // @ts-ignore
           centerX: (it.transform[4] + (it.width / 2)) * scale,
         })).filter((it) => it.str.trim());
 
@@ -517,12 +471,14 @@ function App() {
             it.str.toLowerCase().includes(state.triggerWord.toLowerCase())
           )
         );
+
+        const safeAnchors = anchors || [];
         const rows = (startIdx === -1 ? lines : lines.slice(startIdx)).map(
           (ln) => {
-            const r = new Array(anchors.length).fill("");
+            const r = new Array(safeAnchors.length).fill("");
             ln.items.forEach((it) => {
               let b = 0, m = Infinity;
-              anchors.forEach((a, idx) => {
+              safeAnchors.forEach((a, idx) => {
                 const d = Math.abs(a - it.centerX);
                 if (d < m) {
                   m = d;
@@ -534,34 +490,83 @@ function App() {
             return r;
           },
         );
+
         dispatch({
           type: "APPEND_PAGE_DATA",
-          pageData: { page: i, rows },
-          anchors,
+          payload: {
+            pageData: { page: i, rows },
+            anchors: i === 1 ? anchors : undefined,
+          },
         });
       }
-      dispatch({ type: "FINISH_PROCESSING" });
+      dispatch({
+        type: "FINISH_PROCESSING",
+        payload: undefined,
+      });
     } catch (err) {
+      console.error(err);
       if (err instanceof Error) {
-        if (err instanceof Error && err.name === "PasswordException") {
-          dispatch({ type: "SHOW_PASSWORD_PROMPT" });
-        } else dispatch({ type: "SET_ERROR", error: err.message });
+        if (err.name === "PasswordException") {
+          dispatch({
+            type: "SHOW_PASSWORD_PROMPT",
+            payload: undefined,
+          });
+        } else {
+          dispatch({ type: "SET_ERROR", payload: { error: err.message } });
+        }
       }
     }
   };
 
-  const copyAll = () => {
+  const handleReparse = () => {
+    extractFromPdf(state.lastFile, state.manualAnchors, password);
+  };
+
+  const copyTSV = () => {
     const text = state.extractedData.flatMap((p) => p.rows).map((r) =>
       r.join("\t")
     ).join("\n");
-    const area = document.createElement("textarea");
-    area.value = text;
-    document.body.appendChild(area);
-    area.select();
-    document.execCommand("copy");
-    document.body.removeChild(area);
-    dispatch({ type: "SET_COPY_STATUS", status: { all: true } });
-    setTimeout(() => dispatch({ type: "SET_COPY_STATUS", status: {} }), 2000);
+    navigator.clipboard.writeText(text).then(() => {
+      dispatch({ type: "SET_COPY_STATUS", payload: { status: { all: true } } });
+      setTimeout(
+        () =>
+          dispatch({
+            type: "SET_COPY_STATUS",
+            payload: { status: { all: false } },
+          }),
+        2000,
+      );
+    });
+  };
+
+  const copyMarkers = () => {
+    const text = JSON.stringify(state.manualAnchors);
+    navigator.clipboard.writeText(text).then(() => {
+      dispatch({
+        type: "SET_COPY_STATUS",
+        payload: { status: { markers: true } },
+      });
+      setTimeout(
+        () =>
+          dispatch({
+            type: "SET_COPY_STATUS",
+            payload: { status: { markers: false } },
+          }),
+        2000,
+      );
+    });
+  };
+
+  const pasteMarkers = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      const anchors = JSON.parse(text);
+      if (Array.isArray(anchors)) {
+        dispatch({ type: "SET_ANCHORS", payload: { anchors } });
+      }
+    } catch (e) {
+      alert("Invalid marker data in clipboard.");
+    }
   };
 
   return html`
@@ -575,11 +580,13 @@ function App() {
           html`
             <div style="display:flex; gap:1rem;">
               <button class="btn btn-ghost" @click="${() =>
-                dispatch({ type: "RESET" })}">Reset</button>
-              <button class="btn btn-primary" @click="${copyAll}">${state
-                  .copyStatus.all
-                ? "✓ Copied"
-                : "Copy TSV"}</button>
+                dispatch({
+                  type: "RESET",
+                  payload: undefined,
+                })}">Reset</button>
+              <button class="btn btn-primary" @click="${copyTSV}">
+                ${state.copyStatus.all ? "✓ Copied" : "Copy TSV"}
+              </button>
             </div>
           `)}
       </header>
@@ -593,26 +600,19 @@ function App() {
       <div class="settings-card">
         <div class="settings-grid">
           <div class="input-group">
-            <span class="label-tiny">Row Trigger</span><input
-              type="text"
-              .value="${state.triggerWord}"
-              @input="${(e) =>
-                dispatch({
-                  type: "SET_CONFIG",
-                  key: "triggerWord",
-                  value: e.target.value,
-                })}"
-            />
+            <span class="label-tiny">Row Trigger</span>
+            <input type="text" .value="${state.triggerWord}" @input="${(e) =>
+              dispatch({
+                type: "SET_CONFIG",
+                payload: { key: "triggerWord", value: e.target.value },
+              })}" />
           </div>
-          <div
-            class="input-group"
-          >
+          <div class="input-group">
             <div style="display:flex; justify-content: space-between;">
-              <span class="label-tiny">Row Leniency</span><span
-                class="value-badge"
-                }
-              >${state.rowLeniency}</span>
-            </div><input
+              <span class="label-tiny">Row Leniency</span>
+              <span class="value-badge">${state.rowLeniency}</span>
+            </div>
+            <input
               type="range"
               min="1"
               max="30"
@@ -620,21 +620,15 @@ function App() {
               @input="${(e) =>
                 dispatch({
                   type: "SET_CONFIG",
-                  key: "rowLeniency",
-                  value: e.target.value,
+                  payload: { key: "rowLeniency", value: e.target.value },
                 })}"
             />
           </div>
-
-          <div
-            class="input-group"
-          >
+          <div class="input-group">
             <div style="display:flex; justify-content: space-between;">
-              <span class="label-tiny">Auto-Col Cluster</span><span
-                class="value-badge"
-              >${state.colLeniency}</span>
+              <span class="label-tiny">Auto-Col Cluster</span>
+              <span class="value-badge">${state.colLeniency}</span>
             </div>
-
             <input
               type="range"
               min="10"
@@ -643,8 +637,7 @@ function App() {
               @input="${(e) =>
                 dispatch({
                   type: "SET_CONFIG",
-                  key: "colLeniency",
-                  value: e.target.value,
+                  payload: { key: "colLeniency", value: e.target.value },
                 })}"
             />
           </div>
@@ -653,14 +646,18 @@ function App() {
           >
             <label
               style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem;"
-            ><input type="checkbox" .checked="${state
-              .showManualSettings}" @change="${(e) =>
-              dispatch({
-                type: "SET_CONFIG",
-                key: "showManualSettings",
-                value: e.target.checked,
-              })}" />
-              Manual Mode</label>
+            >
+              <input type="checkbox" .checked="${state
+                .showManualSettings}" @change="${(e) =>
+                dispatch({
+                  type: "SET_CONFIG",
+                  payload: {
+                    key: "showManualSettings",
+                    value: e.target.checked,
+                  },
+                })}" />
+              Manual Mode
+            </label>
             <button
               class="btn btn-primary"
               style="padding: 0.4rem; font-size: 0.75rem;"
@@ -673,11 +670,45 @@ function App() {
         </div>
         ${when(state.showManualSettings, () =>
           html`
+            <div
+              style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;"
+            >
+              <button
+                class="btn btn-ghost"
+                style="font-size: 0.65rem;"
+                @click="${copyMarkers}"
+              >
+                ${state.copyStatus.markers ? "✓ Copied" : "Copy Markers"}
+              </button>
+              <button
+                class="btn btn-ghost"
+                style="font-size: 0.65rem;"
+                @click="${pasteMarkers}"
+              >
+                Paste Markers
+              </button>
+              <button
+                class="btn btn-ghost"
+                style="font-size: 0.65rem; color: #ef4444;"
+                @click="${() =>
+                  dispatch({ type: "SET_ANCHORS", payload: { anchors: [] } })}"
+              >
+                Clear All
+              </button>
+            </div>
             <column-adjuster
-              ${ref((el) => adjusterRef.current = el)}
-              .initialAnchors="${state.manualAnchors}"
+              ${ref(adjusterRef)}
+              .anchors="${state.manualAnchors}"
               .onOpenVisual="${() =>
-                dispatch({ type: "TOGGLE_VISUAL_MODAL", value: true })}"
+                dispatch({
+                  type: "TOGGLE_VISUAL_MODAL",
+                  payload: { value: true },
+                })}"
+              @update="${(e) =>
+                dispatch({
+                  type: "SET_ANCHORS",
+                  payload: { anchors: e.detail },
+                })}"
             ></column-adjuster>
           `)}
       </div>
@@ -692,18 +723,16 @@ function App() {
           `)} ${when(state.extractedData.length, () =>
           html`
             <div class="toggle-container">
-              <h3 style="margin:0; font-size: 0.875rem;">Preview</h3><label
-                style="display: flex; align-items: center; gap: 0.5rem;"
-              ><span class="label-tiny">Show All Pages</span><input
-                type="checkbox"
-                .checked="${state.showAllPages}"
-                @change="${(e) =>
+              <h3 style="margin:0; font-size: 0.875rem;">Preview</h3>
+              <label style="display: flex; align-items: center; gap: 0.5rem;">
+                <span class="label-tiny">Show All Pages</span>
+                <input type="checkbox" .checked="${state
+                  .showAllPages}" @change="${(e) =>
                   dispatch({
                     type: "SET_CONFIG",
-                    key: "showAllPages",
-                    value: e.target.checked,
-                  })}"
-              /></label>
+                    payload: { key: "showAllPages", value: e.target.checked },
+                  })}" />
+              </label>
             </div>
             ${map(
               state.showAllPages
@@ -713,45 +742,53 @@ function App() {
                 html`
                   <div class="page-card">
                     <div class="page-header">
-                      <span>Page ${page.page}</span><span>${page.rows
-                        .length} Rows</span>
+                      <span>Page ${page.page}</span>
+                      <span>${page.rows.length} Rows</span>
                     </div>
-                    <div class="table-container"><table><tbody>${map(
-                      page.rows,
-                      (r, i) =>
-                        html`
-                          <tr><td class="row-num">${i + 1}</td>${map(r, (c) =>
+                    <div class="table-container">
+                      <table>
+                        <tbody>
+                          ${map(page.rows, (r, i) =>
                             html`
-                              <td>${c}</td>
-                            `)}</tr>
-                        `,
-                    )}</tbody></table></div>
+                              <tr>
+                                <td class="row-num">${i + 1}</td>
+                                ${map(r, (c) =>
+                                  html`
+                                    <td>${c}</td>
+                                  `)}
+                              </tr>
+                            `)}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 `,
             )}
           `)} ${when(state.showPasswordModal, () =>
           html`
             <div class="modal-overlay">
-              <form class="modal-content" @submit="${(
-                /** @type {SubmitEvent} */ e,
-              ) => {
-                e.preventDefault();
-                extractFromPdf(state.lastFile, state.manualAnchors, password);
-              }}">
-                <h2 style="margin:0">Protected PDF</h2><input
+              <form
+                class="modal-content"
+                style="background: white; padding: 2rem; border-radius: 1rem; display: flex; flex-direction: column; gap: 1rem;"
+                @submit="${(e) => {
+                  e.preventDefault();
+                  extractFromPdf(state.lastFile, state.manualAnchors, password);
+                }}"
+              >
+                <h2 style="margin:0">Protected PDF</h2>
+                <input
                   type="password"
                   placeholder="Password"
                   .value="${password}"
-                  @input="${(/** @type {InputEvent} */ e) =>
-                    setPassword(
-                      e?.target
-                        // @ts-ignore
-                        ?.value ?? "",
-                    )}"
+                  @input="${(e) => setPassword(e.target.value)}"
                   required
-                /><div style="display:flex; gap:1rem; justify-content:flex-end;">
+                />
+                <div style="display:flex; gap:1rem; justify-content:flex-end;">
                   <button type="button" class="btn btn-ghost" @click="${() =>
-                    dispatch({ type: "RESET" })}">
+                    dispatch({
+                      type: "SET_CONFIG",
+                      payload: { key: "showPasswordModal", value: false },
+                    })}">
                     Cancel
                   </button>
                   <button type="submit" class="btn btn-primary">Unlock</button>
@@ -762,19 +799,23 @@ function App() {
           html`
             <visual-alignment-modal
               .pdfFile="${state.lastFile}"
-              .anchors="${state.manualAnchors || []}"
-              @update="${(/** @type {CustomEvent} */ e) =>
-                dispatch({ type: "SET_ANCHORS", anchors: e.detail })}"
+              .anchors="${state.manualAnchors}"
+              @update="${(e) =>
+                dispatch({
+                  type: "SET_ANCHORS",
+                  payload: { anchors: e.detail },
+                })}"
               @close="${() =>
-                dispatch({ type: "TOGGLE_VISUAL_MODAL", value: false })}"
-            >
-            </visual-alignment-modal>
+                dispatch({
+                  type: "TOGGLE_VISUAL_MODAL",
+                  payload: { value: false },
+                })}"
+            ></visual-alignment-modal>
           `)}
     </div>
   `;
 }
 
-// @ts-ignore
 customElements.define("main-app", component(App, { useShadowDOM: false }));
 render(
   html`
