@@ -33,14 +33,17 @@
       .container {
         max-width: 1400px;
         margin: 0 auto;
-        padding: 2rem;
+        padding: 4rem 2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 2.5rem;
       }
 
       header {
         display: flex;
         justify-content: space-between;
         align-items: flex-end;
-        margin-bottom: 2rem;
+        margin-bottom: 0.5rem;
         gap: 1rem;
       }
 
@@ -100,7 +103,6 @@
         border-radius: 1.25rem;
         border: 1px solid var(--border);
         box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
-        margin-bottom: 1.5rem;
       }
 
       .settings-grid {
@@ -150,7 +152,6 @@
       }
 
       .dropzone-container {
-        margin-bottom: 2rem;
       }
       .dropzone-label {
         display: flex;
@@ -180,7 +181,6 @@
         background: #f1f5f9;
         border-radius: 0.5rem;
         padding: 0.5rem 1rem;
-        margin-bottom: 1rem;
         font-size: 0.75rem;
         font-weight: 600;
         color: var(--primary);
@@ -194,7 +194,6 @@
         background: white;
         border-radius: 1.25rem;
         border: 1px solid var(--border);
-        margin-bottom: 2rem;
         overflow: hidden;
       }
       .page-header {
@@ -237,35 +236,58 @@
 
       .anchor-track {
         position: relative;
-        height: 60px;
-        background: #f1f5f9;
-        border-radius: 0.5rem;
-        margin: 1rem 0;
-        border: 1px solid var(--border);
+        height: 48px;
+        background: #f8fafc;
+        border-radius: 0.75rem;
+        margin: 1.5rem 0;
+        border: 2px dashed #e2e8f0;
         cursor: crosshair;
         overflow: visible;
         user-select: none;
+        transition: all 0.2s;
+      }
+      .anchor-track:hover {
+        border-color: var(--primary);
+        background: #f1f5f9;
       }
       .anchor-marker {
         position: absolute;
-        top: -4px;
-        bottom: -4px;
-        width: 8px;
+        top: -2px;
+        bottom: -2px;
+        width: 4px;
         background: var(--primary);
         z-index: 10;
         cursor: ew-resize;
-        border-radius: 4px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-        transition: background 0.2s;
+        border-radius: 2px;
+        box-shadow: 0 0 8px rgba(79, 70, 229, 0.3);
+        transition: transform 0.1s, background 0.2s;
       }
       .anchor-marker:hover {
         background: #6366f1;
-        box-shadow: 0 0 10px rgba(79, 70, 229, 0.4);
+        width: 6px;
+        margin-left: -1px;
+        z-index: 20;
       }
       .anchor-marker.active {
         background: #ef4444;
-        box-shadow: 0 0 15px rgba(239, 68, 68, 0.5);
-        z-index: 20;
+        box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+        width: 6px;
+        margin-left: -1px;
+        z-index: 30;
+      }
+
+      .anchor-marker span {
+        transition: all 0.2s;
+        opacity: 0.8;
+      }
+      .anchor-marker:hover span, .anchor-marker.active span {
+        opacity: 1;
+        transform: translateX(-50%) scale(1.1);
+      }
+
+      .visual-overlay .anchor-marker {
+        box-shadow: 0 0 15px rgba(79, 70, 229, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.2);
       }
 
       .track-hint {

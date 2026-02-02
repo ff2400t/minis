@@ -85,179 +85,199 @@ function reducer(state, action) {
 class VisualModal extends HTMLElement {
   constructor() {
     super();
-    /**
-     * @type {{ arrayBuffer: () => any; } | null}
-     */
     this.pdfFile = null;
-    /**
-     * @type {any[]}
-     */
-    this.anchors = [];
+    this.localAnchors = [];
     this.pdfDoc = null;
     this.currentPage = 1;
     this.totalPages = 0;
     this.scale = 1;
+    this.activeIdx = -1;
+    this.canvasRef = { current: null };
+    this.overlayRef = { current: null };
+    this.trackWidthPt = 800; // Consistent with auto-detection scale
+    this.status = "";
+
+    this.onMouseDown = this.onMouseDown.bind(this);
+    this.onMouseMove = this.onMouseMove.bind(this);
+    this.onMouseUp = this.onMouseUp.bind(this);
+  }
+
+  set anchors(val) {
+    this.localAnchors = [...(val || [])];
+    this.render();
   }
 
   connectedCallback() {
-    this.render();
+    window.addEventListener("mousemove", this.onMouseMove);
+    window.addEventListener("mouseup", this.onMouseUp);
     this.loadPdf();
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener("mousemove", this.onMouseMove);
+    window.removeEventListener("mouseup", this.onMouseUp);
   }
 
   async loadPdf() {
     if (!this.pdfFile) return;
     try {
-      this.updateStatus("Loading Document...");
+      this.status = "Loading Document...";
+      this.render();
       const arrayBuffer = await this.pdfFile.arrayBuffer();
       // @ts-ignore
       this.pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       this.totalPages = this.pdfDoc.numPages;
-      this.renderPage(1);
+      this.status = "";
+      await this.renderPage(1);
     } catch (e) {
       console.error(e);
-      this.updateStatus("Error loading PDF.");
+      this.status = "Error loading PDF.";
+      this.render();
     }
   }
 
-  /**
-   * @param {number} num
-   */
   async renderPage(num) {
     if (!this.pdfDoc) return;
     this.currentPage = num;
-    this.updateStatus("Rendering Page...");
+    this.render();
 
     try {
       const page = await this.pdfDoc.getPage(num);
       const viewport = page.getViewport({ scale: 1.5 });
 
-      const canvas = this.querySelector("canvas");
-      if (canvas === null) return;
+      const canvas = this.canvasRef.current;
+      if (!canvas) return;
       const context = canvas.getContext("2d");
       canvas.height = viewport.height;
       canvas.width = viewport.width;
 
-      this.scale = viewport.width / 800; // Base width for coordinates
+      this.scale = viewport.width / this.trackWidthPt;
 
       await page.render({ canvasContext: context, viewport: viewport }).promise;
-      this.updateStatus("");
-      this.renderControls();
-      this.renderAnchors();
+      this.render();
     } catch (e) {
       console.error(e);
-      this.updateStatus("Error rendering page.");
     }
   }
 
-  /**
-   * @param {string} text
-   */
-  updateStatus(text) {
-    const statusEl = this.querySelector("#render-status");
-    if (statusEl) statusEl.textContent = text;
-    const wrapper = this.querySelector(".visual-canvas-wrapper");
-    // @ts-ignore
-    if (wrapper) wrapper.style.display = text ? "none" : "block";
+  getPt(e) {
+    if (!this.overlayRef.current) return 0;
+    const rect = this.overlayRef.current.getBoundingClientRect();
+    const clientX = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    return clientX / this.scale;
   }
 
-  addAnchor(e) {
-    const overlay = this.querySelector(".visual-overlay");
-    if (!overlay) return;
-    const rect = overlay.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const pt = clickX / this.scale;
+  onMouseDown(e) {
+    if (!this.overlayRef.current) return;
+    const pt = this.getPt(e);
+    const rect = this.overlayRef.current.getBoundingClientRect();
+    const clientX = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
 
-    this.anchors = [...this.anchors, pt].sort((a, b) => a - b);
-    this.dispatchEvent(new CustomEvent("update", { detail: this.anchors }));
-    this.renderAnchors();
-  }
-
-  renderAnchors() {
-    const overlay = this.querySelector(".visual-overlay");
-    if (!overlay) return;
-    overlay.innerHTML = "";
-    this.anchors.forEach((x, i) => {
-      const marker = document.createElement("div");
-      marker.className = "anchor-marker";
-      marker.style.cssText = `left: ${
-        x * this.scale
-      }px; height: 100%; position: absolute; top: 0; width: 4px; background: #6366f1; cursor: pointer; box-shadow: 0 0 10px rgba(99, 102, 241, 0.5); border-radius: 2px;`;
-      marker.dataset.anchorIdx = i.toString();
-      marker.onclick = (e) => {
-        e.stopPropagation();
-        this.anchors = this.anchors.filter((_, idx) => idx !== i);
-        this.dispatchEvent(new CustomEvent("update", { detail: this.anchors }));
-        this.renderAnchors();
-      };
-      overlay.appendChild(marker);
-    });
-  }
-
-  renderControls() {
-    const nav = this.querySelector("#page-nav");
-    if (!nav) return;
-    nav.innerHTML = `
-                    <button class="btn btn-ghost" ${
-      this.currentPage <= 1 ? "disabled" : ""
-    } id="prev-btn" style="color:white">←</button>
-                    <span style="color:white; font-size: 0.875rem;">Page ${this.currentPage} / ${this.totalPages}</span>
-                    <button class="btn btn-ghost" ${
-      this.currentPage >= this.totalPages ? "disabled" : ""
-    } id="next-btn" style="color:white">→</button>
-                `;
-    nav.querySelector("#prev-btn")?.addEventListener(
-      "click",
-      () => this.renderPage(this.currentPage - 1),
+    const hitIdx = this.localAnchors.findIndex(
+      (a) => Math.abs((a * this.scale) - clientX) < 12,
     );
-    nav.querySelector("#next-btn")?.addEventListener(
-      "click",
-      () => this.renderPage(this.currentPage + 1),
+
+    if (hitIdx !== -1) {
+      if (e.altKey) {
+        this.localAnchors = this.localAnchors.filter((_, i) => i !== hitIdx);
+        this.dispatchEvent(new CustomEvent("update", { detail: this.localAnchors }));
+        this.activeIdx = -1;
+      } else {
+        this.activeIdx = hitIdx;
+      }
+    } else {
+      const next = [...this.localAnchors, pt].sort((a, b) => a - b);
+      this.localAnchors = next;
+      this.activeIdx = next.indexOf(pt);
+      this.dispatchEvent(new CustomEvent("update", { detail: this.localAnchors }));
+    }
+    this.render();
+  }
+
+  onMouseMove(e) {
+    if (this.activeIdx === -1) return;
+    const pt = this.getPt(e);
+    this.localAnchors = this.localAnchors.map((a, i) =>
+      i === this.activeIdx ? pt : a
     );
+    this.dispatchEvent(new CustomEvent("update", { detail: this.localAnchors }));
+    this.render();
+  }
+
+  onMouseUp() {
+    if (this.activeIdx !== -1) {
+      this.localAnchors = [...this.localAnchors].sort((a, b) => a - b);
+      this.dispatchEvent(new CustomEvent("update", { detail: this.localAnchors }));
+    }
+    this.activeIdx = -1;
+    this.render();
   }
 
   render() {
-    this.innerHTML = `
-                    <div class="modal-overlay">
-                        <div class="modal-container">
-                            <div class="modal-header">
-                                <div style="display: flex; align-items: center; gap: 2rem;">
-                                    <h2 style="margin:0; font-size:1.1rem; color:white;">Visual Aligner</h2>
-                                    <div id="page-nav" style="display: flex; align-items: center; gap: 0.5rem;"></div>
-                                </div>
-                                <button id="close-btn-top" class="btn btn-ghost" style="color:white;">✕</button>
-                            </div>
-                            <div class="modal-body">
-                                <div id="render-status" style="color: #94a3b8; font-weight: 600;"></div>
-                                <div class="visual-canvas-wrapper" style="display:none">
-                                    <canvas></canvas>
-                                    <div class="visual-overlay"></div>
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <span style="color: #94a3b8; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">Click on PDF to place column markers • Click marker to remove</span>
-                                <div style="display:flex; gap:1rem;">
-                                    <button id="clear-btn" class="btn btn-ghost">Clear All</button>
-                                    <button id="save-btn" class="btn btn-primary">Done</button>
-                                </div>
-                            </div>
-                        </div>
+    render(
+      html`
+        <div class="modal-overlay">
+          <div class="modal-container">
+            <div class="modal-header">
+              <div style="display: flex; align-items: center; gap: 2rem;">
+                <h2 style="margin:0; font-size:1.1rem; color:white;">Visual Aligner</h2>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <button class="btn btn-ghost" 
+                    ?disabled="${this.currentPage <= 1}" 
+                    style="color:white"
+                    @click="${() => this.renderPage(this.currentPage - 1)}">←</button>
+                  <span style="color:white; font-size: 0.875rem; font-family: monospace;">Page ${this.currentPage} / ${this.totalPages}</span>
+                  <button class="btn btn-ghost" 
+                    ?disabled="${this.currentPage >= this.totalPages}" 
+                    style="color:white"
+                    @click="${() => this.renderPage(this.currentPage + 1)}">→</button>
+                </div>
+              </div>
+              <button class="btn btn-ghost" style="color:white;" @click="${() => this.dispatchEvent(new CustomEvent("close"))}">✕</button>
+            </div>
+            
+            <div class="modal-body">
+              ${when(this.status, () => html`<div style="color: #94a3b8; font-weight: 600;">${this.status}</div>`)}
+              <div class="visual-canvas-wrapper" style="${this.status ? "display:none" : ""}">
+                <canvas ${ref(this.canvasRef)}></canvas>
+                <div class="visual-overlay" 
+                  ${ref(this.overlayRef)} 
+                  @mousedown="${this.onMouseDown}">
+                  ${map(this.localAnchors, (x, i) => html`
+                    <div class="anchor-marker ${this.activeIdx === i ? "active" : ""}" 
+                      style="left: ${x * this.scale}px; height: 100%; top: 0;">
+                      <span style="position: absolute; top: -24px; left: 50%; transform: translateX(-50%); background: ${this.activeIdx === i ? "#ef4444" : "var(--primary)"}; color: white; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; pointer-events: none; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                        ${i + 1}
+                      </span>
                     </div>
-                `;
+                  `)}
+                </div>
+              </div>
+            </div>
 
-    // @ts-ignore
-    this.querySelector("#close-btn-top").onclick = () =>
-      this.dispatchEvent(new CustomEvent("close"));
-    // @ts-ignore
-    this.querySelector("#save-btn").onclick = () =>
-      this.dispatchEvent(new CustomEvent("close"));
-    // @ts-ignore
-    this.querySelector("#clear-btn").onclick = () => {
-      this.anchors = [];
-      this.dispatchEvent(new CustomEvent("update", { detail: [] }));
-      this.renderAnchors();
-    };
-    // @ts-ignore
-    this.querySelector(".visual-overlay").onclick = (e) => this.addAnchor(e);
+            <div class="modal-footer">
+              <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                <span style="color: #94a3b8; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">
+                  Click to add • Drag to move • Alt+Click to remove
+                </span>
+                <span style="color: #64748b; font-size: 0.65rem;">
+                  Align markers with PDF columns for better extraction
+                </span>
+              </div>
+              <div style="display:flex; gap:1rem;">
+                <button class="btn btn-ghost" @click="${() => {
+                  this.localAnchors = [];
+                  this.dispatchEvent(new CustomEvent("update", { detail: [] }));
+                  this.render();
+                }}">Clear All</button>
+                <button class="btn btn-primary" @click="${() => this.dispatchEvent(new CustomEvent("close"))}">Done</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `,
+      this
+    );
   }
 }
 customElements.define("visual-alignment-modal", VisualModal);
@@ -275,9 +295,9 @@ class ColumnAdjuster extends HTMLElement {
   }
 
   connectedCallback() {
-    this.render();
     window.addEventListener("mousemove", this.onMouseMove);
     window.addEventListener("mouseup", this.onMouseUp);
+    this.render();
   }
 
   disconnectedCallback() {
@@ -290,7 +310,7 @@ class ColumnAdjuster extends HTMLElement {
   }
 
   set anchors(val) {
-    this.localAnchors = val || [];
+    this.localAnchors = [...(val || [])];
     this.render();
   }
 
@@ -304,12 +324,13 @@ class ColumnAdjuster extends HTMLElement {
   }
 
   onMouseDown(e) {
+    if (!this.trackRef.current) return;
     const pt = this.getPt(e);
     const rect = this.trackRef.current.getBoundingClientRect();
     const clientX = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
 
     const hitIdx = this.localAnchors.findIndex(
-      (a) => Math.abs(((a / this.trackWidthPt) * rect.width) - clientX) < 10,
+      (a) => Math.abs(((a / this.trackWidthPt) * rect.width) - clientX) < 12,
     );
 
     if (hitIdx !== -1) {
@@ -345,7 +366,12 @@ class ColumnAdjuster extends HTMLElement {
   }
 
   onMouseUp() {
+    if (this.activeIdx !== -1) {
+      this.localAnchors = [...this.localAnchors].sort((a, b) => a - b);
+      this.dispatchEvent(new CustomEvent("update", { detail: this.localAnchors }));
+    }
     this.activeIdx = -1;
+    this.render();
   }
 
   render() {
@@ -353,33 +379,45 @@ class ColumnAdjuster extends HTMLElement {
       html`
         <div
           class="settings-card"
-          style="margin-top:1rem;border-color:#c7d2fe;background:#f5f3ff;"
+          style="margin-top:1rem; border-color: #e2e8f0; background: #ffffff; padding: 1rem;"
         >
           <div
-            style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;"
+            style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;"
           >
-            <span class="label-tiny">Column Editor</span>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+               <span class="label-tiny">Column Markers</span>
+               <span class="value-badge" style="background: #f1f5f9; color: #64748b;">${this.localAnchors.length}</span>
+            </div>
             <button
-              class="btn btn-ghost"
-              style="font-size:0.65rem;color:var(--primary);font-weight:800;"
+              class="btn btn-primary"
+              style="padding: 0.4rem 0.8rem; font-size: 0.7rem;"
               @click="${this.onOpenVisual}"
             >
               Launch Visual Aligner
             </button>
           </div>
 
-          <div class="anchor-track" ${ref((
-            el,
-          ) => (this.trackRef.current = el))} @mousedown="${this.onMouseDown}">
+          <div class="anchor-track" 
+            ${ref((el) => (this.trackRef.current = el))} 
+            @mousedown="${this.onMouseDown}"
+            style="height: 40px; background: #f8fafc; border-style: dashed;"
+          >
             ${when(this.localAnchors.length === 0, () =>
               html`
-                <div class="track-hint">Click to place column markers</div>
-              `)} ${map(this.localAnchors, (x, i) =>
+                <div class="track-hint">Click here to place markers manually</div>
+              `)} 
+            ${map(this.localAnchors, (x, i) =>
                 html`
-                  <div class="anchor-marker ${this.activeIdx === i
-                    ? "active"
-                    : ""}" style="left:${(x / this.trackWidthPt) * 100}%"></div>
+                  <div class="anchor-marker ${this.activeIdx === i ? "active" : ""}" 
+                    style="left:${(x / this.trackWidthPt) * 100}%">
+                    <span style="position: absolute; top: -22px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 800; color: ${this.activeIdx === i ? "#ef4444" : "var(--primary)"}; pointer-events: none;">${i + 1}</span>
+                  </div>
                 `)}
+          </div>
+          <div style="margin-top: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.65rem; color: var(--text-muted);">
+              Alt + Click to remove • Drag to adjust
+            </span>
           </div>
         </div>
       `,
@@ -821,5 +859,6 @@ render(
   html`
     <main-app></main-app>
   `,
+  // @ts-ignore
   document.getElementById("app"),
 );
