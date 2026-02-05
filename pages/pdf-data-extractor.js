@@ -1554,9 +1554,9 @@ function renderParserForm(
           <button
             @click="${() => {
               const text = customParsers.map((p) => {
-                return `name: ${p.name}\nmatches: ${
+                return `name:${p.name}\nmatches:${
                   p.matches.join(", ")
-                }\nMetadata: ${p.metadata || ""}\nTable: ${p.table || ""}`;
+                }\nmetadata: ${p.metadata || ""}\ntable:${p.table || ""}`;
               }).join("\n\n---\n\n");
               dispatchParser({ type: "SET_TEMPLATES_TEXT", payload: text });
               dispatchParser({
@@ -1624,6 +1624,7 @@ function renderParserForm(
                   id="configTextInput"
                   class="w-full h-48 rounded-md border-gray-300 shadow-sm border p-2 text-sm font-mono focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Define your parser here using the required keys.&#10;&#10;name:My Custom Bank Statement;;&#10;matches: Bank Statement, Account Summary, MyBankCorp;;&#10;metadata:Account Number: (?<AccNo>\\d+).*?Name: (?<Name>.*?);;&#10;table:(?<Date>\\d{2}\\.\\d{2}\\.\\d{4})\\s+.*\\s+(?<Amount>\\d+)"
+                  .defaultValue="name:;;&#10;matches:;;&#10;metadata:;;&#10;table:"
                 ></textarea>
                 <p class="text-xs text-gray-500 mt-1">
                   Define your parser using the keys: <code class="font-semibold"
