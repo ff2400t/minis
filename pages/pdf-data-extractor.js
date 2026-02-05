@@ -305,12 +305,9 @@ const renderConsolidatedSummary = (
 
 const renderDetailedTable = (
   /** @type {Docs[]} */ documents,
-  /** @type {Set<string>} */ selectedMetaCols,
-  /** @type {(arg0: string) => any } */ toggleMetaColumn,
+  /** @type {boolean} */ inlineMetadata,
 ) => {
-  // Calculate which extra columns are active (convert Set to Array)
-  const activeExtraCols = Array.from(selectedMetaCols);
-  const HeaderColSpan = Math.max.apply(
+  const maxTableCols = Math.max.apply(
     null,
     documents.map((a) => a.headers.length),
   );
@@ -322,41 +319,34 @@ const renderDetailedTable = (
         <table id="outputTable" class="data-table">
           <tbody>
             ${documents.map((doc) => {
+              const docMetaKeys = Object.keys(doc.metadata);
+              const activeExtraCols = inlineMetadata ? docMetaKeys : [];
+              
               // 1. Render Source Header
               const fileRow = html`
                 <tr class="file-row">
-                  <td colspan="${HeaderColSpan +
-                    activeExtraCols.length}">Source: ${doc
-                    .fileName} (${doc.docType})</td>
+                  <td colspan="${maxTableCols + activeExtraCols.length}">
+                    Source: ${doc.fileName} (${doc.docType})
+                  </td>
                 </tr>
               `;
 
-              // 2. Render Metadata Rows (with checkboxes)
-              const metaRows = Object.entries(doc.metadata).map(([key, val]) =>
-                html`
-                  <tr>
-                    <td class="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        class="meta-checkbox rounded text-blue-600 focus:ring-blue-500"
-                        .checked="${selectedMetaCols.has(key)}"
-                        @change="${() => toggleMetaColumn(key)}"
-                        id="${`cb-${doc.fileName}-${key}`}"
-                      />
-                      <label for="${`cb-${doc.fileName}-${key}`}" class="meta-key-label font-medium text-gray-700">
+              // 2. Render Metadata Rows (only if NOT inlining)
+              const metaRows = !inlineMetadata
+                ? Object.entries(doc.metadata).map(([key, val]) =>
+                  html`
+                    <tr>
+                      <td class="font-medium text-gray-700 bg-gray-50">
                         ${key}
-                      </label>
-                    </td>
-                    <td>${val}</td>
-                    ${Array.from({ length: 5 + activeExtraCols.length }).map(
-                      () =>
-                        html`
-                          <td></td>
-                        `,
-                    )}
-                  </tr>
-                `
-              );
+                      </td>
+                      <td>${val}</td>
+                      ${Array.from({
+                        length: Math.max(0, maxTableCols - 2),
+                      }).map(() => html`<td></td>`)}
+                    </tr>
+                  `
+                )
+                : nothing;
 
               // 3. Render Table Header (Standard Headers + Active Metadata Keys)
               const headers = html`
@@ -417,7 +407,7 @@ const consolidatedMetadataInitial = [];
  * @property {boolean} isTableVisible
  * @property {boolean} isRawTextVisible
  * @property {boolean} isConsolidatedVisible
- * @property {Set<string>} selectedMetaCols
+ * @property {boolean} inlineMetadata
  * @property {PasswordModalState} passwordModal
  * @property {string} savedPassword
  */
@@ -431,7 +421,7 @@ const initialAppState = {
   isTableVisible: true,
   isRawTextVisible: false,
   isConsolidatedVisible: false,
-  selectedMetaCols: new Set(""),
+  inlineMetadata: false,
   passwordModal: INITIAL_MODAL_STATE,
   savedPassword: "",
 };
@@ -455,18 +445,8 @@ function appReducer(state, action) {
       return { ...state, isRawTextVisible: action.payload };
     case "SET_IS_CONSOLIDATED_VISIBLE":
       return { ...state, isConsolidatedVisible: action.payload };
-    case "SET_SELECTED_META_COLS":
-      return { ...state, selectedMetaCols: action.payload };
-    case "TOGGLE_META_COLUMN": {
-      const key = action.payload;
-      const newSet = new Set(state.selectedMetaCols);
-      if (newSet.has(key)) {
-        newSet.delete(key);
-      } else {
-        newSet.add(key);
-      }
-      return { ...state, selectedMetaCols: newSet };
-    }
+    case "SET_INLINE_METADATA":
+      return { ...state, inlineMetadata: action.payload };
     case "SET_PASSWORD_MODAL": // Payload replaces the whole object
       return { ...state, passwordModal: action.payload };
     case "UPDATE_PASSWORD_MODAL": // Payload merges
@@ -491,7 +471,7 @@ function appReducer(state, action) {
         ...state,
         isResultVisible: false,
         documents: [],
-        selectedMetaCols: new Set(),
+        inlineMetadata: false,
         consolidatedMetadata: [],
         savedPassword: "",
         status: { message: "", type: "" },
@@ -868,7 +848,7 @@ function App() {
     isTableVisible,
     isRawTextVisible,
     isConsolidatedVisible,
-    selectedMetaCols,
+    inlineMetadata,
     passwordModal,
     savedPassword,
   } = appState;
@@ -896,10 +876,6 @@ function App() {
   ], [customParsers]);
 
   // --- Handlers (Memoized) ---
-
-  const toggleMetaColumn = (/** @type {string} */ key) => {
-    dispatchApp({ type: "TOGGLE_META_COLUMN", payload: key });
-  };
 
   const addCustomParser = (/** @type {string} */ configText) => {
     const data = parseConfigBlock(configText);
@@ -1133,8 +1109,7 @@ function App() {
             copyTable,
             isResultVisible,
             documents,
-            selectedMetaCols,
-            toggleMetaColumn,
+            inlineMetadata,
             isRawTextVisible,
           ),
       )}
@@ -1202,7 +1177,7 @@ function renderStatus(status) {
  */
 function renderControls(selectedParser, dispatchParser, allParsers) {
   return html`
-    div class="mb-6 flex flex-col md:flex-row justify-between items-end gap-4">
+    <div class="mb-6 flex flex-col md:flex-row justify-between items-end gap-4">
     <div class="w-full md:w-1/2">
       <label class="block text-sm font-medium text-gray-700 mb-1">
         Processing Mode (Parser Selection)
@@ -1248,8 +1223,7 @@ function renderControls(selectedParser, dispatchParser, allParsers) {
  * @param {{ (tableId: string): void; (arg0: string): any; }} copyTable
  * @param {boolean} isResultVisible
  * @param {any[]} documents
- * @param {Set<string>} selectedMetaCols
- * @param {{ (key: string): void; (arg0: string): any; }} toggleMetaColumn
+ * @param {boolean} inlineMetadata
  * @param {boolean} isRawTextVisible
  */
 function renderResults(
@@ -1260,8 +1234,7 @@ function renderResults(
   copyTable,
   isResultVisible,
   documents,
-  selectedMetaCols,
-  toggleMetaColumn,
+  inlineMetadata,
   isRawTextVisible,
 ) {
   return html`
@@ -1274,10 +1247,20 @@ function renderResults(
         class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg"
       >
         <p class="text-sm font-medium text-yellow-800 mb-3 md:mb-0">
-          <span class="font-bold">Instructions:</span> Toggle metadata checkboxes to
-          add columns dynamically.
+          <span class="font-bold">Instructions:</span> Data is extracted from your PDFs. 
+          Use the toggles below to adjust the view.
         </p>
         <div class="flex flex-col flex-wrap gap-2 w-full md:w-auto">
+          <div>
+            <input
+              id="inlineAllMeta"
+              class="nd-switch"
+              type="checkbox"
+              ?checked="${inlineMetadata}"
+              @click="${() => dispatchApp({ type: "SET_INLINE_METADATA", payload: !inlineMetadata })}"
+            />
+            <label for="inlineAllMeta">Inline All Metadata</label>
+          </div>
           <div>
             <input
               id="isTableVisible"
@@ -1330,8 +1313,7 @@ function renderResults(
       ${when(isTableVisible, () =>
         renderDetailedTable(
           documents,
-          selectedMetaCols,
-          toggleMetaColumn,
+          inlineMetadata,
         ), () =>
         html`
           <div class="p-8 text-center text-gray-500 border rounded-lg bg-white mt-6">
