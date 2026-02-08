@@ -24,6 +24,7 @@ const initialParserState = {
   templatesText: "",
   parsers: [],
   selectedParser: "auto",
+  oneShotRegex: "",
 };
 
 /**
@@ -106,6 +107,8 @@ function parserReducer(state, action) {
       };
     case "SET_TEMPLATES_TEXT":
       return { ...state, templatesText: action.payload };
+    case "SET_ONE_SHOT_REGEX":
+      return { ...state, oneShotRegex: action.payload };
     default:
       return state;
   }
@@ -496,6 +499,7 @@ class FileProcessor {
   allParsers = [];
   selectedParser = "auto";
   savedPassword = "";
+  oneShotRegex = "";
   /**
    * @param {any} dispatchApp
    * @param {any} dispatchParser
@@ -515,6 +519,7 @@ class FileProcessor {
     this.allParsers = [];
     this.selectedParser = "auto";
     this.savedPassword = "";
+    this.oneShotRegex = "";
   }
 
   /**
@@ -522,8 +527,9 @@ class FileProcessor {
    * @param {any[]} allParsers
    * @param {string} selectedParser
    * @param {string} savedPassword
+   * @param {string} oneShotRegex
    */
-  async start(fileList, allParsers, selectedParser, savedPassword) {
+  async start(fileList, allParsers, selectedParser, savedPassword, oneShotRegex) {
     if (!fileList || fileList.length === 0) {
       this.dispatchApp({ type: "SET_IS_RESULT_VISIBLE", payload: false });
       this.dispatchApp({
@@ -551,9 +557,13 @@ class FileProcessor {
     this.allParsers = allParsers;
     this.selectedParser = selectedParser;
     this.savedPassword = savedPassword;
+    this.oneShotRegex = oneShotRegex;
 
     // Reset UI state
     this.dispatchApp({ type: "START_FILE_PROCESSING", payload: undefined });
+    if (selectedParser === "one-shot") {
+      this.dispatchApp({ type: "SET_IS_CONSOLIDATED_VISIBLE", payload: true });
+    }
 
     await this.processNextFile();
   }
@@ -623,34 +633,75 @@ class FileProcessor {
 
     let parserFound = false;
 
-    for (
-      const { name, matches, metadata, table, func = generalDocumentParser }
-        of this.allParsers
-    ) {
-      let isMatch = false;
-      if (this.selectedParser === "auto") {
-        isMatch = matches.every((s) =>
-          cleanCheckText.toLowerCase().includes(s.toLowerCase())
-        );
-      } else {
-        isMatch = name === this.selectedParser;
+    if (this.selectedParser === "one-shot") {
+      docType = "One-shot Regex";
+      if (!this.oneShotRegex || this.oneShotRegex.trim() === "") {
+        throw new Error("One-shot Regex is empty. Please enter a valid regex.");
       }
+      try {
+        const tableRx = new RegExp(this.oneShotRegex, "g");
+        const matches = [...rawText.matchAll(tableRx)];
 
-      if (isMatch) {
-        docType = name;
-        let effectiveMetaRx = typeof metadata === "string"
-          ? new RegExp(metadata, "s")
-          : metadata;
-        let effectiveTableRx = typeof table === "string"
-          ? new RegExp(table, "g")
-          : table;
+        // Treat each match as a metadata entry for consolidation
+        matches.forEach((m) => {
+          let fields = {};
+          if (m.groups && Object.keys(m.groups).length > 0) {
+            fields = m.groups;
+          } else if (m.length > 1) {
+            // Use positional groups if no named groups
+            m.slice(1).forEach((val, i) => {
+              fields[`Group ${i + 1}`] = val ? val.trim() : "";
+            });
+          } else {
+            // Use the whole match if no groups at all
+            fields["Match"] = m[0] ? m[0].trim() : "";
+          }
 
-        let temp = func(rawText, effectiveMetaRx, effectiveTableRx, name);
-        if (temp === undefined) break;
-        parsedData = temp;
-        console.debug(JSON.stringify(parsedData));
+          if (Object.keys(fields).length > 0) {
+            this.tempMetadata.push({
+              fileName: file.name,
+              docType: docType,
+              fields: fields,
+            });
+          }
+        });
+
+        parsedData = generalDocumentParser(rawText, undefined, tableRx, docType);
         parserFound = true;
-        break;
+      } catch (e) {
+        console.error("One-shot Regex Error:", e);
+        throw new Error(`Invalid One-shot Regex: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    } else {
+      for (
+        const { name, matches, metadata, table, func = generalDocumentParser }
+          of this.allParsers
+      ) {
+        let isMatch = false;
+        if (this.selectedParser === "auto") {
+          isMatch = matches.every((s) =>
+            cleanCheckText.toLowerCase().includes(s.toLowerCase())
+          );
+        } else {
+          isMatch = name === this.selectedParser;
+        }
+
+        if (isMatch) {
+          docType = name;
+          let effectiveMetaRx = typeof metadata === "string"
+            ? new RegExp(metadata, "s")
+            : metadata;
+          let effectiveTableRx = typeof table === "string"
+            ? new RegExp(table, "g")
+            : table;
+
+          let temp = func(rawText, effectiveMetaRx, effectiveTableRx, name);
+          if (temp === undefined) break;
+          parsedData = temp;
+          console.debug(JSON.stringify(parsedData));
+          parserFound = true;
+          break;
+        }
       }
     }
 
@@ -835,6 +886,7 @@ function App() {
     isTemplatesModalVisible,
     templatesText,
     selectedParser,
+    oneShotRegex,
   } = parserState;
 
   // --- App State (Replaces multiple useState calls) ---
@@ -1048,8 +1100,9 @@ function App() {
       allParsers,
       selectedParser,
       savedPassword,
+      oneShotRegex,
     );
-  }, [allParsers, selectedParser, savedPassword]);
+  }, [allParsers, selectedParser, savedPassword, oneShotRegex]);
 
   const handlePasswordSubmit = useCallback(async () => {
     const { fileToProcess, passwordInput, useForSubsequent } = passwordModal;
@@ -1086,7 +1139,8 @@ function App() {
         removeCustomParser,
         addCustomParser,
         isParserFormVisible,
-      )} ${renderControls(selectedParser, dispatchParser, allParsers)}
+        selectedParser,
+      )} ${renderControls(selectedParser, oneShotRegex, dispatchParser, allParsers)}
 
       <!-- Drop Zone -->
       <drop-zone @file-selected="${(/** @type {CustomEvent} */ e) => {
@@ -1111,6 +1165,7 @@ function App() {
             documents,
             inlineMetadata,
             isRawTextVisible,
+            selectedParser,
           ),
       )}
     </div>
@@ -1172,45 +1227,101 @@ function renderStatus(status) {
 
 /**
  * @param {string} selectedParser
+ * @param {string} oneShotRegex
  * @param {(arg0: { type: string; payload: any; }) => void} dispatchParser
  * @param {any[]} allParsers
  */
-function renderControls(selectedParser, dispatchParser, allParsers) {
+function renderControls(selectedParser, oneShotRegex, dispatchParser, allParsers) {
+  const isOneShot = selectedParser === "one-shot";
+  
   return html`
-    <div class="mb-6 flex flex-col md:flex-row justify-between items-end gap-4">
-    <div class="w-full md:w-1/2">
-      <label class="block text-sm font-medium text-gray-700 mb-1">
-        Processing Mode (Parser Selection)
-      </label>
-      <select
-        class="w-full border border-gray-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        .value="${selectedParser}"
-        @change="${(/** @type {Event} */ e) =>
-          dispatchParser({
-            type: "SET_SELECTED_PARSER",
-            // @ts-ignore
-            payload: e.target.value,
-          })}"
-      >
-        <option value="auto">Auto-detect (Default)</option>
-        ${allParsers.map((p) =>
-          html`
-            <option value="${p.name}">${p.name}</option>
-          `
-        )}
-      </select>
-      <p class="text-xs text-gray-500 mt-1">
-        "Auto" checks all parsers. Select a specific one to force it for all files.
-      </p>
-    </div>
+    <div class="mb-6 flex flex-col gap-4">
+      <div class="flex flex-col md:flex-row justify-between items-end gap-4">
+        <div class="w-full md:w-1/2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Extraction Mode
+          </label>
+          <div class="flex items-center gap-2">
+            <button
+              @click="${() => dispatchParser({ type: "SET_SELECTED_PARSER", payload: isOneShot ? "auto" : "one-shot" })}"
+              class="flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-sm transition shadow-sm border-2 ${isOneShot 
+                ? "bg-blue-600 text-white border-blue-700" 
+                : "bg-white text-gray-700 border-gray-300 hover:border-blue-400"}"
+            >
+              One Shot Regex Mode
+            </button>
+            
+            ${when(!isOneShot, () => html`
+              <select
+                class="flex-grow border border-gray-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                .value="${selectedParser}"
+                @change="${(/** @type {Event} */ e) =>
+                  dispatchParser({
+                    type: "SET_SELECTED_PARSER",
+                    // @ts-ignore
+                    payload: e.target.value,
+                  })}"
+              >
+                <option value="auto">Auto-detect (Default)</option>
+                ${allParsers.map((p) =>
+                  html`
+                    <option value="${p.name}">${p.name}</option>
+                  `
+                )}
+              </select>
+            `)}
+          </div>
+          <p class="text-xs text-gray-500 mt-1">
+            ${isOneShot 
+              ? "Applying a single regex to all files. Click to return to standard mode." 
+              : "Select a parser or enable One-shot mode for manual regex extraction."}
+          </p>
+        </div>
 
-    <button
-      @click="${() =>
-        dispatchParser({ type: "TOGGLE_LIST_MODAL", payload: true })}"
-      class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg shadow flex items-center transition h-10"
-    >
-      <span>ℹ️ Show Available Parsers</span>
-    </button>
+        ${when(!isOneShot, () => html`
+          <button
+            @click="${() =>
+              dispatchParser({ type: "TOGGLE_LIST_MODAL", payload: true })}"
+            class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg shadow flex items-center transition h-10"
+          >
+            <span>ℹ️ Show Available Parsers</span>
+          </button>
+        `)}
+      </div>
+
+      ${when(isOneShot, () => html`
+        <div class="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-xl shadow-inner">
+          <label class="block text-sm font-bold text-blue-800 mb-2 flex items-center gap-2">
+            <span>⚡ One-shot Regex (Global Table Match)</span>
+            <span class="font-normal text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">One-time use</span>
+          </label>
+          <div class="flex gap-2">
+            <input
+              type="text"
+              class="flex-grow border-2 border-blue-300 rounded-lg p-3 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm shadow-sm"
+              placeholder="e.g. (?<Date>\d{2}/\d{2}/\d{4})\s+(?<Amt>[\d,]+\.\d{2})"
+              .value="${oneShotRegex}"
+              @input="${(/** @type {Event} */ e) =>
+                dispatchParser({
+                  type: "SET_ONE_SHOT_REGEX",
+                  // @ts-ignore
+                  payload: e.target.value,
+                })}"
+            />
+          </div>
+          <div class="flex justify-between mt-2">
+            <p class="text-xs text-blue-700">
+              Use <strong>(?&lt;Name&gt;...)</strong> groups to define columns. Matches across all files.
+            </p>
+            <button 
+              @click="${() => dispatchParser({ type: "SET_ONE_SHOT_REGEX", payload: "" })}"
+              class="text-xs text-blue-600 hover:text-blue-800 font-semibold"
+            >
+              Clear Regex
+            </button>
+          </div>
+        </div>
+      `)}
     </div>
   `;
 }
@@ -1225,6 +1336,7 @@ function renderControls(selectedParser, dispatchParser, allParsers) {
  * @param {any[]} documents
  * @param {boolean} inlineMetadata
  * @param {boolean} isRawTextVisible
+ * @param {string} selectedParser
  */
 function renderResults(
   isTableVisible,
@@ -1236,7 +1348,9 @@ function renderResults(
   documents,
   inlineMetadata,
   isRawTextVisible,
+  selectedParser,
 ) {
+  const isOneShot = selectedParser === "one-shot";
   return html`
     <div>
       <h2 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">
@@ -1251,16 +1365,18 @@ function renderResults(
           Use the toggles below to adjust the view.
         </p>
         <div class="flex flex-col flex-wrap gap-2 w-full md:w-auto">
-          <div>
-            <input
-              id="inlineAllMeta"
-              class="nd-switch"
-              type="checkbox"
-              ?checked="${inlineMetadata}"
-              @click="${() => dispatchApp({ type: "SET_INLINE_METADATA", payload: !inlineMetadata })}"
-            />
-            <label for="inlineAllMeta">Inline All Metadata</label>
-          </div>
+          ${when(!isOneShot, () => html`
+            <div>
+              <input
+                id="inlineAllMeta"
+                class="nd-switch"
+                type="checkbox"
+                ?checked="${inlineMetadata}"
+                @click="${() => dispatchApp({ type: "SET_INLINE_METADATA", payload: !inlineMetadata })}"
+              />
+              <label for="inlineAllMeta">Inline All Metadata</label>
+            </div>
+          `)}
           <div>
             <input
               id="isTableVisible"
@@ -1287,17 +1403,12 @@ function renderResults(
                   payload: !isConsolidatedVisible,
                 })}"
             />
-            <label for="isConsolidatedVisible">Show Summary Table</label>
+            <label for="isConsolidatedVisible">${isOneShot ? "Show Consolidated Table" : "Show Summary Table"}</label>
           </div>
         </div>
       </div>
 
-      <!-- Consolidated Summary -->
-      ${when(
-        isConsolidatedVisible || consolidatedTables.length === 0,
-        // @ts-ignore
-        () => renderConsolidatedSummary(consolidatedTables, copyTable),
-      )} ${when(isResultVisible, () =>
+      ${when(isResultVisible, () =>
         html`
           <div class="flex" style="justify-content: end">
             <button
@@ -1320,6 +1431,13 @@ function renderResults(
             The extracted data table is currently hidden.
           </div>
         `)}
+
+      <!-- Consolidated Summary -->
+      ${when(
+        isConsolidatedVisible && consolidatedTables.length > 0,
+        // @ts-ignore
+        () => renderConsolidatedSummary(consolidatedTables, copyTable),
+      )}
 
       <!-- Raw Text Display -->
       <div class="mt-8">
@@ -1538,6 +1656,7 @@ function renderParserListModal(expandedParsers, dispatchParser, customParsers) {
  * @param {{ (index: number): void; (arg0: any): any; }} removeCustomParser
  * @param {{ (configText: string): void; (arg0: string): void; }} addCustomParser
  * @param {any} isParserFormVisible
+ * @param {string} selectedParser
  */
 function renderParserForm(
   customParsers,
@@ -1545,7 +1664,11 @@ function renderParserForm(
   removeCustomParser,
   addCustomParser,
   isParserFormVisible,
+  selectedParser,
 ) {
+  if (selectedParser === "one-shot") {
+    return nothing;
+  }
   const customParsersHtml = when(customParsers.length > 0, () =>
     html`
       <div class="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
