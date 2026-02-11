@@ -17,6 +17,7 @@
           "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js";
       }
     </script>
+    <script type="module" src="/components/app-layout.js"></script>
     <style>
       .data-table {
         table-layout: auto; /* Changed from fixed to auto to accommodate dynamic columns */
@@ -88,6 +89,8 @@
   <body>
     <script type="module" src="pdf-data-extractor.js">
     </script>
-    <app-root></app-root>
+    <app-layout title="Universal Data Extractor">
+      <app-root></app-root>
+    </app-layout>
   </body>
 </html>

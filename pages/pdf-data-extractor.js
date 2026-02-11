@@ -10,6 +10,7 @@ import {
 } from "/vendor/haunted.js";
 import "/components/drop-zone.js";
 import "/components/simple-table.js";
+import "/components/status-message.js";
 import { BUILT_IN_PARSERS, generalDocumentParser } from "/data-extractor.js";
 // --- CONSTANTS & GLOBALS ---
 const LOCAL_STORAGE_KEY = "dataExtractorCustomParsers";
@@ -1095,6 +1096,7 @@ function App() {
   // --- File Processing Logic ---
 
   const processFiles = useCallback((/** @type {FileList} */ fileList) => {
+    dispatchApp({ type: "SET_IS_RESULT_VISIBLE", payload: true });
     fileProcessor.current.start(
       fileList,
       allParsers,
@@ -1120,19 +1122,7 @@ function App() {
 
   // --- Main Render Function (Lit-HTML Template) ---
   return html`
-    <div
-      class="container mx-auto bg-white shadow-xl rounded-xl p-6 md:p-10 relative"
-    >
-      <h1 class="text-3xl font-extrabold text-blue-800 mb-2">
-        Universal Data Extractor
-      </h1>
-      <p class="text-gray-600 mb-6">
-        Supports <strong>GST</strong>, <strong>Income Tax</strong>, and various
-        <strong>Bank Statements</strong>.
-        <br>Drag & drop PDFs or define your own <strong>Custom Parser</strong>
-        below.
-      </p>
-
+    <div class="relative">
       ${renderParserForm(
         customParsers,
         dispatchParser,
@@ -1207,21 +1197,8 @@ function renderStatus(status) {
     return nothing;
   }
 
-  const isError = status.type === "error";
-  const isSuccess = status.type === "success";
-
-  const classes = {
-    "bg-red-100": isError,
-    "text-red-800": isError,
-    "bg-green-100": isSuccess,
-    "text-green-800": isSuccess,
-    "bg-blue-100": !isError && !isSuccess,
-    "text-blue-800": !isError && !isSuccess,
-  };
   return html`
-    <div class="p-4 rounded-lg text-sm mb-6 ${classMap(classes)}" role="alert">
-      ${status.message}
-    </div>
+    <status-message .type="${status.type}" .message="${status.message}"></status-message>
   `;
 }
 
