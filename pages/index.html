@@ -4,166 +4,95 @@
     <meta charset="UTF-8">
     <title>Mini Tools Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script type="module" src="/components/app-layout.js"></script>
     <style>
-      @import url("/unified-theme.css");
-      
-      .tool-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 1.5rem;
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        line-height: 1.5;
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        background-color: #f8fafc;
+        color: #1e293b;
       }
-
-      @media (min-width: 768px) {
-        .tool-grid { grid-template-columns: repeat(2, 1fr); }
+      header {
+        margin-bottom: 2rem;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 1rem;
       }
-
-      @media (min-width: 1024px) {
-        .tool-grid { grid-template-columns: repeat(3, 1fr); }
-      }
-
-      .tool-card {
-        transition: all 0.3s ease;
-        text-decoration: none;
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-      }
-      .tool-card:hover {
-        transform: translateY(-4px);
-        box-shadow: var(--shadow-lg);
-        border-color: var(--primary);
-      }
-      .tool-icon {
-        width: 3rem;
-        height: 3rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 0.75rem;
-        background-color: var(--primary-light);
-        color: var(--primary);
-        margin-bottom: 1.25rem;
-      }
-      .tool-title {
-        font-size: 1.25rem;
-        font-weight: 700;
-        margin: 0 0 0.5rem 0;
-        color: var(--text-main);
-      }
-      .tool-description {
-        font-size: 0.875rem;
-        color: var(--text-muted);
+      h1 {
+        font-size: 1.5rem;
         margin: 0;
-        flex-grow: 1;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+      }
+      li {
+        margin-bottom: 1.5rem;
+      }
+      a {
+        color: #2563eb;
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 1.25rem;
+      }
+      a:hover {
+        text-decoration: underline;
       }
     </style>
   </head>
   <body>
-    <app-layout title="Mini Tools Dashboard">
-      <div class="tool-grid">
-        
-        <!-- PDF Data Extractor -->
-        <a href="pdf-data-extractor.html" class="tool-card card">
-          <div class="tool-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </div>
-          <h2 class="tool-title">PDF Data Extractor</h2>
-          <p class="tool-description">Extract structured data from GST, Income Tax, and Bank statements using predefined or custom regex parsers.</p>
-        </a>
-
-        <!-- Excel Sheet Combiner -->
-        <a href="merge-excel.html" class="tool-card card">
-          <div class="tool-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
-            </svg>
-          </div>
-          <h2 class="tool-title">Excel Sheet Combiner</h2>
-          <p class="tool-description">Merge multiple Excel files into a single workbook, preserving all sheets and content.</p>
-        </a>
-
-        <!-- PDF OCR Tool -->
-        <a href="ocr-pdf.html" class="tool-card card">
-          <div class="tool-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9h1m4 0h1m-5 4h5m-5 4h5" />
-            </svg>
-          </div>
-          <h2 class="tool-title">PDF OCR & Overlay</h2>
-          <p class="tool-description">Convert scanned PDFs or images into searchable PDF files with invisible text overlays.</p>
-        </a>
-
-        <!-- PDF Table Extractor -->
-        <a href="pdf-table-extractor.html" class="tool-card card">
-          <div class="tool-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <h2 class="tool-title">PDF Table Extractor</h2>
-          <p class="tool-description">Recover tabular data from searchable PDFs with automatic column detection and manual adjustment.</p>
-        </a>
-
-        <!-- Excel Multi-File Consolidator -->
-        <a href="excel-concat-sheets.html" class="tool-card card">
-          <div class="tool-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-            </svg>
-          </div>
-          <h2 class="tool-title">Excel Consolidator</h2>
-          <p class="tool-description">Consolidate rows from multiple Excel sheets across different files based on a target header anchor.</p>
-        </a>
-
-        <!-- PDF Modifier -->
-        <a href="pdf-modifier.html" class="tool-card card">
-          <div class="tool-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-            </svg>
-          </div>
-          <h2 class="tool-title">PDF Modifier</h2>
-          <p class="tool-description">Quickly rotate, reorder, or remove pages from your PDF documents.</p>
-        </a>
-
-        <!-- Excel Formula Studio -->
-        <a href="excel_formula_helper.html" class="tool-card card">
-          <div class="tool-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <h2 class="tool-title">Excel Formula Studio</h2>
-          <p class="tool-description">Interactive playground for building and testing complex Excel formulas.</p>
-        </a>
-
-        <!-- Kanata Visualizer -->
-        <a href="kanata-visualizer.html" class="tool-card card">
-          <div class="tool-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
-            </svg>
-          </div>
-          <h2 class="tool-title">Kanata Visualizer</h2>
-          <p class="tool-description">Visualize and debug Kanata keyboard remapping configurations.</p>
-        </a>
-
-        <!-- Docx Templater -->
-        <a href="docx-templater.html" class="tool-card card">
-          <div class="tool-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
-            </svg>
-          </div>
-          <h2 class="tool-title">Docx Templater</h2>
-          <p class="tool-description">Generate Word documents from templates by filling in data markers.</p>
-        </a>
-
-      </div>
-    </app-layout>
+    <header>
+      <h1>Mini Tools Dashboard</h1>
+    </header>
+    <main>
+      <ul>
+        <li>
+          <a href="pdf-data-extractor.html">PDF Data Extractor</a>
+          <span>Extract structured data from GST, Income Tax, and Bank
+            statements using predefined or custom regex parsers.</span>
+        </li>
+        <li>
+          <a href="merge-excel.html">Excel Sheet Combiner</a>
+          <span>Merge multiple Excel files into a single workbook, preserving
+            all sheets and content.</span>
+        </li>
+        <li>
+          <a href="ocr-pdf.html">PDF OCR & Overlay</a>
+          <span>Convert scanned PDFs or images into searchable PDF files with
+            invisible text overlays.</span>
+        </li>
+        <li>
+          <a href="pdf-table-extractor.html">PDF Table Extractor</a>
+          <span>Recover tabular data from searchable PDFs with automatic column
+            detection and manual adjustment.</span>
+        </li>
+        <li>
+          <a href="excel-concat-sheets.html">Excel Consolidator</a>
+          <span>Consolidate rows from multiple Excel sheets across different
+            files based on a target header anchor.</span>
+        </li>
+        <li>
+          <a href="pdf-modifier.html">PDF Modifier</a>
+          <span>Quickly rotate, reorder, or remove pages from your PDF
+            documents.</span>
+        </li>
+        <li>
+          <a href="excel_formula_helper.html">Excel Formula Studio</a>
+          <span>Interactive playground for building and testing complex Excel
+            formulas.</span>
+        </li>
+        <li>
+          <a href="kanata-visualizer.html">Kanata Visualizer</a>
+          <span>Visualize and debug Kanata keyboard remapping
+            configurations.</span>
+        </li>
+        <li>
+          <a href="docx-templater.html">Docx Templater</a>
+          <span>Generate Word documents from templates by filling in data
+            markers.</span>
+        </li>
+      </ul>
+    </main>
   </body>
 </html>
