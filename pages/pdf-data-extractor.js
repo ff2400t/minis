@@ -26,6 +26,7 @@ const initialParserState = {
   parsers: [],
   selectedParser: "auto",
   oneShotRegex: "",
+  oneShotGlobal: false,
 };
 
 /**
@@ -110,6 +111,8 @@ function parserReducer(state, action) {
       return { ...state, templatesText: action.payload };
     case "SET_ONE_SHOT_REGEX":
       return { ...state, oneShotRegex: action.payload };
+    case "SET_ONE_SHOT_GLOBAL":
+      return { ...state, oneShotGlobal: action.payload };
     default:
       return state;
   }
@@ -501,6 +504,7 @@ class FileProcessor {
   selectedParser = "auto";
   savedPassword = "";
   oneShotRegex = "";
+  oneShotGlobal = false;
   /**
    * @param {any} dispatchApp
    * @param {any} dispatchParser
@@ -521,6 +525,7 @@ class FileProcessor {
     this.selectedParser = "auto";
     this.savedPassword = "";
     this.oneShotRegex = "";
+    this.oneShotGlobal = false;
   }
 
   /**
@@ -529,8 +534,9 @@ class FileProcessor {
    * @param {string} selectedParser
    * @param {string} savedPassword
    * @param {string} oneShotRegex
+   * @param {boolean} oneShotGlobal
    */
-  async start(fileList, allParsers, selectedParser, savedPassword, oneShotRegex) {
+  async start(fileList, allParsers, selectedParser, savedPassword, oneShotRegex, oneShotGlobal) {
     if (!fileList || fileList.length === 0) {
       this.dispatchApp({ type: "SET_IS_RESULT_VISIBLE", payload: false });
       this.dispatchApp({
@@ -559,6 +565,7 @@ class FileProcessor {
     this.selectedParser = selectedParser;
     this.savedPassword = savedPassword;
     this.oneShotRegex = oneShotRegex;
+    this.oneShotGlobal = oneShotGlobal;
 
     // Reset UI state
     this.dispatchApp({ type: "START_FILE_PROCESSING", payload: undefined });
@@ -640,34 +647,39 @@ class FileProcessor {
         throw new Error("One-shot Regex is empty. Please enter a valid regex.");
       }
       try {
-        const tableRx = new RegExp(this.oneShotRegex, "g");
-        const matches = [...rawText.matchAll(tableRx)];
+        let metaRx, tableRx;
+        if (this.oneShotGlobal) {
+          tableRx = new RegExp(this.oneShotRegex, "g");
+          const matches = [...rawText.matchAll(tableRx)];
 
-        // Treat each match as a metadata entry for consolidation
-        matches.forEach((m) => {
-          let fields = {};
-          if (m.groups && Object.keys(m.groups).length > 0) {
-            fields = m.groups;
-          } else if (m.length > 1) {
-            // Use positional groups if no named groups
-            m.slice(1).forEach((val, i) => {
-              fields[`Group ${i + 1}`] = val ? val.trim() : "";
-            });
-          } else {
-            // Use the whole match if no groups at all
-            fields["Match"] = m[0] ? m[0].trim() : "";
-          }
+          // Treat each match as a metadata entry for consolidation
+          matches.forEach((m) => {
+            let fields = {};
+            if (m.groups && Object.keys(m.groups).length > 0) {
+              fields = m.groups;
+            } else if (m.length > 1) {
+              // Use positional groups if no named groups
+              m.slice(1).forEach((val, i) => {
+                fields[`Group ${i + 1}`] = val ? val.trim() : "";
+              });
+            } else {
+              // Use the whole match if no groups at all
+              fields["Match"] = m[0] ? m[0].trim() : "";
+            }
 
-          if (Object.keys(fields).length > 0) {
-            this.tempMetadata.push({
-              fileName: file.name,
-              docType: docType,
-              fields: fields,
-            });
-          }
-        });
+            if (Object.keys(fields).length > 0) {
+              this.tempMetadata.push({
+                fileName: file.name,
+                docType: docType,
+                fields: fields,
+              });
+            }
+          });
+        } else {
+          metaRx = new RegExp(this.oneShotRegex, "s");
+        }
 
-        parsedData = generalDocumentParser(rawText, undefined, tableRx, docType);
+        parsedData = generalDocumentParser(rawText, metaRx, tableRx, docType);
         parserFound = true;
       } catch (e) {
         console.error("One-shot Regex Error:", e);
@@ -888,6 +900,7 @@ function App() {
     templatesText,
     selectedParser,
     oneShotRegex,
+    oneShotGlobal,
   } = parserState;
 
   // --- App State (Replaces multiple useState calls) ---
@@ -1103,8 +1116,9 @@ function App() {
       selectedParser,
       savedPassword,
       oneShotRegex,
+      oneShotGlobal,
     );
-  }, [allParsers, selectedParser, savedPassword, oneShotRegex]);
+  }, [allParsers, selectedParser, savedPassword, oneShotRegex, oneShotGlobal]);
 
   const handlePasswordSubmit = useCallback(async () => {
     const { fileToProcess, passwordInput, useForSubsequent } = passwordModal;
@@ -1130,7 +1144,7 @@ function App() {
         addCustomParser,
         isParserFormVisible,
         selectedParser,
-      )} ${renderControls(selectedParser, oneShotRegex, dispatchParser, allParsers)}
+      )}${renderControls(selectedParser, oneShotRegex, oneShotGlobal, dispatchParser, allParsers)}
 
       <!-- Drop Zone -->
       <drop-zone @file-selected="${(/** @type {CustomEvent} */ e) => {
@@ -1205,10 +1219,11 @@ function renderStatus(status) {
 /**
  * @param {string} selectedParser
  * @param {string} oneShotRegex
+ * @param {boolean} oneShotGlobal
  * @param {(arg0: { type: string; payload: any; }) => void} dispatchParser
  * @param {any[]} allParsers
  */
-function renderControls(selectedParser, oneShotRegex, dispatchParser, allParsers) {
+function renderControls(selectedParser, oneShotRegex, oneShotGlobal, dispatchParser, allParsers) {
   const isOneShot = selectedParser === "one-shot";
   
   return html`
@@ -1272,7 +1287,7 @@ function renderControls(selectedParser, oneShotRegex, dispatchParser, allParsers
             <span>⚡ One-shot Regex (Global Table Match)</span>
             <span class="font-normal text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">One-time use</span>
           </label>
-          <div class="flex gap-2">
+          <div class="flex gap-2 items-stretch">
             <input
               type="text"
               class="flex-grow border-2 border-blue-300 rounded-lg p-3 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm shadow-sm"
@@ -1285,10 +1300,20 @@ function renderControls(selectedParser, oneShotRegex, dispatchParser, allParsers
                   payload: e.target.value,
                 })}"
             />
+            <button
+              @click="${() => dispatchParser({ type: "SET_ONE_SHOT_GLOBAL", payload: !oneShotGlobal })}"
+              class="px-4 rounded-lg font-bold text-sm transition shadow-sm border-2 flex items-center justify-center ${oneShotGlobal 
+                ? "bg-blue-600 text-white border-blue-700" 
+                : "bg-white text-gray-700 border-gray-300 hover:border-blue-400"}"
+              title="Toggle Global Mode (/g flag) for table extraction"
+              style="min-width: 3rem;"
+            >
+              /g
+            </button>
           </div>
           <div class="flex justify-between mt-2">
             <p class="text-xs text-blue-700">
-              Use <strong>(?&lt;Name&gt;...)</strong> groups to define columns. Matches across all files.
+              Use <strong>(?&lt;Name&gt;...)</strong> groups to define columns. ${oneShotGlobal ? "Extracts multiple matches per file as a table." : "Extracts first match as metadata."}
             </p>
             <button 
               @click="${() => dispatchParser({ type: "SET_ONE_SHOT_REGEX", payload: "" })}"
