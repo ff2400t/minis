@@ -1,6 +1,7 @@
 import { html, map, ref, render, when } from "/vendor/lit-html.js";
 import { component, useReducer, useRef, useState } from "/vendor/haunted.js";
 import "/components/drop-zone.js";
+import "/components/status-message.js";
 
 // @ts-ignore
 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -608,249 +609,250 @@ function App() {
   };
 
   return html`
-    <div class="container">
-      <header>
-        <div>
-          <h1>Table Extractor</h1>
-          <p class="subtitle">Searchable PDF Data Recovery</p>
-        </div>
-        ${when(state.extractedData.length, () =>
-          html`
-            <div style="display:flex; gap:1rem;">
-              <button class="btn btn-ghost" @click="${() =>
-                dispatch({
-                  type: "RESET",
-                  payload: undefined,
-                })}">Reset</button>
-              <button class="btn btn-primary" @click="${copyTSV}">
-                ${state.copyStatus.all ? "✓ Copied" : "Copy TSV"}
-              </button>
-            </div>
-          `)}
-      </header>
+    <app-layout title="PDF Table Extractor">
+      <div class="space-y-6">
+        <header class="flex justify-between items-end gap-4">
+          <div>
+            <p class="text-gray-500">Searchable PDF Data Recovery</p>
+          </div>
+          ${when(state.extractedData.length, () =>
+            html`
+              <div class="flex gap-4">
+                <button class="btn btn-secondary" @click="${() =>
+                  dispatch({
+                    type: "RESET",
+                    payload: undefined,
+                  })}">Reset</button>
+                <button class="btn btn-primary" @click="${copyTSV}">
+                  ${state.copyStatus.all ? "✓ Copied" : "Copy TSV"}
+                </button>
+              </div>
+            `)}
+        </header>
 
-      <drop-zone
-        ?disabled="${state.isProcessing}"
-        .fileName="${state.lastFile?.name}"
-        @file-selected="${(e) => extractFromPdf(e.detail[0])}"
-      ></drop-zone>
+        <drop-zone
+          ?disabled="${state.isProcessing}"
+          .fileName="${state.lastFile?.name}"
+          @file-selected="${(e) => extractFromPdf(e.detail[0])}"
+        ></drop-zone>
 
-      <div class="settings-card">
-        <div class="settings-grid">
-          <div class="input-group">
-            <span class="label-tiny">Row Trigger</span>
-            <input type="text" .value="${state.triggerWord}" @input="${(e) =>
-              dispatch({
-                type: "SET_CONFIG",
-                payload: { key: "triggerWord", value: e.target.value },
-              })}" />
-          </div>
-          <div class="input-group">
-            <div style="display:flex; justify-content: space-between;">
-              <span class="label-tiny">Row Leniency</span>
-              <span class="value-badge">${state.rowLeniency}</span>
-            </div>
-            <input
-              type="range"
-              min="1"
-              max="30"
-              .value="${state.rowLeniency}"
-              @input="${(e) =>
+        <div class="card">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-6 items-center">
+            <div class="input-group">
+              <span class="label-tiny">Row Trigger</span>
+              <input type="text" .value="${state.triggerWord}" @input="${(e) =>
                 dispatch({
                   type: "SET_CONFIG",
-                  payload: { key: "rowLeniency", value: e.target.value },
-                })}"
-            />
-          </div>
-          <div class="input-group">
-            <div style="display:flex; justify-content: space-between;">
-              <span class="label-tiny">Auto-Col Cluster</span>
-              <span class="value-badge">${state.colLeniency}</span>
-            </div>
-            <input
-              type="range"
-              min="10"
-              max="150"
-              .value="${state.colLeniency}"
-              @input="${(e) =>
-                dispatch({
-                  type: "SET_CONFIG",
-                  payload: { key: "colLeniency", value: e.target.value },
-                })}"
-            />
-          </div>
-          <div
-            style="border-left: 1px solid var(--border); padding-left: 1rem; display: flex; flex-direction: column; gap: 0.5rem;"
-          >
-            <label
-              style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem;"
-            >
-              <input type="checkbox" .checked="${state
-                .showManualSettings}" @change="${(e) =>
-                dispatch({
-                  type: "SET_CONFIG",
-                  payload: {
-                    key: "showManualSettings",
-                    value: e.target.checked,
-                  },
+                  payload: { key: "triggerWord", value: e.target.value },
                 })}" />
-              Manual Mode
-            </label>
-            <button
-              class="btn btn-primary"
-              style="padding: 0.4rem; font-size: 0.75rem;"
-              @click="${handleReparse}"
-              ?disabled="${!state.lastFile || state.isProcessing}"
-            >
-              Apply & Reparse
-            </button>
-          </div>
-        </div>
-        ${when(state.showManualSettings, () =>
-          html`
-            <div
-              style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;"
-            >
-              <button
-                class="btn btn-ghost"
-                style="font-size: 0.65rem;"
-                @click="${copyMarkers}"
-              >
-                ${state.copyStatus.markers ? "✓ Copied" : "Copy Markers"}
-              </button>
-              <button
-                class="btn btn-ghost"
-                style="font-size: 0.65rem;"
-                @click="${pasteMarkers}"
-              >
-                Paste Markers
-              </button>
-              <button
-                class="btn btn-ghost"
-                style="font-size: 0.65rem; color: #ef4444;"
-                @click="${() =>
-                  dispatch({ type: "SET_ANCHORS", payload: { anchors: [] } })}"
-              >
-                Clear All
-              </button>
             </div>
-            <column-adjuster
-              ${ref(adjusterRef)}
-              .anchors="${state.manualAnchors}"
-              .onOpenVisual="${() =>
-                dispatch({
-                  type: "TOGGLE_VISUAL_MODAL",
-                  payload: { value: true },
-                })}"
-              @update="${(e) =>
-                dispatch({
-                  type: "SET_ANCHORS",
-                  payload: { anchors: e.detail },
-                })}"
-            ></column-adjuster>
-          `)}
-      </div>
-
-      ${when(state.isProcessing, () =>
-        html`
-          <div class="status-bar"><span class="dot-loader"></span> ${state
-            .processingStep}</div>
-        `)} ${when(state.error, () =>
-          html`
-            <div class="error-msg">${state.error}</div>
-          `)} ${when(state.extractedData.length, () =>
-          html`
-            <div class="toggle-container">
-              <h3 style="margin:0; font-size: 0.875rem;">Preview</h3>
-              <label style="display: flex; align-items: center; gap: 0.5rem;">
-                <span class="label-tiny">Show All Pages</span>
-                <input type="checkbox" .checked="${state
-                  .showAllPages}" @change="${(e) =>
+            <div class="input-group">
+              <div style="display:flex; justify-content: space-between;">
+                <span class="label-tiny">Row Leniency</span>
+                <span class="value-badge">${state.rowLeniency}</span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="30"
+                .value="${state.rowLeniency}"
+                @input="${(e) =>
                   dispatch({
                     type: "SET_CONFIG",
-                    payload: { key: "showAllPages", value: e.target.checked },
-                  })}" />
-              </label>
+                    payload: { key: "rowLeniency", value: e.target.value },
+                  })}"
+              />
             </div>
-            ${map(
-              state.showAllPages
-                ? state.extractedData
-                : state.extractedData.slice(0, 1),
-              (page) =>
-                html`
-                  <div class="page-card">
-                    <div class="page-header">
-                      <span>Page ${page.page}</span>
-                      <span>${page.rows.length} Rows</span>
-                    </div>
-                    <div class="table-container">
-                      <table>
-                        <tbody>
-                          ${map(page.rows, (r, i) =>
-                            html`
-                              <tr>
-                                <td class="row-num">${i + 1}</td>
-                                ${map(r, (c) =>
-                                  html`
-                                    <td>${c}</td>
-                                  `)}
-                              </tr>
-                            `)}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                `,
-            )}
-          `)} ${when(state.showPasswordModal, () =>
-          html`
-            <div class="modal-overlay">
-              <form
-                class="modal-content"
-                style="background: white; padding: 2rem; border-radius: 1rem; display: flex; flex-direction: column; gap: 1rem;"
-                @submit="${(e) => {
-                  e.preventDefault();
-                  extractFromPdf(state.lastFile, state.manualAnchors, password);
-                }}"
+            <div class="input-group">
+              <div style="display:flex; justify-content: space-between;">
+                <span class="label-tiny">Auto-Col Cluster</span>
+                <span class="value-badge">${state.colLeniency}</span>
+              </div>
+              <input
+                type="range"
+                min="10"
+                max="150"
+                .value="${state.colLeniency}"
+                @input="${(e) =>
+                  dispatch({
+                    type: "SET_CONFIG",
+                    payload: { key: "colLeniency", value: e.target.value },
+                  })}"
+              />
+            </div>
+            <div
+              class="flex flex-col gap-2 pt-4 md:pt-0"
+            >
+              <label
+                class="flex items-center gap-2 text-xs font-bold text-gray-600 uppercase"
               >
-                <h2 style="margin:0">Protected PDF</h2>
-                <input
-                  type="password"
-                  placeholder="Password"
-                  .value="${password}"
-                  @input="${(e) => setPassword(e.target.value)}"
-                  required
-                />
-                <div style="display:flex; gap:1rem; justify-content:flex-end;">
-                  <button type="button" class="btn btn-ghost" @click="${() =>
+                <input type="checkbox" .checked="${state
+                  .showManualSettings}" @change="${(e) =>
+                  dispatch({
+                    type: "SET_CONFIG",
+                    payload: {
+                      key: "showManualSettings",
+                      value: e.target.checked,
+                    },
+                  })}" />
+                Manual Mode
+              </label>
+              <button
+                class="btn btn-primary py-2 text-xs"
+                @click="${handleReparse}"
+                ?disabled="${!state.lastFile || state.isProcessing}"
+              >
+                Apply & Reparse
+              </button>
+            </div>
+          </div>
+          ${when(state.showManualSettings, () =>
+            html`
+              <div
+                style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;"
+              >
+                <button
+                  class="btn btn-secondary text-xs py-1"
+                  @click="${copyMarkers}"
+                >
+                  ${state.copyStatus.markers ? "✓ Copied" : "Copy Markers"}
+                </button>
+                <button
+                  class="btn btn-secondary text-xs py-1"
+                  @click="${pasteMarkers}"
+                >
+                  Paste Markers
+                </button>
+                <button
+                  class="btn btn-secondary text-xs py-1 text-red-500 hover:text-red-700"
+                  @click="${() =>
+                    dispatch({ type: "SET_ANCHORS", payload: { anchors: [] } })}"
+                >
+                  Clear All
+                </button>
+              </div>
+              <column-adjuster
+                ${ref(adjusterRef)}
+                .anchors="${state.manualAnchors}"
+                .onOpenVisual="${() =>
+                  dispatch({
+                    type: "TOGGLE_VISUAL_MODAL",
+                    payload: { value: true },
+                  })}"
+                @update="${(e) =>
+                  dispatch({
+                    type: "SET_ANCHORS",
+                    payload: { anchors: e.detail },
+                  })}"
+              ></column-adjuster>
+            `)}
+        </div>
+
+        ${when(state.isProcessing, () =>
+          html`
+            <status-message type="info" .message="${state.processingStep}"></status-message>
+          `)} ${when(state.error, () =>
+            html`
+              <status-message type="error" .message="${state.error}"></status-message>
+            `)} ${when(state.extractedData.length, () =>
+            html`
+              <div class="toggle-container">
+                <h3 style="margin:0; font-size: 0.875rem; font-weight:700;">Data Preview</h3>
+                <label class="flex items-center gap-2">
+                  <span class="label-tiny">Show All Pages</span>
+                  <input type="checkbox" class="nd-switch" .checked="${state
+                    .showAllPages}" @change="${(e) =>
                     dispatch({
                       type: "SET_CONFIG",
-                      payload: { key: "showPasswordModal", value: false },
-                    })}">
-                    Cancel
-                  </button>
-                  <button type="submit" class="btn btn-primary">Unlock</button>
-                </div>
-              </form>
-            </div>
-          `)} ${when(state.showVisualModal, () =>
-          html`
-            <visual-alignment-modal
-              .pdfFile="${state.lastFile}"
-              .anchors="${state.manualAnchors}"
-              @update="${(e) =>
-                dispatch({
-                  type: "SET_ANCHORS",
-                  payload: { anchors: e.detail },
-                })}"
-              @close="${() =>
-                dispatch({
-                  type: "TOGGLE_VISUAL_MODAL",
-                  payload: { value: false },
-                })}"
-            ></visual-alignment-modal>
-          `)}
-    </div>
+                      payload: { key: "showAllPages", value: e.target.checked },
+                    })}" />
+                </label>
+              </div>
+              <div class="space-y-6">
+                ${map(
+                  state.showAllPages
+                    ? state.extractedData
+                    : state.extractedData.slice(0, 1),
+                  (page) =>
+                    html`
+                      <div class="page-card">
+                        <div class="page-header">
+                          <span>Page ${page.page}</span>
+                          <span>${page.rows.length} Rows</span>
+                        </div>
+                        <div class="table-container">
+                          <table>
+                            <tbody>
+                              ${map(page.rows, (r, i) =>
+                                html`
+                                  <tr>
+                                    <td class="row-num">${i + 1}</td>
+                                    ${map(r, (c) =>
+                                      html`
+                                        <td>${c}</td>
+                                      `)}
+                                  </tr>
+                                `)}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    `,
+                )}
+              </div>
+            `)}
+      </div>
+
+      <!-- Modals -->
+      ${when(state.showPasswordModal, () =>
+        html`
+          <div class="modal-backdrop">
+            <form
+              class="card w-full max-w-md flex flex-col gap-4"
+              @submit="${(e) => {
+                e.preventDefault();
+                extractFromPdf(state.lastFile, state.manualAnchors, password);
+              }}"
+            >
+              <h2 class="text-xl font-bold">Protected PDF</h2>
+              <p class="text-sm text-gray-500">This document is encrypted. Please enter the password to unlock it.</p>
+              <input
+                type="password"
+                placeholder="Password"
+                .value="${password}"
+                @input="${(e) => setPassword(e.target.value)}"
+                required
+              />
+              <div class="flex gap-3 justify-end mt-2">
+                <button type="button" class="btn btn-secondary" @click="${() =>
+                  dispatch({
+                    type: "SET_CONFIG",
+                    payload: { key: "showPasswordModal", value: false },
+                  })}">
+                  Cancel
+                </button>
+                <button type="submit" class="btn btn-primary">Unlock</button>
+              </div>
+            </form>
+          </div>
+        `)} ${when(state.showVisualModal, () =>
+        html`
+          <visual-alignment-modal
+            .pdfFile="${state.lastFile}"
+            .anchors="${state.manualAnchors}"
+            @update="${(e) =>
+              dispatch({
+                type: "SET_ANCHORS",
+                payload: { anchors: e.detail },
+              })}"
+            @close="${() =>
+              dispatch({
+                type: "TOGGLE_VISUAL_MODAL",
+                payload: { value: false },
+              })}"
+          ></visual-alignment-modal>
+        `)}
+    </app-layout>
   `;
 }
 

@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF Modifier</title>
-
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module" src="/components/app-layout.js"></script>
 
     <!-- PDF Libraries -->
     <!-- pdf-lib for modification -->
@@ -15,6 +13,13 @@
     <script
       src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"
     ></script>
+
+    <style>
+      @import url("/unified-theme.css");
+      
+      .h-48 { height: 12rem; }
+      .w-36 { width: 9rem; }
+    </style>
 
     <!-- App Scripts -->
     <script type="module">
@@ -405,89 +410,39 @@
         const canSave = pdfBytes && pagesState.length > 0 && !isSaving;
 
         return html`
-          <div class="min-h-screen bg-gray-100 font-sans text-gray-800">
-            <!-- Header -->
-            <header class="bg-white shadow-md sticky top-0 z-20">
-              <div
-                class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center"
-              >
-                <h1
-                  class="text-2xl font-extrabold text-blue-700 flex items-center gap-2"
-                >
-                  <svg
-                    class="w-8 h-8 text-blue-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+          <app-layout title="PDF Modifier">
+            <div class="space-y-6">
+              <!-- Actions Header -->
+              <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <p class="text-gray-500">Rotate, reorder, or remove pages from your PDF documents.</p>
+                </div>
+                ${when(canSave, () => html`
+                  <div class="flex gap-3">
+                    <button
+                      @click="${() => {
+                        setPdfBytes(null);
+                        setPagesState([]);
+                        setPdfProxy(null);
+                      }}"
+                      class="btn btn-secondary text-red-500"
                     >
-                    </path>
-                  </svg>
-                  Lit-PDF Editor
-                </h1>
-                <!-- Save Button -->
-                <button
-                  @click="${savePdf}"
-                  class="
-                    bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-xl font-bold shadow-lg transition transform active:scale-95 flex items-center gap-2
-                    ${!canSave ? "opacity-50 cursor-not-allowed" : ""}
-                  "
-                  ?disabled="${!canSave}"
-                >
-                  ${isSaving
-                    ? html`
-                      <svg
-                        class="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          class="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          stroke-width="4"
-                        >
-                        </circle>
-                        <path
-                          class="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        >
-                        </path>
-                      </svg>
-                      Processing...
-                    `
-                    : html`
-                      Save Document (${pagesState.length} pages)
-                      <svg
-                        class="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                        >
-                        </path>
-                      </svg>
-                    `}
-                </button>
+                      Reset
+                    </button>
+                    <button
+                      @click="${savePdf}"
+                      class="btn btn-primary px-6"
+                      ?disabled="${isSaving}"
+                    >
+                      ${isSaving
+                        ? html`<div class="spinner border-white mr-2" style="width:1rem; height:1rem; border-width:2px;"></div> Saving...`
+                        : html`Save Document (${pagesState.length} pages)`}
+                    </button>
+                  </div>
+                `)}
               </div>
-            </header>
 
-            <main class="max-w-7xl mx-auto px-4 py-8">
-              <!-- Drag and Drop Zone / File Input -->
+              <!-- Drag and Drop Zone -->
               ${!pdfBytes
                 ? html`
                   <div
@@ -504,34 +459,14 @@
                     @dragleave="${() => setIsDragging(false)}"
                     @drop="${onDrop}"
                   >
-                    <svg
-                      class="w-24 h-24 text-blue-400 mb-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                      >
-                      </path>
+                    <svg class="w-24 h-24 text-blue-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                     </svg>
-                    <p class="text-2xl text-gray-500 font-bold mb-4">
-                      Drag & Drop your PDF file here
-                    </p>
+                    <p class="text-2xl text-gray-500 font-bold mb-4 text-center">Drag & Drop your PDF file here</p>
                     <p class="text-gray-400 mb-6">or</p>
-                    <label
-                      class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl cursor-pointer transition shadow-lg font-semibold transform hover:scale-[1.01]"
-                    >
+                    <label class="btn btn-primary btn-lg cursor-pointer">
                       Browse Files
-                      <input
-                        type="file"
-                        accept="application/pdf"
-                        class="hidden"
-                        @change="${onFileSelect}"
-                      >
+                      <input type="file" accept="application/pdf" class="hidden" @change="${onFileSelect}">
                     </label>
                   </div>
                 `
@@ -540,62 +475,17 @@
               <!-- Horizontal Page Grid List -->
               ${pdfBytes
                 ? html`
-                  <div class="mb-6">
-                    <div class="flex items-center justify-between mb-4">
-                      <h2 class="text-xl font-bold text-gray-700">
-                        Current Page Order (${pagesState.length} pages)
-                      </h2>
-                      <button
-                        @click="${() => {
-                          setPdfBytes(null);
-                          setPagesState([]);
-                          setPdfProxy(null);
-                        }}"
-                        class="text-sm text-red-500 hover:text-red-700 hover:underline transition"
-                      >
-                        Unload PDF / Start Over
-                      </button>
-                    </div>
-
+                  <div class="space-y-4">
                     ${isGeneratingThumbs
                       ? html`
-                        <div class="p-8 text-center bg-white rounded-xl shadow-inner">
-                          <svg
-                            class="animate-spin h-8 w-8 text-blue-500 mx-auto mb-2"
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              class="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              stroke-width="4"
-                            >
-                            </circle>
-                            <path
-                              class="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            >
-                            </path>
-                          </svg>
-                          <p class="text-gray-600">
-                            Generating thumbnails for all ${pdfProxy
-                              ?.numPages || ""} pages...
-                          </p>
+                        <div class="card p-12 text-center flex flex-col items-center gap-4">
+                          <div class="spinner" style="width:2.5rem; height:2.5rem; border-width:4px;"></div>
+                          <p class="text-gray-600 font-medium">Generating thumbnails for ${pdfProxy?.numPages || ""} pages...</p>
                         </div>
                       `
                       : html`
-                        <div
-                          class="bg-white border border-gray-200 rounded-xl p-6 shadow-inner"
-                        >
-                          <!-- Responsive Grid Layout -->
-                          <div
-                            class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-6 justify-items-center"
-                          >
+                        <div class="card p-6 shadow-inner bg-gray-50">
+                          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-6 justify-items-center">
                             ${pagesState.map((page) =>
                               html`
                                 <pdf-thumbnail
@@ -614,13 +504,29 @@
                             : ""}
                         </div>
                       `}
-                    <p class="text-sm text-gray-500 mt-3 text-center">
+                    <p class="text-sm text-gray-500 text-center">
                       Click a page thumbnail to view, rotate, or delete the page.
                     </p>
                   </div>
                 `
                 : ""}
-            </main>
+            </div>
+
+            <!-- Modal Window -->
+            ${selectedPageId && selectedPageData
+              ? html`
+                <page-modal
+                  .pdfProxy="${pdfProxy}"
+                  .pageData="${selectedPageData}"
+                  .onClose="${closeModal}"
+                  .onRotate="${rotatePage}"
+                  .onDelete="${deletePage}"
+                ></page-modal>
+              `
+              : ""}
+          </app-layout>
+        `;
+      }
 
             <!-- Modal Window (Only renders if a page is selected) -->
             ${selectedPageId && selectedPageData

@@ -3,11 +3,9 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF/Image OCR & Text Overlay Tool (Haunted Hooks)</title>
+    <title>PDF/Image OCR & Text Overlay Tool</title>
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/vendor/nd-switch.css">
+    <script type="module" src="/components/app-layout.js"></script>
 
     <!-- PDF.js -->
     <script
@@ -29,6 +27,8 @@
     ></script>
 
     <style>
+      @import url("/unified-theme.css");
+      
       /* Custom scrollbar for text areas */
       .custom-scrollbar::-webkit-scrollbar {
         width: 8px;
@@ -45,9 +45,11 @@
       }
     </style>
   </head>
-  <body class="bg-slate-50 text-slate-800 min-h-screen font-sans">
+  <body>
     <!-- Main Haunted Web Component -->
-    <ocr-app></ocr-app>
+    <app-layout title="PDF OCR & Text Overlay">
+      <ocr-app></ocr-app>
+    </app-layout>
 
     <script type="module" src="/ocr-pdf.js">
     </script>

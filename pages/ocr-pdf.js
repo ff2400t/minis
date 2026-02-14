@@ -8,6 +8,7 @@ import {
   useState,
 } from "/vendor/haunted.js";
 import "/components/drop-zone.js";
+import "/components/status-message.js";
 // Access jsPDF from the global window object
 // @ts-ignore
 const { jsPDF } = globalThis.jspdf;
@@ -1054,17 +1055,16 @@ const ProgressBar = ({ appMode, progress }) => {
 
   return html`
     <div id="globalProgress" class="mb-8">
-      <div class="flex justify-between mb-1">
-        <span id="statusText" class="text-sm font-medium text-blue-700"
-        >${progress.text}</span>
-        <span id="percentageText" class="text-sm font-medium text-blue-700"
+      <status-message type="${appMode === "COMPLETED" ? "success" : "info"}" .message="${progress.text}"></status-message>
+      <div class="flex justify-between mb-1 px-1">
+        <span id="percentageText" class="text-xs font-bold text-blue-700"
         >${progress.percent}%</span>
       </div>
-      <div class="w-full bg-slate-200 rounded-full h-2.5">
+      <div class="w-full bg-slate-200 rounded-full h-2">
         <div
           id="progressBar"
-          class="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
-          style="${styleMap({ width: progress.percent })}"
+          class="bg-blue-600 h-2 rounded-full transition-all duration-300"
+          style="${styleMap({ width: `${progress.percent}%` })}"
         >
         </div>
       </div>

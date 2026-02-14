@@ -4,19 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Excel Merger Utility</title>
-    <!-- Load Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module" src="/components/app-layout.js"></script>
     <!-- Load SheetJS Library -->
     <script
       src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"
     ></script>
-    <!-- Load Inter Font -->
     <style>
-      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap");
-      body {
-        font-family: "Inter", sans-serif;
-        background-color: #f7f7f9;
-      }
+      @import url("/unified-theme.css");
+      
       /* Custom scrollbar styling for the file list */
       .custom-scrollbar::-webkit-scrollbar {
         width: 8px;
@@ -27,12 +22,10 @@
       }
     </style>
   </head>
-  <body class="min-h-screen flex items-center justify-center p-4">
-    <!-- The entire application is now rendered by this single custom element -->
-    <excel-merger-app
-      class="w-full max-w-xl bg-white shadow-2xl rounded-xl p-6 md:p-8 space-y-6 border border-gray-100 block"
-    >
-    </excel-merger-app>
+  <body>
+    <app-layout title="Excel Sheet Combiner">
+      <excel-merger-app></excel-merger-app>
+    </app-layout>
 
     <script type="module">
       // Import Lit-HTML for templating and Haunted for web hooks
@@ -43,6 +36,7 @@
       } from "/vendor/haunted.js";
       import { html, when } from "/vendor/lit-html.js";
       import "/components/drop-zone.js";
+      import "/components/status-message.js";
 
       // --- Utility Functions (Adapted for Component Scope) ---
 
@@ -197,128 +191,102 @@
         // --- Template Rendering (Lit-HTML) ---
 
         return html`
-          <header class="text-center space-y-2">
-            <h1 class="text-3xl font-bold text-gray-800">Excel Sheet Combiner</h1>
-            <p class="text-gray-500">
-              Merge sheets from multiple Excel files into a single output file,
-              optionally preserving cell formatting.
-            </p>
-          </header>
+          <div class="card space-y-6">
+            <header class="text-center space-y-2">
+              <p class="text-gray-500">
+                Merge sheets from multiple Excel files into a single output file.
+              </p>
+            </header>
 
-          <!-- Status Message -->
-          <div
-            id="status-message"
-            class="text-sm text-center font-medium h-6 text-gray-600"
-          >
-            ${statusMessage}
-          </div>
+            <!-- Status Message -->
+            <status-message .type="${isProcessing ? "info" : (downloadUrl ? "success" : "info")}" .message="${statusMessage}"></status-message>
 
-          <div class="space-y-6">
-            <!-- File Upload & List -->
-            <div>
-              <!-- File Input Area (Drop Zone) -->
-              <drop-zone @file-selected="${handleFileSelection}"></drop-zone>
+            <div class="space-y-6">
+              <!-- File Upload & List -->
+              <div>
+                <!-- File Input Area (Drop Zone) -->
+                <drop-zone @file-selected="${handleFileSelection}"></drop-zone>
 
-              <!-- File List -->
-              ${selectedFiles.length > 0
-                ? html`
-                  <div
-                    id="file-list-container"
-                    class="mt-4 max-h-40 overflow-y-auto custom-scrollbar border border-gray-200 rounded-lg"
-                  >
-                    <ul id="file-list" class="divide-y divide-gray-100">
-                      ${selectedFiles.map((file) =>
-                        html`
-                          <li class="p-3 flex justify-between items-center text-gray-700">
-                            <span class="truncate">${file.name}</span>
-                            <span class="text-xs text-gray-400 ml-2">${(file
-                              .size / 1024).toFixed(1)} KB</span>
-                          </li>
-                        `
-                      )}
-                    </ul>
-                  </div>
-                `
-                : html`
-                  <div id="file-list-container" class="mt-4 hidden"></div>
-                `}
-            </div>
-
-            <!-- Controls & Actions -->
-            <div class="space-y-4 pt-2">
-              <!-- Action Button: Merge -->
-              <button
-                id="merge-button"
-                @click="${mergeFiles}"
-                .disabled="${selectedFiles.length === 0 ||
-                  isProcessing}"
-                class="w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md transition duration-300 hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:bg-gray-300 disabled:cursor-not-allowed"
-              >
-                ${when(isProcessing, () =>
-                  html`
-                    <div class="flex items-center justify-center">
-                      <svg
-                        class="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          class="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          stroke-width="4"
-                        >
-                        </circle>
-                        <path
-                          class="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        >
-                        </path>
-                      </svg>
-                      Merging Sheets...
-                    </div>
-                  `, () => "Merge and Download Combined File")}
-              </button>
-
-              <!-- Download Link -->
-              ${downloadUrl
-                ? html`
-                  <div
-                    id="download-container"
-                    class="text-center p-4 border border-green-300 bg-green-50 rounded-lg"
-                  >
-                    <a
-                      id="download-link"
-                      href="${downloadUrl}"
-                      download="combined_excel_file.xlsx"
-                      class="text-green-700 font-semibold hover:text-green-800 transition duration-150 flex items-center justify-center space-x-2"
+                <!-- File List -->
+                ${selectedFiles.length > 0
+                  ? html`
+                    <div
+                      id="file-list-container"
+                      class="mt-4 max-h-40 overflow-y-auto custom-scrollbar border border-gray-200 rounded-lg"
                     >
-                      <svg
-                        class="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg"
+                      <ul id="file-list" class="divide-y divide-gray-100">
+                        ${selectedFiles.map((file) =>
+                          html`
+                            <li class="p-3 flex justify-between items-center text-gray-700">
+                              <span class="truncate">${file.name}</span>
+                              <span class="text-xs text-gray-400 ml-2">${(file
+                                .size / 1024).toFixed(1)} KB</span>
+                            </li>
+                          `
+                        )}
+                      </ul>
+                    </div>
+                  `
+                  : html`
+                    <div id="file-list-container" class="mt-4 hidden"></div>
+                  `}
+              </div>
+
+              <!-- Controls & Actions -->
+              <div class="space-y-4 pt-2">
+                <!-- Action Button: Merge -->
+                <button
+                  id="merge-button"
+                  @click="${mergeFiles}"
+                  .disabled="${selectedFiles.length === 0 ||
+                    isProcessing}"
+                  class="btn btn-primary w-full py-3"
+                >
+                  ${when(isProcessing, () =>
+                    html`
+                      <div class="flex items-center justify-center">
+                        <div class="spinner mr-3" style="width:1.25rem; height:1.25rem; border-width:2px; border-top-color:white;"></div>
+                        Merging Sheets...
+                      </div>
+                    `, () => "Merge and Download Combined File")}
+                </button>
+
+                <!-- Download Link -->
+                ${downloadUrl
+                  ? html`
+                    <div
+                      id="download-container"
+                      class="text-center p-4 border border-green-300 bg-green-50 rounded-lg"
+                    >
+                      <a
+                        id="download-link"
+                        href="${downloadUrl}"
+                        download="combined_excel_file.xlsx"
+                        class="text-green-700 font-semibold hover:text-green-800 transition duration-150 flex items-center justify-center space-x-2"
                       >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                        <svg
+                          class="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
                         >
-                        </path>
-                      </svg>
-                      <span>Download combined_excel_file.xlsx</span>
-                    </a>
-                  </div>
-                `
-                : html`
-                  <div id="download-container" class="hidden"></div>
-                `}
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                          >
+                          </path>
+                        </svg>
+                        <span>Download combined_excel_file.xlsx</span>
+                      </a>
+                    </div>
+                  `
+                  : html`
+                    <div id="download-container" class="hidden"></div>
+                  `}
+              </div>
             </div>
           </div>
         `;

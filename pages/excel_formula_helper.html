@@ -4,84 +4,36 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Excel Formula Helper</title>
+    <script type="module" src="/components/app-layout.js"></script>
 
     <!-- CodeMirror base + folding styles -->
     <link rel="stylesheet" href="https://esm.sh/@codemirror/view/style.css" />
     <link rel="stylesheet" href="https://esm.sh/@codemirror/fold/style.css" />
 
     <style>
-      :root {
-        --bg-dark: #0f172a;
-        --panel-dark: #1e293b;
-        --text-dark: #e5e7eb;
-        --muted-dark: #9ca3af;
-        --primary: #2563eb;
-        --error: #f87171;
-      }
-
-      html, body {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-        background: var(--bg-dark);
-        color: var(--text-dark);
-        font-family: system-ui, sans-serif;
-      }
-
-      .container {
-        max-width: 900px;
-        margin: 0 auto;
-        padding: 24px;
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-      }
+      @import url("/unified-theme.css");
 
       .editor-wrapper {
-        border-radius: 8px;
-        border: 1px solid #334155;
-        background: var(--panel-dark);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border-color);
+        background: #1e293b;
         overflow: hidden;
-        height: min(300px, calc(100vh - 220px));
+        height: min(400px, calc(100vh - 300px));
       }
 
       #editor {
         height: 100%;
       }
 
-      .actions {
-        display: flex;
-        gap: 12px;
-      }
-
-      button.primary {
-        padding: 8px 14px;
-        background: var(--primary);
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-      }
-
       /* Rainbow brackets */
-      .cm-b1 {
-        color: #ef4444;
-      }
-      .cm-b2 {
-        color: #f59e0b;
-      }
-      .cm-b3 {
-        color: #22c55e;
-      }
-      .cm-b4 {
-        color: #3b82f6;
-      }
-      .cm-b5 {
-        color: #a855f7;
-      }
+      .cm-b1 { color: #ef4444; }
+      .cm-b2 { color: #f59e0b; }
+      .cm-b3 { color: #22c55e; }
+      .cm-b4 { color: #3b82f6; }
+      .cm-b5 { color: #a855f7; }
 
       .cm-errorBracket {
-        text-decoration: underline wavy var(--error);
+        text-decoration: underline wavy var(--danger);
       }
     </style>
 
@@ -96,6 +48,7 @@
         keymap,
         lineNumbers,
         ViewPlugin,
+        hoverTooltip,
       } from "https://esm.sh/@codemirror/view";
       import { defaultKeymap } from "https://esm.sh/@codemirror/commands";
       import {
@@ -105,6 +58,7 @@
         LRLanguage,
         syntaxHighlighting,
       } from "https://esm.sh/@codemirror/language";
+      import { autocompletion } from "https://esm.sh/@codemirror/autocomplete";
       import { oneDark } from "https://esm.sh/@codemirror/theme-one-dark";
       import { HighlightStyle } from "https://esm.sh/@codemirror/language";
       import { tags } from "https://esm.sh/@lezer/highlight";
@@ -133,6 +87,76 @@
         );
       }
 
+      /**************** Data & Autocompletion ****************/
+
+      let formulaData = null;
+      let formulaMap = new Map();
+
+      async function loadFormulaData() {
+        if (formulaData) return;
+        try {
+          const res = await fetch("./excel-formula-data.json");
+          if (!res.ok) throw new Error("Failed to load formula data");
+          formulaData = await res.json();
+          // Create a map for quick lookup
+          for (const item of formulaData) {
+            formulaMap.set(item.name.toUpperCase(), item);
+          }
+        } catch (e) {
+          console.error("Error loading formula data:", e);
+          formulaData = [];
+        }
+      }
+
+      const excelCompletion = async (context) => {
+        const word = context.matchBefore(/[a-zA-Z0-9_.]*/);
+        if (!word || (word.from === word.to && !context.explicit)) return null;
+
+        if (!formulaData) {
+          await loadFormulaData();
+        }
+
+        return {
+          from: word.from,
+          options: formulaData.map((item) => ({
+            label: item.name,
+            type: "function",
+            detail: item.type,
+            info: item.description,
+          })),
+        };
+      };
+
+      /**************** Hover Tooltip ****************/
+
+      const formulaTooltip = hoverTooltip(async (view, pos, side) => {
+        if (!formulaData) await loadFormulaData();
+
+        const { from, to, text } = view.state.doc.lineAt(pos);
+        let start = pos, end = pos;
+        while (start > from && /\w/.test(text[start - from - 1])) start--;
+        while (end < to && /\w/.test(text[end - from])) end++;
+        
+        if ((start === pos && side < 0) || (end === pos && side > 0)) return null;
+        
+        const word = text.slice(start - from, end - from).toUpperCase();
+        const info = formulaMap.get(word);
+        
+        if (!info) return null;
+
+        return {
+          pos: start,
+          end,
+          above: true,
+          create(view) {
+            const dom = document.createElement("div");
+            dom.style.padding = "4px 8px";
+            dom.innerHTML = `<strong>${info.name}</strong> <span style="opacity: 0.7; font-size: 0.9em">(${info.type})</span><br>${info.description}`;
+            return { dom };
+          }
+        };
+      });
+
       /**************** AST-driven rainbow brackets ****************/
 
       const astRainbow = ViewPlugin.fromClass(
@@ -153,7 +177,13 @@
 
             tree.iterate({
               enter: (n) => {
-                if (n.name === "ParenthesizedExpression") {
+                if (n.name === "ArgList" || n.name === "ParenthesizedExpression") {
+                  // ArgList children: '(', args..., ')'
+                  // We need to identify the parentheses positions.
+                  // For simplicity in this structure, we can just highlight the first and last chars of the node
+                  // But checking children is more accurate.
+                  // However, let's stick to the previous simple approach but use ArgList too.
+                  // Since ArgList includes the parens at boundaries:
                   const cls = `cm-b${(depth % 5) + 1}`;
                   b.add(
                     n.from + offset,
@@ -169,7 +199,7 @@
                 }
               },
               leave: (n) => {
-                if (n.name === "ParenthesizedExpression") depth--;
+                if (n.name === "ArgList" || n.name === "ParenthesizedExpression") depth--;
               },
             });
             return b.finish();
@@ -178,7 +208,7 @@
         { decorations: (v) => v.decorations },
       );
 
-      /**************** AST-based folding (FIXED visibility) ****************/
+      /**************** AST-based folding (Improved) ****************/
 
       const astFolding = foldService.of((state, lineStart) => {
         const text = state.doc.toString();
@@ -188,7 +218,7 @@
 
         tree.iterate({
           enter: (n) => {
-            if (n.name === "ParenthesizedExpression") {
+            if (n.name === "ArgList" || n.name === "ParenthesizedExpression") {
               const from = n.from + offset;
               const line = state.doc.lineAt(from);
               if (line.from === lineStart && !found) {
@@ -226,6 +256,9 @@
         const formatBtn = document.getElementById("formatBtn");
         const minifyBtn = document.getElementById("minifyBtn");
 
+        // Trigger lazy load immediately (non-blocking)
+        loadFormulaData();
+
         const state = EditorState.create({
           doc: "=IF(A1>10,SUM(A1:A10),AVERAGE(B1:B10))",
           extensions: [
@@ -236,6 +269,8 @@
             oneDark, // ✅ official CodeMirror dark theme
             astRainbow,
             astFolding,
+            autocompletion({ override: [excelCompletion] }),
+            formulaTooltip,
             EditorView.theme({ "&": { height: "100%" } }),
           ],
         });
@@ -265,14 +300,21 @@
     </script>
   </head>
   <body>
-    <div class="container">
-      <div class="editor-wrapper">
-        <div id="editor"></div>
+    <app-layout title="Excel Formula Studio">
+      <div class="space-y-6">
+        <div class="card p-0 overflow-hidden">
+          <div class="editor-wrapper">
+            <div id="editor"></div>
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <button id="formatBtn" class="btn btn-primary">Format Formula</button>
+          <button id="minifyBtn" class="btn btn-secondary">Minify</button>
+        </div>
+        <p class="text-sm text-gray-500">
+          Build and test complex Excel formulas with syntax highlighting, rainbow brackets, and autocompletion.
+        </p>
       </div>
-      <div class="actions">
-        <button id="formatBtn" class="primary">Format</button>
-        <button id="minifyBtn" class="primary">Minify</button>
-      </div>
-    </div>
+    </app-layout>
   </body>
 </html>

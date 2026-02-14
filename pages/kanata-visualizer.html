@@ -3,105 +3,60 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kanata Asus Dashboard</title>
+    <title>Kanata Visualizer</title>
+    <script type="module" src="/components/app-layout.js"></script>
     <style>
-      :root {
-        --bg: #0f172a;
-        --sidebar: #1e293b;
-        --main: #0f172a;
-        --accent: #38bdf8;
-        --key-bg: #334155;
-        --key-text: #f8fafc;
-        --key-border: #475569;
-        --tooltip-bg: #020617;
-      }
-      body {
-        font-family: "Inter", system-ui, sans-serif;
-        background: var(--bg);
-        color: #f1f5f9;
-        margin: 0;
-        display: flex;
-        height: 100vh;
-        overflow: hidden;
+      @import url("/unified-theme.css");
+      
+      .kanata-grid {
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        gap: 2rem;
+        align-items: start;
       }
 
-      #sidebar {
-        width: 260px;
-        background: var(--sidebar);
-        border-right: 1px solid #334155;
-        display: flex;
-        flex-direction: column;
-        padding: 20px;
-      }
-      .logo {
-        font-weight: 800;
-        font-size: 1.2rem;
-        color: var(--accent);
-        margin-bottom: 30px;
-      }
-      .layer-list {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        flex-grow: 1;
-        overflow-y: auto;
-      }
       .layer-item {
-        padding: 12px 16px;
-        margin-bottom: 8px;
-        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.5rem;
+        border-radius: var(--radius);
         cursor: pointer;
         transition: 0.2s;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid transparent;
+        background: var(--bg-main);
+        border: 1px solid var(--border-color);
+        font-size: 0.875rem;
+        font-weight: 500;
       }
       .layer-item:hover {
-        background: rgba(255, 255, 255, 0.1);
+        background: var(--primary-light);
+        border-color: var(--primary);
       }
       .layer-item.active {
-        background: var(--accent);
-        color: #0f172a;
-        font-weight: 600;
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary-hover);
       }
 
-      #content {
-        flex-grow: 1;
-        padding: 40px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        overflow-y: auto;
-        position: relative;
-      }
       textarea {
-        width: 90%;
-        height: 150px;
         background: #020617;
         color: #10b981;
-        border: 1px solid #334155;
-        border-radius: 8px;
-        padding: 12px;
         font-family: "Fira Code", monospace;
         font-size: 13px;
-        margin-bottom: 30px;
-        resize: none;
+        resize: vertical;
+        min-height: 200px;
       }
+      
       .kb-container {
         background: #1e293b;
-        padding: 40px;
-        border-radius: 20px;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        padding: 2rem;
+        border-radius: 1.25rem;
+        box-shadow: var(--shadow-lg);
         border: 1px solid #334155;
         position: relative;
+        display: inline-block;
       }
+      
       svg {
         filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
-      }
-      .status-bar {
-        width: 90%;
-        margin-top: 10px;
-        font-size: 0.8rem;
-        color: #94a3b8;
       }
 
       .key-group {
@@ -109,13 +64,13 @@
       }
       .tooltip {
         position: fixed;
-        background: var(--tooltip-bg);
+        background: #020617;
         color: #10b981;
         padding: 10px 14px;
         border-radius: 6px;
         font-family: "Fira Code", monospace;
         font-size: 12px;
-        border: 1px solid var(--accent);
+        border: 1px solid var(--primary);
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
         pointer-events: none;
         z-index: 1000;
@@ -128,35 +83,40 @@
     </style>
   </head>
   <body>
-    <div id="sidebar">
-      <div class="logo">KANATA VISUALIZER</div>
-      <div
-        style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em"
-      >
-        Layers
+    <app-layout title="Kanata Visualizer">
+      <div class="kanata-grid">
+        <!-- Sidebar -->
+        <div class="card p-4 flex flex-col h-full sticky top-24">
+          <div class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Layers</div>
+          <ul id="layerList" class="flex-grow overflow-y-auto mb-6"></ul>
+          <button
+            class="btn btn-primary w-full"
+            onclick="parseAndRefresh()"
+          >
+            Sync Config
+          </button>
+        </div>
+
+        <!-- Main Content -->
+        <div class="space-y-8 flex flex-col items-center">
+          <div class="card w-full">
+            <label class="label-tiny mb-2 block">Kanata Configuration</label>
+            <textarea
+              id="configInput"
+              placeholder="Paste your Kanata config here..."
+              class="w-full"
+            ></textarea>
+          </div>
+
+          <div id="kbWrapper" class="kb-container"></div>
+
+          <div id="statusBar" class="text-sm font-bold text-primary bg-primary-light px-4 py-2 rounded-full border border-blue-200">
+            Showing Layer: none
+          </div>
+        </div>
       </div>
-      <ul id="layerList" class="layer-list"></ul>
-      <div style="margin-top: auto">
-        <button
-          onclick="parseAndRefresh()"
-          style="width: 100%; background: var(--accent); border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold"
-        >
-          Sync Config
-        </button>
-      </div>
-    </div>
-
-    <div id="content">
-      <textarea
-        id="configInput"
-        placeholder="Paste your Kanata config here..."
-      ></textarea>
-
-      <div id="kbWrapper" class="kb-container"></div>
-
-      <div class="status-bar" id="statusBar">Showing Layer: none</div>
       <div id="tooltip" class="tooltip"></div>
-    </div>
+    </app-layout>
 
     <script>
       const ASUS_LAYOUT = [

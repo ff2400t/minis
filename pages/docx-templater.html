@@ -4,73 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Excel to Docx Templater</title>
+    <script type="module" src="/components/app-layout.js"></script>
     <script src="https://unpkg.com/pizzip@3.1.4/dist/pizzip.js"></script>
     <script
       src="https://unpkg.com/docxtemplater@3.37.2/build/docxtemplater.js"
     ></script>
     <style>
-      :root {
-        --bg-dark: #0f172a;
-        --panel-dark: #1e293b;
-        --text-dark: #e5e7eb;
-        --muted-dark: #9ca3af;
-        --primary: #2563eb;
-        --primary-hover: #1d4ed8;
-        --error: #f87171;
-        --border: #334155;
-      }
-
-      body {
-        background-color: var(--bg-dark);
-        color: var(--text-dark);
-        font-family: system-ui, -apple-system, sans-serif;
-        margin: 0;
-        padding: 20px;
-        display: flex;
-        justify-content: center;
-      }
-
-      #app {
-        width: 100%;
-        max-width: 900px;
-        display: block;
-      }
-
-      .card {
-        background-color: var(--panel-dark);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 24px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-      }
-
-      h1, h2, h3 {
-        margin-top: 0;
-      }
-
-      .form-group {
-        margin-bottom: 16px;
-      }
-
-      label {
-        display: block;
-        margin-bottom: 8px;
-        color: var(--muted-dark);
-        font-size: 0.9rem;
-      }
-
-      textarea, select, input[type="text"] {
-        width: 100%;
-        padding: 10px;
-        border-radius: 6px;
-        border: 1px solid var(--border);
-        background-color: var(--bg-dark);
-        color: var(--text-dark);
-        font-family: inherit;
-        box-sizing: border-box;
-      }
-
+      @import url("/unified-theme.css");
+      
       textarea {
         min-height: 150px;
         resize: vertical;
@@ -78,41 +19,9 @@
         overflow-x: auto;
       }
 
-      input[type="file"] {
-        display: block;
-        width: 100%;
-        padding: 10px;
-        border: 1px dashed var(--border);
-        border-radius: 6px;
-        background-color: var(--bg-dark);
-        cursor: pointer;
-      }
-
-      button {
-        background-color: var(--primary);
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 1rem;
-        font-weight: 500;
-        transition: background-color 0.2s;
-      }
-
-      button:hover {
-        background-color: var(--primary-hover);
-      }
-
-      button:disabled {
-        background-color: var(--muted-dark);
-        cursor: not-allowed;
-        opacity: 0.5;
-      }
-
       .preview-table-container {
         overflow-x: auto;
-        border: 1px solid var(--border);
+        border: 1px solid var(--border-color);
         border-radius: 6px;
         margin-top: 10px;
       }
@@ -126,45 +35,32 @@
 
       th, td {
         padding: 8px 12px;
-        border-bottom: 1px solid var(--border);
+        border-bottom: 1px solid var(--border-color);
         white-space: nowrap;
       }
 
       th {
-        background-color: rgba(255, 255, 255, 0.05);
+        background-color: var(--table-header-bg);
         font-weight: 600;
       }
 
-      tr:last-child td {
-        border-bottom: none;
-      }
-
-      .error-msg {
-        color: var(--error);
-        margin-top: 8px;
-        font-size: 0.9rem;
-      }
-
-      .help-text {
-        color: var(--muted-dark);
-        font-size: 0.85rem;
-        margin-top: 4px;
-      }
-
       code {
-        background-color: rgba(0, 0, 0, 0.3);
+        background-color: rgba(0, 0, 0, 0.05);
         padding: 2px 4px;
         border-radius: 4px;
         font-family: monospace;
-        color: #d8b4fe;
+        color: var(--primary);
       }
     </style>
   </head>
   <body>
-    <div id="app"></div>
+    <app-layout title="Docx Templater">
+      <div id="app"></div>
+    </app-layout>
 
     <script type="module">
       import { html, render } from "/vendor/lit-html.js";
+      import "/components/status-message.js";
 
       // --- Helpers ---
       const toSnakeCase = (str) =>
@@ -399,86 +295,88 @@
 
       const appTemplate = (s) =>
         html`
-          <div class="card">
-            <h1>Excel to Docx Templater</h1>
-            <p class="help-text">
-              Paste your Excel data (copy from Excel/Sheets), select a template,
-              and generate individual .docx files.
-            </p>
-          </div>
+          <div class="space-y-6">
+            <div class="card">
+              <p class="text-gray-500">
+                Paste your Excel data (copy from Excel/Sheets), select a template,
+                and generate individual .docx files.
+              </p>
+            </div>
 
-          <div class="card">
-            <div class="form-group">
-              <label>1. Paste Data (Header row required)</label>
-              <textarea
-                placeholder="Paste Excel data here..."
-                @input="${(e) =>
-                  dispatch({
-                    type: "PASTE_DATA",
-                    value: e.target.value,
-                  })}"
-              ></textarea>
-              ${s.error
+            <div class="card space-y-6">
+              <div class="form-group">
+                <label class="label-tiny mb-2">1. Paste Data (Header row required)</label>
+                <textarea
+                  placeholder="Paste Excel data here..."
+                  @input="${(e) =>
+                    dispatch({
+                      type: "PASTE_DATA",
+                      value: e.target.value,
+                    })}"
+                ></textarea>
+                ${s.error
+                  ? html`
+                    <status-message type="error" .message="${s.error}"></status-message>
+                  `
+                  : ""}
+              </div>
+
+              ${s.parsedData.length > 0
                 ? html`
-                  <div class="error-msg">${s.error}</div>
+                  ${dataPreview(s.parsedData, s.headers)}
+
+                  <div class="form-group">
+                    <label class="label-tiny mb-2">2. Upload Docx Template</label>
+                    <input type="file" accept=".docx" @change="${(e) =>
+                      dispatch({
+                        type: "FILE_SELECTED",
+                        file: e.target.files[0],
+                      })}">
+                    <p class="help-text">
+                      Use <code>{snake_case_header}</code> in your Word document.
+                    </p>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="label-tiny mb-2">3. Select Filename Column</label>
+                    <select .value="${s.selectedColumn}" @change="${(e) =>
+                      dispatch({
+                        type: "COLUMN_SELECTED",
+                        value: e.target.value,
+                      })}">
+                      ${s.headers.map((h) =>
+                        html`
+                          <option value="${h.key}">${h.original} ({${h
+                            .key}})</option>
+                        `
+                      )}
+                    </select>
+                  </div>
+
+                  <div class="flex items-center gap-4">
+                    <button
+                      class="btn btn-primary"
+                      @click="${handleGenerate}"
+                      ?disabled="${!s.templateFile || s.isGenerating}"
+                    >
+                      ${s.isGenerating ? html`<div class="spinner border-white" style="width:1rem; height:1rem; border-width:2px;"></div> Generating...` : "Generate Zip"}
+                    </button>
+
+                    ${s.downloadUrl
+                      ? html`
+                        <a
+                          href="${s.downloadUrl}"
+                          download="generated_documents.zip"
+                          class="btn btn-secondary text-primary font-bold"
+                        >
+                          Download ZIP
+                        </a>
+                      `
+                      : ""}
+                  </div>
                 `
                 : ""}
             </div>
-
-            ${s.parsedData.length > 0
-              ? html`
-                ${dataPreview(s.parsedData, s.headers)}
-
-                <div class="form-group">
-                  <label>2. Upload Docx Template</label>
-                  <input type="file" accept=".docx" @change="${(e) =>
-                    dispatch({
-                      type: "FILE_SELECTED",
-                      file: e.target.files[0],
-                    })}">
-                  <p class="help-text">
-                    Use <code>{snake_case_header}</code> in your Word document.
-                  </p>
-                </div>
-
-                <div class="form-group">
-                  <label>3. Select Filename Column</label>
-                  <select .value="${s.selectedColumn}" @change="${(e) =>
-                    dispatch({
-                      type: "COLUMN_SELECTED",
-                      value: e.target.value,
-                    })}">
-                    ${s.headers.map((h) =>
-                      html`
-                        <option value="${h.key}">${h.original} ({${h
-                          .key}})</option>
-                      `
-                    )}
-                  </select>
-                </div>
-
-                <div class="form-group">
-                  <button
-                    @click="${handleGenerate}"
-                    ?disabled="${!s.templateFile || s.isGenerating}"
-                  >
-                    ${s.isGenerating ? "Generating..." : "Generate Zip"}
-                  </button>
-
-                  ${s.downloadUrl
-                    ? html`
-                      <a
-                        href="${s.downloadUrl}"
-                        download="generated_documents.zip"
-                        style="margin-left: 10px; color: var(--primary); text-decoration: none; font-weight: bold;"
-                      >
-                        Download ZIP
-                      </a>
-                    `
-                    : ""}
-                </div>
-              `
-              : ""}
           </div>
         `;
 

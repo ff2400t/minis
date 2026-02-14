@@ -1,0 +1,2742 @@
+[
+  {
+    "name": "ABS",
+    "type": "Math and trigonometry",
+    "description": "Returns the absolute value of a number"
+  },
+  {
+    "name": "ACCRINT",
+    "type": "Financial",
+    "description": "Returns the accrued interest for a security that pays periodic interest"
+  },
+  {
+    "name": "ACCRINTM",
+    "type": "Financial",
+    "description": "Returns the accrued interest for a security that pays interest at maturity"
+  },
+  {
+    "name": "ACOS",
+    "type": "Math and trigonometry",
+    "description": "Returns the arccosine of a number"
+  },
+  {
+    "name": "ACOSH",
+    "type": "Math and trigonometry",
+    "description": "Returns the inverse hyperbolic cosine of a number"
+  },
+  {
+    "name": "ACOT",
+    "type": "Math and trigonometry",
+    "description": "Returns the arccotangent of a number",
+    "version": "2013"
+  },
+  {
+    "name": "ACOTH",
+    "type": "Math and trigonometry",
+    "description": "Returns the hyperbolic arccotangent of a number",
+    "version": "2013"
+  },
+  {
+    "name": "AGGREGATE",
+    "type": "Math and trigonometry",
+    "description": "Returns an aggregate in a list or database"
+  },
+  {
+    "name": "ADDRESS",
+    "type": "Lookup and reference",
+    "description": "Returns a reference as text to a single cell in a worksheet"
+  },
+  {
+    "name": "AMORDEGRC",
+    "type": "Financial",
+    "description": "Returns the depreciation for each accounting period by using a depreciation coefficient"
+  },
+  {
+    "name": "AMORLINC",
+    "type": "Financial",
+    "description": "Returns the depreciation for each accounting period"
+  },
+  {
+    "name": "AND",
+    "type": "Logical",
+    "description": "Returns TRUE if all of its arguments are TRUE"
+  },
+  {
+    "name": "ARABIC",
+    "type": "Math and trigonometry",
+    "description": "Converts a Roman number to Arabic, as a number",
+    "version": "2013"
+  },
+  {
+    "name": "AREAS",
+    "type": "Lookup and reference",
+    "description": "Returns the number of areas in a reference"
+  },
+  {
+    "name": "ARRAYTOTEXT",
+    "type": "Text",
+    "description": "Returns an array of text values from any specified range",
+    "version": "2021"
+  },
+  {
+    "name": "ASC",
+    "type": "Text",
+    "description": "Changes full-width (double-byte) English letters or katakana within a character string to half-width (single-byte) characters"
+  },
+  {
+    "name": "ASIN",
+    "type": "Math and trigonometry",
+    "description": "Returns the arcsine of a number"
+  },
+  {
+    "name": "ASINH",
+    "type": "Math and trigonometry",
+    "description": "Returns the inverse hyperbolic sine of a number"
+  },
+  {
+    "name": "ATAN",
+    "type": "Math and trigonometry",
+    "description": "Returns the arctangent of a number"
+  },
+  {
+    "name": "ATAN2",
+    "type": "Math and trigonometry",
+    "description": "Returns the arctangent from x- and y-coordinates"
+  },
+  {
+    "name": "ATANH",
+    "type": "Math and trigonometry",
+    "description": "Returns the inverse hyperbolic tangent of a number"
+  },
+  {
+    "name": "AVEDEV",
+    "type": "Statistical",
+    "description": "Returns the average of the absolute deviations of data points from their mean"
+  },
+  {
+    "name": "AVERAGE",
+    "type": "Statistical",
+    "description": "Returns the average of its arguments"
+  },
+  {
+    "name": "AVERAGEA",
+    "type": "Statistical",
+    "description": "Returns the average of its arguments, including numbers, text, and logical values"
+  },
+  {
+    "name": "AVERAGEIF",
+    "type": "Statistical",
+    "description": "Returns the average (arithmetic mean) of all the cells in a range that meet a given criteria"
+  },
+  {
+    "name": "AVERAGEIFS",
+    "type": "Statistical",
+    "description": "Returns the average (arithmetic mean) of all cells that meet multiple criteria."
+  },
+  {
+    "name": "BAHTTEXT",
+    "type": "Text",
+    "description": "Converts a number to text, using the ß (baht) currency format"
+  },
+  {
+    "name": "BASE",
+    "type": "Math and trigonometry",
+    "description": "Converts a number into a text representation with the given radix (base)"
+  },
+  {
+    "name": "BESSELI",
+    "type": "Engineering",
+    "description": "Returns the modified Bessel function In(x)"
+  },
+  {
+    "name": "BESSELJ",
+    "type": "Engineering",
+    "description": "Returns the Bessel function Jn(x)"
+  },
+  {
+    "name": "BESSELK",
+    "type": "Engineering",
+    "description": "Returns the modified Bessel function Kn(x)"
+  },
+  {
+    "name": "BESSELY",
+    "type": "Engineering",
+    "description": "Returns the Bessel function Yn(x)"
+  },
+  {
+    "name": "BETADIST",
+    "type": "Compatibility",
+    "description": "Returns the beta cumulative distribution function"
+  },
+  {
+    "name": "BETA.DIST",
+    "type": "Statistical",
+    "description": "Returns the beta cumulative distribution function",
+    "version": "2010"
+  },
+  {
+    "name": "BETAINV",
+    "type": "Compatibility",
+    "description": "Returns the inverse of the cumulative distribution function for a specified beta distribution"
+  },
+  {
+    "name": "BETA.INVn",
+    "type": "Statistical",
+    "description": "Returns the inverse of the cumulative distribution function for a specified beta distribution",
+    "version": "2010"
+  },
+  {
+    "name": "BIN2DEC",
+    "type": "Engineering",
+    "description": "Converts a binary number to decimal"
+  },
+  {
+    "name": "BIN2HEX",
+    "type": "Engineering",
+    "description": "Converts a binary number to hexadecimal"
+  },
+  {
+    "name": "BIN2OCT",
+    "type": "Engineering",
+    "description": "Converts a binary number to octal"
+  },
+  {
+    "name": "BINOMDIST",
+    "type": "Compatibility",
+    "description": "Returns the individual term binomial distribution probability"
+  },
+  {
+    "name": "BINOM.DIST",
+    "type": "Statistical",
+    "description": "Returns the individual term binomial distribution probability",
+    "version": "2010"
+  },
+  {
+    "name": "BINOM.DIST.RANGE",
+    "type": "Statistical",
+    "description": "Returns the probability of a trial result using a binomial distribution",
+    "version": "2013"
+  },
+  {
+    "name": "BINOM.INV",
+    "type": "Statistical",
+    "description": "Returns the smallest value for which the cumulative binomial distribution is less than or equal to a criterion value",
+    "version": "2010"
+  },
+  {
+    "name": "BITAND",
+    "type": "Engineering",
+    "description": "Returns a 'Bitwise And' of two numbers",
+    "version": "2013"
+  },
+  {
+    "name": "BITLSHIFT",
+    "type": "Engineering",
+    "description": "Returns a value number shifted left by shift_amount bits",
+    "version": "2013"
+  },
+  {
+    "name": "BITOR",
+    "type": "Engineering",
+    "description": "Returns a bitwise OR of 2 numbers",
+    "version": "2013"
+  },
+  {
+    "name": "BITRSHIFT",
+    "type": "Engineering",
+    "description": "Returns a value number shifted right by shift_amount bits",
+    "version": "2013"
+  },
+  {
+    "name": "BITXOR",
+    "type": "Engineering",
+    "description": "Returns a bitwise 'Exclusive Or' of two numbers",
+    "version": "2013"
+  },
+  {
+    "name": "BYCOL",
+    "type": "Logical",
+    "description": "Applies a LAMBDA to each column and returns an array of the results",
+    "version": "2024"
+  },
+  {
+    "name": "BYROW",
+    "type": "Logical",
+    "description": "Applies a LAMBDA to each row and returns an array of the results",
+    "version": "2024"
+  },
+  {
+    "name": "CALL",
+    "type": "Add-in and Automation",
+    "description": "Calls a procedure in a dynamic link library or code resource"
+  },
+  {
+    "name": "CEILING",
+    "type": "Compatibility",
+    "description": "Rounds a number to the nearest integer or to the nearest multiple of significance"
+  },
+  {
+    "name": "CEILING.MATH",
+    "type": "Math and trigonometry",
+    "description": "Rounds a number up, to the nearest integer or to the nearest multiple of significance",
+    "version": "2013"
+  },
+  {
+    "name": "CEILING.PRECISE",
+    "type": "Math and trigonometry",
+    "description": "Rounds a number the nearest integer or to the nearest multiple of significance. Regardless of the sign of the number, the number is rounded up."
+  },
+  {
+    "name": "CELL",
+    "type": "Information",
+    "description": "Returns information about the formatting, location, or contents of a cell"
+  },
+  {
+    "name": "CHAR",
+    "type": "Text",
+    "description": "Returns the character specified by the code number"
+  },
+  {
+    "name": "CHIDIST",
+    "type": "Compatibility",
+    "description": "Returns the one-tailed probability of the chi-squared distribution"
+  },
+  {
+    "name": "CHIINV",
+    "type": "Compatibility",
+    "description": "Returns the inverse of the one-tailed probability of the chi-squared distribution"
+  },
+  {
+    "name": "CHITEST",
+    "type": "Compatibility",
+    "description": "Returns the test for independence"
+  },
+  {
+    "name": "CHISQ.DIST",
+    "type": "Statistical",
+    "description": "Returns the cumulative beta probability density function",
+    "version": "2010"
+  },
+  {
+    "name": "CHISQ.DIST.RT",
+    "type": "Statistical",
+    "description": "Returns the one-tailed probability of the chi-squared distribution",
+    "version": "2010"
+  },
+  {
+    "name": "CHISQ.INV",
+    "type": "Statistical",
+    "description": "Returns the cumulative beta probability density function",
+    "version": "2010"
+  },
+  {
+    "name": "CHISQ.INV.RT",
+    "type": "Statistical",
+    "description": "Returns the inverse of the one-tailed probability of the chi-squared distribution",
+    "version": "2010"
+  },
+  {
+    "name": "CHISQ.TEST",
+    "type": "Statistical",
+    "description": "Returns the test for independence",
+    "version": "2010"
+  },
+  {
+    "name": "CHOOSE",
+    "type": "Lookup and reference",
+    "description": "Chooses a value from a list of values"
+  },
+  {
+    "name": "CHOOSECOLS",
+    "type": "Lookup and reference",
+    "description": "Returns the specified columns from an array",
+    "version": "2024"
+  },
+  {
+    "name": "CHOOSEROWS",
+    "type": "Lookup and reference",
+    "description": "Returns the specified rows from an array",
+    "version": "2024"
+  },
+  {
+    "name": "CLEAN",
+    "type": "Text",
+    "description": "Removes all nonprintable characters from text"
+  },
+  {
+    "name": "CODE",
+    "type": "Text",
+    "description": "Returns a numeric code for the first character in a text string"
+  },
+  {
+    "name": "COLUMN",
+    "type": "Lookup and reference",
+    "description": "Returns the column number of a reference"
+  },
+  {
+    "name": "COLUMNS",
+    "type": "Lookup and reference",
+    "description": "Returns the number of columns in a reference"
+  },
+  {
+    "name": "COMBIN",
+    "type": "Math and trigonometry",
+    "description": "Returns the number of combinations for a given number of objects"
+  },
+  {
+    "name": "COMBINA",
+    "type": "Math and trigonometry",
+    "description": "Returns the number of combinations with repetitions for a given number of items",
+    "version": "2013"
+  },
+  {
+    "name": "COMPLEX",
+    "type": "Engineering",
+    "description": "Converts real and imaginary coefficients into a complex number"
+  },
+  {
+    "name": "CONCAT",
+    "type": "Text",
+    "description": "Combines the text from multiple ranges and/or strings, but it doesn't provide the delimiter or IgnoreEmpty arguments.",
+    "version": "2019"
+  },
+  {
+    "name": "CONCATENATE",
+    "type": "Text",
+    "description": "Joins several text items into one text item"
+  },
+  {
+    "name": "CONFIDENCE",
+    "type": "Compatibility",
+    "description": "Returns the confidence interval for a population mean"
+  },
+  {
+    "name": "CONFIDENCE.NORM",
+    "type": "Statistical",
+    "description": "Returns the confidence interval for a population mean",
+    "version": "2010"
+  },
+  {
+    "name": "CONFIDENCE.T",
+    "type": "Statistical",
+    "description": "Returns the confidence interval for a population mean, using a Student's t distribution",
+    "version": "2010"
+  },
+  {
+    "name": "CONVERT",
+    "type": "Engineering",
+    "description": "Converts a number from one measurement system to another"
+  },
+  {
+    "name": "CORREL",
+    "type": "Statistical",
+    "description": "Returns the correlation coefficient between two data sets"
+  },
+  {
+    "name": "COS",
+    "type": "Math and trigonometry",
+    "description": "Returns the cosine of a number"
+  },
+  {
+    "name": "COSH",
+    "type": "Math and trigonometry",
+    "description": "Returns the hyperbolic cosine of a number"
+  },
+  {
+    "name": "COT",
+    "type": "Math and trigonometry",
+    "description": "Returns the hyperbolic cosine of a number",
+    "version": "2013"
+  },
+  {
+    "name": "COTH",
+    "type": "Math and trigonometry",
+    "description": "Returns the cotangent of an angle",
+    "version": "2013"
+  },
+  {
+    "name": "COUNT",
+    "type": "Statistical",
+    "description": "Counts how many numbers are in the list of arguments"
+  },
+  {
+    "name": "COUNTA",
+    "type": "Statistical",
+    "description": "Counts how many values are in the list of arguments"
+  },
+  {
+    "name": "COUNTBLANK",
+    "type": "Statistical",
+    "description": "Counts the number of blank cells within a range"
+  },
+  {
+    "name": "COUNTIF",
+    "type": "Statistical",
+    "description": "Counts the number of cells within a range that meet the given criteria"
+  },
+  {
+    "name": "COUNTIFS",
+    "type": "Statistical",
+    "description": "Counts the number of cells within a range that meet multiple criteria"
+  },
+  {
+    "name": "COUPDAYBS",
+    "type": "Financial",
+    "description": "Returns the number of days from the beginning of the coupon period to the settlement date"
+  },
+  {
+    "name": "COUPDAYS",
+    "type": "Financial",
+    "description": "Returns the number of days in the coupon period that contains the settlement date"
+  },
+  {
+    "name": "COUPDAYSNC",
+    "type": "Financial",
+    "description": "Returns the number of days from the settlement date to the next coupon date"
+  },
+  {
+    "name": "COUPNCD",
+    "type": "Financial",
+    "description": "Returns the next coupon date after the settlement date"
+  },
+  {
+    "name": "COUPNUM",
+    "type": "Financial",
+    "description": "Returns the number of coupons payable between the settlement date and maturity date"
+  },
+  {
+    "name": "COUPPCD",
+    "type": "Financial",
+    "description": "Returns the previous coupon date before the settlement date"
+  },
+  {
+    "name": "COVAR",
+    "type": "Compatibility",
+    "description": "Returns covariance, the average of the products of paired deviations"
+  },
+  {
+    "name": "COVARIANCE.P",
+    "type": "Statistical",
+    "description": "Returns covariance, the average of the products of paired deviations",
+    "version": "2010"
+  },
+  {
+    "name": "COVARIANCE.S",
+    "type": "Statistical",
+    "description": "Returns the sample covariance, the average of the products deviations for each data point pair in two data sets",
+    "version": "2010"
+  },
+  {
+    "name": "CRITBINOM",
+    "type": "Compatibility",
+    "description": "Returns the smallest value for which the cumulative binomial distribution is less than or equal to a criterion value"
+  },
+  {
+    "name": "CSC",
+    "type": "Math and trigonometry",
+    "description": "Returns the cosecant of an angle",
+    "version": "2013"
+  },
+  {
+    "name": "CSCH",
+    "type": "Math and trigonometry",
+    "description": "Returns the hyperbolic cosecant of an angle",
+    "version": "2013"
+  },
+  {
+    "name": "CUBEKPIMEMBER",
+    "type": "Cube",
+    "description": "Returns a key performance indicator (KPI) name, property, and measure, and displays the name and property in the cell. A KPI is a quantifiable measurement, such as monthly gross profit or quarterly employee turnover, used to monitor an organization's performance."
+  },
+  {
+    "name": "CUBEMEMBER",
+    "type": "Cube",
+    "description": "Returns a member or tuple in a cube hierarchy. Use to validate that the member or tuple exists in the cube."
+  },
+  {
+    "name": "CUBEMEMBERPROPERTY",
+    "type": "Cube",
+    "description": "Returns the value of a member property in the cube. Use to validate that a member name exists within the cube and to return the specified property for this member."
+  },
+  {
+    "name": "CUBERANKEDMEMBER",
+    "type": "Cube",
+    "description": "Returns the nth, or ranked, member in a set. Use to return one or more elements in a set, such as the top sales performer or top 10 students."
+  },
+  {
+    "name": "CUBESET",
+    "type": "Cube",
+    "description": "Defines a calculated set of members or tuples by sending a set expression to the cube on the server, which creates the set, and then returns that set to Microsoft Office Excel."
+  },
+  {
+    "name": "CUBESETCOUNT",
+    "type": "Cube",
+    "description": "Returns the number of items in a set."
+  },
+  {
+    "name": "CUBEVALUE",
+    "type": "Cube",
+    "description": "Returns an aggregated value from a cube."
+  },
+  {
+    "name": "CUMIPMT",
+    "type": "Financial",
+    "description": "Returns the cumulative interest paid between two periods"
+  },
+  {
+    "name": "CUMPRINC",
+    "type": "Financial",
+    "description": "Returns the cumulative principal paid on a loan between two periods"
+  },
+  {
+    "name": "DATE",
+    "type": "Date and time",
+    "description": "Returns the serial number of a particular date"
+  },
+  {
+    "name": "DATEDIF",
+    "type": "Date and time",
+    "description": "Calculates the number of days, months, or years between two dates. This function is useful in formulas where you need to calculate an age."
+  },
+  {
+    "name": "DATEVALUE",
+    "type": "Date and time",
+    "description": "Converts a date in the form of text to a serial number"
+  },
+  {
+    "name": "DAVERAGE",
+    "type": "Database",
+    "description": "Returns the average of selected database entries"
+  },
+  {
+    "name": "DAY",
+    "type": "Date and time",
+    "description": "Converts a serial number to a day of the month"
+  },
+  {
+    "name": "DAYS",
+    "type": "Date and time",
+    "description": "Returns the number of days between two dates",
+    "version": "2013"
+  },
+  {
+    "name": "DAYS360",
+    "type": "Date and time",
+    "description": "Calculates the number of days between two dates based on a 360-day year"
+  },
+  {
+    "name": "DB",
+    "type": "Financial",
+    "description": "Returns the depreciation of an asset for a specified period by using the fixed-declining balance method"
+  },
+  {
+    "name": "DBCS",
+    "type": "Text",
+    "description": "Changes half-width (single-byte) English letters or katakana within a character string to full-width (double-byte) characters",
+    "version": "2013"
+  },
+  {
+    "name": "DCOUNT",
+    "type": "Database",
+    "description": "Counts the cells that contain numbers in a database"
+  },
+  {
+    "name": "DCOUNTA",
+    "type": "Database",
+    "description": "Counts nonblank cells in a database"
+  },
+  {
+    "name": "DDB",
+    "type": "Financial",
+    "description": "Returns the depreciation of an asset for a specified period by using the double-declining balance method or some other method that you specify"
+  },
+  {
+    "name": "DEC2BIN",
+    "type": "Engineering",
+    "description": "Converts a decimal number to binary"
+  },
+  {
+    "name": "DEC2HEX",
+    "type": "Engineering",
+    "description": "Converts a decimal number to hexadecimal"
+  },
+  {
+    "name": "DEC2OCT",
+    "type": "Engineering",
+    "description": "Converts a decimal number to octal"
+  },
+  {
+    "name": "DECIMAL",
+    "type": "Math and trigonometry",
+    "description": "Converts a text representation of a number in a given base into a decimal number",
+    "version": "2013"
+  },
+  {
+    "name": "DEGREES",
+    "type": "Math and trigonometry",
+    "description": "Converts radians to degrees"
+  },
+  {
+    "name": "DELTA",
+    "type": "Engineering",
+    "description": "Tests whether two values are equal"
+  },
+  {
+    "name": "DETECTLANGUAGE",
+    "type": "Text",
+    "description": "Identifies the language of a specified text",
+    "version": "Micr"
+  },
+  {
+    "name": "DEVSQ",
+    "type": "Statistical",
+    "description": "Returns the sum of squares of deviations"
+  },
+  {
+    "name": "DGET",
+    "type": "Database",
+    "description": "Extracts from a database a single record that matches the specified criteria"
+  },
+  {
+    "name": "DISC",
+    "type": "Financial",
+    "description": "Returns the discount rate for a security"
+  },
+  {
+    "name": "DMAX",
+    "type": "Database",
+    "description": "Returns the maximum value from selected database entries"
+  },
+  {
+    "name": "DMIN",
+    "type": "Database",
+    "description": "Returns the minimum value from selected database entries"
+  },
+  {
+    "name": "DOLLAR",
+    "type": "Text",
+    "description": "Converts a number to text, using the $ (dollar) currency format"
+  },
+  {
+    "name": "DOLLARDE",
+    "type": "Financial",
+    "description": "Converts a dollar price, expressed as a fraction, into a dollar price, expressed as a decimal number"
+  },
+  {
+    "name": "DOLLARFR",
+    "type": "Financial",
+    "description": "Converts a dollar price, expressed as a decimal number, into a dollar price, expressed as a fraction"
+  },
+  {
+    "name": "DPRODUCT",
+    "type": "Database",
+    "description": "Multiplies the values in a particular field of records that match the criteria in a database"
+  },
+  {
+    "name": "DROP",
+    "type": "Lookup and reference",
+    "description": "Excludes a specified number of rows or columns from the start or end of an array",
+    "version": "2024"
+  },
+  {
+    "name": "DSTDEV",
+    "type": "Database",
+    "description": "Estimates the standard deviation based on a sample of selected database entries"
+  },
+  {
+    "name": "DSTDEVP",
+    "type": "Database",
+    "description": "Calculates the standard deviation based on the entire population of selected database entries"
+  },
+  {
+    "name": "DSUM",
+    "type": "Database",
+    "description": "Adds the numbers in the field column of records in the database that match the criteria"
+  },
+  {
+    "name": "DURATION",
+    "type": "Financial",
+    "description": "Returns the annual duration of a security with periodic interest payments"
+  },
+  {
+    "name": "DVAR",
+    "type": "Database",
+    "description": "Estimates variance based on a sample from selected database entries"
+  },
+  {
+    "name": "DVARP",
+    "type": "Database",
+    "description": "Calculates variance based on the entire population of selected database entries"
+  },
+  {
+    "name": "EDATE",
+    "type": "Date and time",
+    "description": "Returns the serial number of the date that is the indicated number of months before or after the start date"
+  },
+  {
+    "name": "EFFECT",
+    "type": "Financial",
+    "description": "Returns the effective annual interest rate"
+  },
+  {
+    "name": "ENCODEURL",
+    "type": "Web",
+    "description": "Returns a URL-encoded string",
+    "version": "2013"
+  },
+  {
+    "name": "EOMONTH",
+    "type": "Date and time",
+    "description": "Returns the serial number of the last day of the month before or after a specified number of months"
+  },
+  {
+    "name": "ERF",
+    "type": "Engineering",
+    "description": "Returns the error function"
+  },
+  {
+    "name": "ERF.PRECISE",
+    "type": "Engineering",
+    "description": "Returns the error function",
+    "version": "2010"
+  },
+  {
+    "name": "ERFC",
+    "type": "Engineering",
+    "description": "Returns the complementary error function"
+  },
+  {
+    "name": "ERFC.PRECISE",
+    "type": "Engineering",
+    "description": "Returns the complementary ERF function integrated between x and infinity",
+    "version": "2010"
+  },
+  {
+    "name": "ERROR.TYPE",
+    "type": "Information",
+    "description": "Returns a number corresponding to an error type"
+  },
+  {
+    "name": "EUROCONVERT",
+    "type": "Add-in and Automation",
+    "description": "Converts a number to euros, converts a number from euros to a euro member currency, or converts a number from one euro member currency to another by using the euro as an intermediary (triangulation)."
+  },
+  {
+    "name": "EVEN",
+    "type": "Math and trigonometry",
+    "description": "Rounds a number up to the nearest even integer"
+  },
+  {
+    "name": "EXACT",
+    "type": "Text",
+    "description": "Checks to see if two text values are identical"
+  },
+  {
+    "name": "EXP",
+    "type": "Math and trigonometry",
+    "description": "Returns e raised to the power of a given number"
+  },
+  {
+    "name": "EXPAND",
+    "type": "Lookup and reference",
+    "description": "Expands or pads an array to specified row and column dimensions",
+    "version": "2024"
+  },
+  {
+    "name": "EXPON.DIST",
+    "type": "Statistical",
+    "description": "Returns the exponential distribution",
+    "version": "2010"
+  },
+  {
+    "name": "EXPONDIST",
+    "type": "Compatibility",
+    "description": "Returns the exponential distribution"
+  },
+  {
+    "name": "FACT",
+    "type": "Math and trigonometry",
+    "description": "Returns the factorial of a number"
+  },
+  {
+    "name": "FACTDOUBLE",
+    "type": "Math and trigonometry",
+    "description": "Returns the double factorial of a number"
+  },
+  {
+    "name": "FALSE",
+    "type": "Logical",
+    "description": "Returns the logical value FALSE"
+  },
+  {
+    "name": "F.DIST",
+    "type": "Statistical",
+    "description": "Returns the F probability distribution",
+    "version": "2010"
+  },
+  {
+    "name": "FDIST",
+    "type": "Compatibility",
+    "description": "Returns the F probability distribution"
+  },
+  {
+    "name": "F.DIST.RT",
+    "type": "Statistical",
+    "description": "Returns the F probability distribution",
+    "version": "2010"
+  },
+  {
+    "name": "FILTER",
+    "type": "Lookup and reference",
+    "description": "Filters a range of data based on criteria you define",
+    "version": "2021"
+  },
+  {
+    "name": "FILTERXML",
+    "type": "Web",
+    "description": "Returns specific data from the XML content by using the specified XPath",
+    "version": "2013"
+  },
+  {
+    "name": "FIND,",
+    "type": "Text",
+    "description": "Finds one text value within another (case-sensitive)",
+    "version": "INDB"
+  },
+  {
+    "name": "F.INV",
+    "type": "Statistical",
+    "description": "Returns the inverse of the F probability distribution",
+    "version": "2010"
+  },
+  {
+    "name": "F.INV.RT",
+    "type": "Statistical",
+    "description": "Returns the inverse of the F probability distribution",
+    "version": "2010"
+  },
+  {
+    "name": "FINV",
+    "type": "Compatibility",
+    "description": "Returns the inverse of the F probability distribution"
+  },
+  {
+    "name": "FISHER",
+    "type": "Statistical",
+    "description": "Returns the Fisher transformation"
+  },
+  {
+    "name": "FISHERINV",
+    "type": "Statistical",
+    "description": "Returns the inverse of the Fisher transformation"
+  },
+  {
+    "name": "FIXED",
+    "type": "Text",
+    "description": "Formats a number as text with a fixed number of decimals"
+  },
+  {
+    "name": "FLOOR",
+    "type": "Compatibility",
+    "description": "Rounds a number down, toward zero"
+  },
+  {
+    "name": "FLOOR.MATH",
+    "type": "Math and trigonometry",
+    "description": "Rounds a number down, to the nearest integer or to the nearest multiple of significance",
+    "version": "2013"
+  },
+  {
+    "name": "FLOOR.PRECISE",
+    "type": "Math and trigonometry",
+    "description": "Rounds a number the nearest integer or to the nearest multiple of significance. Regardless of the sign of the number, the number is rounded up."
+  },
+  {
+    "name": "FORECAST",
+    "type": "Statistical",
+    "description": "Returns a value along a linear trend"
+  },
+  {
+    "name": "FORECAST.ETS",
+    "type": "Statistical",
+    "description": "Returns a future value based on existing (historical) values by using the AAA version of the Exponential Smoothing (ETS) algorithm",
+    "version": "2016"
+  },
+  {
+    "name": "FORECAST.ETS.CONFINT",
+    "type": "Statistical",
+    "description": "Returns a confidence interval for the forecast value at the specified target date",
+    "version": "2016"
+  },
+  {
+    "name": "FORECAST.ETS.SEASONALITY",
+    "type": "Statistical",
+    "description": "Returns the length of the repetitive pattern Excel detects for the specified time series",
+    "version": "2016"
+  },
+  {
+    "name": "FORECAST.ETS.STAT",
+    "type": "Statistical",
+    "description": "Returns a statistical value as a result of time series forecasting",
+    "version": "2016"
+  },
+  {
+    "name": "FORECAST.LINEAR",
+    "type": "Statistical",
+    "description": "Returns a future value based on existing values",
+    "version": "2016"
+  },
+  {
+    "name": "FORMULATEXT",
+    "type": "Lookup and reference",
+    "description": "Returns the formula at the given reference as text",
+    "version": "2013"
+  },
+  {
+    "name": "FREQUENCY",
+    "type": "Statistical",
+    "description": "Returns a frequency distribution as a vertical array"
+  },
+  {
+    "name": "F.TEST",
+    "type": "Statistical",
+    "description": "Returns the result of an F-test",
+    "version": "2010"
+  },
+  {
+    "name": "FTEST",
+    "type": "Compatibility",
+    "description": "Returns the result of an F-test"
+  },
+  {
+    "name": "FV",
+    "type": "Financial",
+    "description": "Returns the future value of an investment"
+  },
+  {
+    "name": "FVSCHEDULE",
+    "type": "Financial",
+    "description": "Returns the future value of an initial principal after applying a series of compound interest rates"
+  },
+  {
+    "name": "GAMMA",
+    "type": "Statistical",
+    "description": "Returns the Gamma function value",
+    "version": "2013"
+  },
+  {
+    "name": "GAMMA.DIST",
+    "type": "Statistical",
+    "description": "Returns the gamma distribution",
+    "version": "2010"
+  },
+  {
+    "name": "GAMMADIST",
+    "type": "Compatibility",
+    "description": "Returns the gamma distribution"
+  },
+  {
+    "name": "GAMMA.INV",
+    "type": "Statistical",
+    "description": "Returns the inverse of the gamma cumulative distribution",
+    "version": "2010"
+  },
+  {
+    "name": "GAMMAINV",
+    "type": "Compatibility",
+    "description": "Returns the inverse of the gamma cumulative distribution"
+  },
+  {
+    "name": "GAMMALN",
+    "type": "Statistical",
+    "description": "Returns the natural logarithm of the gamma function, Γ(x)"
+  },
+  {
+    "name": "GAMMALN.PRECISE",
+    "type": "Statistical",
+    "description": "Returns the natural logarithm of the gamma function, Γ(x)",
+    "version": "2010"
+  },
+  {
+    "name": "GAUSS",
+    "type": "Statistical",
+    "description": "Returns 0.5 less than the standard normal cumulative distribution",
+    "version": "2013"
+  },
+  {
+    "name": "GCD",
+    "type": "Math and trigonometry",
+    "description": "Returns the greatest common divisor"
+  },
+  {
+    "name": "GEOMEAN",
+    "type": "Statistical",
+    "description": "Returns the geometric mean"
+  },
+  {
+    "name": "GESTEP",
+    "type": "Engineering",
+    "description": "Tests whether a number is greater than a threshold value"
+  },
+  {
+    "name": "GETPIVOTDATA",
+    "type": "Lookup and reference",
+    "description": "Returns data stored in a PivotTable report"
+  },
+  {
+    "name": "GROUPBY",
+    "type": "Lookup and reference",
+    "description": "Helps a user group, aggregate, sort, and filter data based on the fields you specify",
+    "version": "Micr"
+  },
+  {
+    "name": "GROWTH",
+    "type": "Statistical",
+    "description": "Returns values along an exponential trend"
+  },
+  {
+    "name": "HARMEAN",
+    "type": "Statistical",
+    "description": "Returns the harmonic mean"
+  },
+  {
+    "name": "HEX2BIN",
+    "type": "Engineering",
+    "description": "Converts a hexadecimal number to binary"
+  },
+  {
+    "name": "HEX2DEC",
+    "type": "Engineering",
+    "description": "Converts a hexadecimal number to decimal"
+  },
+  {
+    "name": "HEX2OCT",
+    "type": "Engineering",
+    "description": "Converts a hexadecimal number to octal"
+  },
+  {
+    "name": "HLOOKUP",
+    "type": "Lookup and reference",
+    "description": "Looks in the top row of an array and returns the value of the indicated cell"
+  },
+  {
+    "name": "HOUR",
+    "type": "Date and time",
+    "description": "Converts a serial number to an hour"
+  },
+  {
+    "name": "HSTACK",
+    "type": "Lookup and reference",
+    "description": "Appends arrays horizontally and in sequence to return a larger array",
+    "version": "2024"
+  },
+  {
+    "name": "HYPERLINK",
+    "type": "Lookup and reference",
+    "description": "Creates a shortcut or jump that opens a document stored on a network server, an intranet, or the Internet"
+  },
+  {
+    "name": "HYPGEOM.DIST",
+    "type": "Statistical",
+    "description": "Returns the hypergeometric distribution"
+  },
+  {
+    "name": "HYPGEOMDIST",
+    "type": "Compatibility",
+    "description": "Returns the hypergeometric distribution"
+  },
+  {
+    "name": "IF",
+    "type": "Logical",
+    "description": "Specifies a logical test to perform"
+  },
+  {
+    "name": "IFERROR",
+    "type": "Logical",
+    "description": "Returns a value you specify if a formula evaluates to an error; otherwise, returns the result of the formula"
+  },
+  {
+    "name": "IFNA",
+    "type": "Logical",
+    "description": "Returns the value you specify if the expression resolves to #N/A, otherwise returns the result of the expression",
+    "version": "2013"
+  },
+  {
+    "name": "IFS",
+    "type": "Logical",
+    "description": "Checks whether one or more conditions are met and returns a value that corresponds to the first TRUE condition.",
+    "version": "2019"
+  },
+  {
+    "name": "IMABS",
+    "type": "Engineering",
+    "description": "Returns the absolute value (modulus) of a complex number"
+  },
+  {
+    "name": "IMAGE",
+    "type": "Lookup and reference",
+    "description": "Returns an image from a given source",
+    "version": "2024"
+  },
+  {
+    "name": "IMAGINARY",
+    "type": "Engineering",
+    "description": "Returns the imaginary coefficient of a complex number"
+  },
+  {
+    "name": "IMARGUMENT",
+    "type": "Engineering",
+    "description": "Returns the argument theta, an angle expressed in radians"
+  },
+  {
+    "name": "IMCONJUGATE",
+    "type": "Engineering",
+    "description": "Returns the complex conjugate of a complex number"
+  },
+  {
+    "name": "IMCOS",
+    "type": "Engineering",
+    "description": "Returns the cosine of a complex number"
+  },
+  {
+    "name": "IMCOSH",
+    "type": "Engineering",
+    "description": "Returns the hyperbolic cosine of a complex number",
+    "version": "2013"
+  },
+  {
+    "name": "IMCOT",
+    "type": "Engineering",
+    "description": "Returns the cotangent of a complex number",
+    "version": "2013"
+  },
+  {
+    "name": "IMCSC",
+    "type": "Engineering",
+    "description": "Returns the cosecant of a complex number",
+    "version": "2013"
+  },
+  {
+    "name": "IMCSCH",
+    "type": "Engineering",
+    "description": "Returns the hyperbolic cosecant of a complex number",
+    "version": "2013"
+  },
+  {
+    "name": "IMDIV",
+    "type": "Engineering",
+    "description": "Returns the quotient of two complex numbers"
+  },
+  {
+    "name": "IMEXP",
+    "type": "Engineering",
+    "description": "Returns the exponential of a complex number"
+  },
+  {
+    "name": "IMLN",
+    "type": "Engineering",
+    "description": "Returns the natural logarithm of a complex number"
+  },
+  {
+    "name": "IMLOG10",
+    "type": "Engineering",
+    "description": "Returns the base-10 logarithm of a complex number"
+  },
+  {
+    "name": "IMLOG2",
+    "type": "Engineering",
+    "description": "Returns the base-2 logarithm of a complex number"
+  },
+  {
+    "name": "IMPOWER",
+    "type": "Engineering",
+    "description": "Returns a complex number raised to an integer power"
+  },
+  {
+    "name": "IMPRODUCT",
+    "type": "Engineering",
+    "description": "Returns the product of complex numbers"
+  },
+  {
+    "name": "IMREAL",
+    "type": "Engineering",
+    "description": "Returns the real coefficient of a complex number"
+  },
+  {
+    "name": "IMSEC",
+    "type": "Engineering",
+    "description": "Returns the secant of a complex number",
+    "version": "2013"
+  },
+  {
+    "name": "IMSECH",
+    "type": "Engineering",
+    "description": "Returns the hyperbolic secant of a complex number",
+    "version": "2013"
+  },
+  {
+    "name": "IMSIN",
+    "type": "Engineering",
+    "description": "Returns the sine of a complex number"
+  },
+  {
+    "name": "IMSINH",
+    "type": "Engineering",
+    "description": "Returns the hyperbolic sine of a complex number",
+    "version": "2013"
+  },
+  {
+    "name": "IMSQRT",
+    "type": "Engineering",
+    "description": "Returns the square root of a complex number"
+  },
+  {
+    "name": "IMSUB",
+    "type": "Engineering",
+    "description": "Returns the difference between two complex numbers"
+  },
+  {
+    "name": "IMSUM",
+    "type": "Engineering",
+    "description": "Returns the sum of complex numbers"
+  },
+  {
+    "name": "IMTAN",
+    "type": "Engineering",
+    "description": "Returns the tangent of a complex number",
+    "version": "2013"
+  },
+  {
+    "name": "INDEX",
+    "type": "Lookup and reference",
+    "description": "Uses an index to choose a value from a reference or array"
+  },
+  {
+    "name": "INDIRECT",
+    "type": "Lookup and reference",
+    "description": "Returns a reference indicated by a text value"
+  },
+  {
+    "name": "INFO",
+    "type": "Information",
+    "description": "Returns information about the current operating environment"
+  },
+  {
+    "name": "INT",
+    "type": "Math and trigonometry",
+    "description": "Rounds a number down to the nearest integer"
+  },
+  {
+    "name": "INTERCEPT",
+    "type": "Statistical",
+    "description": "Returns the intercept of the linear regression line"
+  },
+  {
+    "name": "INTRATE",
+    "type": "Financial",
+    "description": "Returns the interest rate for a fully invested security"
+  },
+  {
+    "name": "IPMT",
+    "type": "Financial",
+    "description": "Returns the interest payment for an investment for a given period"
+  },
+  {
+    "name": "IRR",
+    "type": "Financial",
+    "description": "Returns the internal rate of return for a series of cash flows"
+  },
+  {
+    "name": "ISBLANK",
+    "type": "Information",
+    "description": "Returns TRUE if the value is blank"
+  },
+  {
+    "name": "ISERR",
+    "type": "Information",
+    "description": "Returns TRUE if the value is any error value except #N/A"
+  },
+  {
+    "name": "ISERROR",
+    "type": "Information",
+    "description": "Returns TRUE if the value is any error value"
+  },
+  {
+    "name": "ISEVEN",
+    "type": "Information",
+    "description": "Returns TRUE if the number is even"
+  },
+  {
+    "name": "ISFORMULA",
+    "type": "Information",
+    "description": "Returns TRUE if there is a reference to a cell that contains a formula",
+    "version": "2013"
+  },
+  {
+    "name": "ISLOGICAL",
+    "type": "Information",
+    "description": "Returns TRUE if the value is a logical value"
+  },
+  {
+    "name": "ISNA",
+    "type": "Information",
+    "description": "Returns TRUE if the value is the #N/A error value"
+  },
+  {
+    "name": "ISNONTEXT",
+    "type": "Information",
+    "description": "Returns TRUE if the value is not text"
+  },
+  {
+    "name": "ISNUMBER",
+    "type": "Information",
+    "description": "Returns TRUE if the value is a number"
+  },
+  {
+    "name": "ISODD",
+    "type": "Information",
+    "description": "Returns TRUE if the number is odd"
+  },
+  {
+    "name": "ISOMITTED",
+    "type": "Information",
+    "description": "Checks whether the value in a LAMBDA is missing and returns TRUE or FALSE",
+    "version": "2024"
+  },
+  {
+    "name": "ISREF",
+    "type": "Information",
+    "description": "Returns TRUE if the value is a reference"
+  },
+  {
+    "name": "ISTEXT",
+    "type": "Information",
+    "description": "Returns TRUE if the value is text"
+  },
+  {
+    "name": "ISO.CEILING",
+    "type": "Math and trigonometry",
+    "description": "Returns a number that is rounded up to the nearest integer or to the nearest multiple of significance",
+    "version": "2013"
+  },
+  {
+    "name": "ISOWEEKNUM",
+    "type": "Date and time",
+    "description": "Returns the number of the ISO week number of the year for a given date",
+    "version": "2013"
+  },
+  {
+    "name": "ISPMT",
+    "type": "Financial",
+    "description": "Calculates the interest paid during a specific period of an investment"
+  },
+  {
+    "name": "JIS",
+    "type": "Text",
+    "description": "Changes half-width (single-byte) characters within a string to full-width (double-byte) characters"
+  },
+  {
+    "name": "KURT",
+    "type": "Statistical",
+    "description": "Returns the kurtosis of a data set"
+  },
+  {
+    "name": "LAMBDA",
+    "type": "Logical",
+    "description": "Create custom, reusable and call them by a friendly name",
+    "version": "2024"
+  },
+  {
+    "name": "LARGE",
+    "type": "Statistical",
+    "description": "Returns the k-th largest value in a data set"
+  },
+  {
+    "name": "LCM",
+    "type": "Math and trigonometry",
+    "description": "Returns the least common multiple"
+  },
+  {
+    "name": "LEFT,",
+    "type": "Text",
+    "description": "Returns the leftmost characters from a text value",
+    "version": "EFTB"
+  },
+  {
+    "name": "LEN,",
+    "type": "Text",
+    "description": "Returns the number of characters in a text string",
+    "version": "ENB"
+  },
+  {
+    "name": "LET",
+    "type": "Logical",
+    "description": "Assigns names to calculation results",
+    "version": "2021"
+  },
+  {
+    "name": "LINEST",
+    "type": "Statistical",
+    "description": "Returns the parameters of a linear trend"
+  },
+  {
+    "name": "LN",
+    "type": "Math and trigonometry",
+    "description": "Returns the natural logarithm of a number"
+  },
+  {
+    "name": "LOG",
+    "type": "Math and trigonometry",
+    "description": "Returns the logarithm of a number to a specified base"
+  },
+  {
+    "name": "LOG10",
+    "type": "Math and trigonometry",
+    "description": "Returns the base-10 logarithm of a number"
+  },
+  {
+    "name": "LOGEST",
+    "type": "Statistical",
+    "description": "Returns the parameters of an exponential trend"
+  },
+  {
+    "name": "LOGINV",
+    "type": "Compatibility",
+    "description": "Returns the inverse of the lognormal cumulative distribution"
+  },
+  {
+    "name": "LOGNORM.DIST",
+    "type": "Statistical",
+    "description": "Returns the cumulative lognormal distribution",
+    "version": "2010"
+  },
+  {
+    "name": "LOGNORMDIST",
+    "type": "Compatibility",
+    "description": "Returns the cumulative lognormal distribution"
+  },
+  {
+    "name": "LOGNORM.INV",
+    "type": "Statistical",
+    "description": "Returns the inverse of the lognormal cumulative distribution",
+    "version": "2010"
+  },
+  {
+    "name": "LOOKUP",
+    "type": "Lookup and reference",
+    "description": "Looks up values in a vector or array"
+  },
+  {
+    "name": "LOWER",
+    "type": "Text",
+    "description": "Converts text to lowercase"
+  },
+  {
+    "name": "MAKEARRAY",
+    "type": "Logical",
+    "description": "Returns a calculated array of a specified row and column size, by applying a LAMBDA",
+    "version": "2024"
+  },
+  {
+    "name": "MAP",
+    "type": "Logical",
+    "description": "Returns an array formed by mapping each value in the array(s) to a new value by applying a LAMBDA to create a new value",
+    "version": "2024"
+  },
+  {
+    "name": "MATCH",
+    "type": "Lookup and reference",
+    "description": "Looks up values in a reference or array"
+  },
+  {
+    "name": "MAX",
+    "type": "Statistical",
+    "description": "Returns the maximum value in a list of arguments"
+  },
+  {
+    "name": "MAXA",
+    "type": "Statistical",
+    "description": "Returns the maximum value in a list of arguments, including numbers, text, and logical values"
+  },
+  {
+    "name": "MAXIFS",
+    "type": "Statistical",
+    "description": "Returns the maximum value among cells specified by a given set of conditions or criteria",
+    "version": "2019"
+  },
+  {
+    "name": "MDETERM",
+    "type": "Math and trigonometry",
+    "description": "Returns the matrix determinant of an array"
+  },
+  {
+    "name": "MDURATION",
+    "type": "Financial",
+    "description": "Returns the Macauley modified duration for a security with an assumed par value of $100"
+  },
+  {
+    "name": "MEDIAN",
+    "type": "Statistical",
+    "description": "Returns the median of the given numbers"
+  },
+  {
+    "name": "MID,",
+    "type": "Text",
+    "description": "Returns a specific number of characters from a text string starting at the position you specify",
+    "version": "IDB"
+  },
+  {
+    "name": "MIN",
+    "type": "Statistical",
+    "description": "Returns the minimum value in a list of arguments"
+  },
+  {
+    "name": "MINIFS",
+    "type": "Statistical",
+    "description": "Returns the minimum value among cells specified by a given set of conditions or criteria.",
+    "version": "2019"
+  },
+  {
+    "name": "MINA",
+    "type": "Statistical",
+    "description": "Returns the smallest value in a list of arguments, including numbers, text, and logical values"
+  },
+  {
+    "name": "MINUTE",
+    "type": "Date and time",
+    "description": "Converts a serial number to a minute"
+  },
+  {
+    "name": "MINVERSE",
+    "type": "Math and trigonometry",
+    "description": "Returns the matrix inverse of an array"
+  },
+  {
+    "name": "MIRR",
+    "type": "Financial",
+    "description": "Returns the internal rate of return where positive and negative cash flows are financed at different rates"
+  },
+  {
+    "name": "MMULT",
+    "type": "Math and trigonometry",
+    "description": "Returns the matrix product of two arrays"
+  },
+  {
+    "name": "MOD",
+    "type": "Math and trigonometry",
+    "description": "Returns the remainder from division"
+  },
+  {
+    "name": "MODE",
+    "type": "Compatibility",
+    "description": "Returns the most common value in a data set"
+  },
+  {
+    "name": "MODE.MULT",
+    "type": "Statistical",
+    "description": "Returns a vertical array of the most frequently occurring, or repetitive values in an array or range of data",
+    "version": "2010"
+  },
+  {
+    "name": "MODE.SNGL",
+    "type": "Statistical",
+    "description": "Returns the most common value in a data set",
+    "version": "2010"
+  },
+  {
+    "name": "MONTH",
+    "type": "Date and time",
+    "description": "Converts a serial number to a month"
+  },
+  {
+    "name": "MROUND",
+    "type": "Math and trigonometry",
+    "description": "Returns a number rounded to the desired multiple"
+  },
+  {
+    "name": "MULTINOMIAL",
+    "type": "Math and trigonometry",
+    "description": "Returns the multinomial of a set of numbers"
+  },
+  {
+    "name": "MUNIT",
+    "type": "Math and trigonometry",
+    "description": "Returns the unit matrix or the specified dimension",
+    "version": "2013"
+  },
+  {
+    "name": "N",
+    "type": "Information",
+    "description": "Returns a value converted to a number"
+  },
+  {
+    "name": "NA",
+    "type": "Information",
+    "description": "Returns the error value #N/A"
+  },
+  {
+    "name": "NEGBINOM.DIST",
+    "type": "Statistical",
+    "description": "Returns the negative binomial distribution",
+    "version": "2010"
+  },
+  {
+    "name": "NEGBINOMDIST",
+    "type": "Compatibility",
+    "description": "Returns the negative binomial distribution"
+  },
+  {
+    "name": "NETWORKDAYS",
+    "type": "Date and time",
+    "description": "Returns the number of whole workdays between two dates"
+  },
+  {
+    "name": "NETWORKDAYS.INTL",
+    "type": "Date and time",
+    "description": "Returns the number of whole workdays between two dates using parameters to indicate which and how many days are weekend days",
+    "version": "2010"
+  },
+  {
+    "name": "NOMINAL",
+    "type": "Financial",
+    "description": "Returns the annual nominal interest rate"
+  },
+  {
+    "name": "NORM.DIST",
+    "type": "Statistical",
+    "description": "Returns the normal cumulative distribution",
+    "version": "2010"
+  },
+  {
+    "name": "NORMDIST",
+    "type": "Compatibility",
+    "description": "Returns the normal cumulative distribution"
+  },
+  {
+    "name": "NORMINV",
+    "type": "Statistical",
+    "description": "Returns the inverse of the normal cumulative distribution"
+  },
+  {
+    "name": "NORM.INV",
+    "type": "Compatibility",
+    "description": "Returns the inverse of the normal cumulative distribution",
+    "version": "2010"
+  },
+  {
+    "name": "NORM.S.DIST",
+    "type": "Statistical",
+    "description": "Returns the standard normal cumulative distribution",
+    "version": "2010"
+  },
+  {
+    "name": "NORMSDIST",
+    "type": "Compatibility",
+    "description": "Returns the standard normal cumulative distribution"
+  },
+  {
+    "name": "NORM.S.INV",
+    "type": "Statistical",
+    "description": "Returns the inverse of the standard normal cumulative distribution",
+    "version": "2010"
+  },
+  {
+    "name": "NORMSINV",
+    "type": "Compatibility",
+    "description": "Returns the inverse of the standard normal cumulative distribution"
+  },
+  {
+    "name": "NOT",
+    "type": "Logical",
+    "description": "Reverses the logic of its argument"
+  },
+  {
+    "name": "NOW",
+    "type": "Date and time",
+    "description": "Returns the serial number of the current date and time"
+  },
+  {
+    "name": "NPER",
+    "type": "Financial",
+    "description": "Returns the number of periods for an investment"
+  },
+  {
+    "name": "NPV",
+    "type": "Financial",
+    "description": "Returns the net present value of an investment based on a series of periodic cash flows and a discount rate"
+  },
+  {
+    "name": "NUMBERVALUE",
+    "type": "Text",
+    "description": "Converts text to number in a locale-independent manner",
+    "version": "2013"
+  },
+  {
+    "name": "OCT2BIN",
+    "type": "Engineering",
+    "description": "Converts an octal number to binary"
+  },
+  {
+    "name": "OCT2DEC",
+    "type": "Engineering",
+    "description": "Converts an octal number to decimal"
+  },
+  {
+    "name": "OCT2HEX",
+    "type": "Engineering",
+    "description": "Converts an octal number to hexadecimal"
+  },
+  {
+    "name": "ODD",
+    "type": "Math and trigonometry",
+    "description": "Rounds a number up to the nearest odd integer"
+  },
+  {
+    "name": "ODDFPRICE",
+    "type": "Financial",
+    "description": "Returns the price per $100 face value of a security with an odd first period"
+  },
+  {
+    "name": "ODDFYIELD",
+    "type": "Financial",
+    "description": "Returns the yield of a security with an odd first period"
+  },
+  {
+    "name": "ODDLPRICE",
+    "type": "Financial",
+    "description": "Returns the price per $100 face value of a security with an odd last period"
+  },
+  {
+    "name": "ODDLYIELD",
+    "type": "Financial",
+    "description": "Returns the yield of a security with an odd last period"
+  },
+  {
+    "name": "OFFSET",
+    "type": "Lookup and reference",
+    "description": "Returns a reference offset from a given reference"
+  },
+  {
+    "name": "OR",
+    "type": "Logical",
+    "description": "Returns TRUE if any argument is TRUE"
+  },
+  {
+    "name": "PDURATION",
+    "type": "Financial",
+    "description": "Returns the number of periods required by an investment to reach a specified value",
+    "version": "2013"
+  },
+  {
+    "name": "PEARSON",
+    "type": "Statistical",
+    "description": "Returns the Pearson product moment correlation coefficient"
+  },
+  {
+    "name": "PERCENTILE.EXC",
+    "type": "Statistical",
+    "description": "Returns the k-th percentile of values in a range, where k is in the range 0..1, exclusive",
+    "version": "2010"
+  },
+  {
+    "name": "PERCENTILE.INC",
+    "type": "Statistical",
+    "description": "Returns the k-th percentile of values in a range",
+    "version": "2010"
+  },
+  {
+    "name": "PERCENTILE",
+    "type": "Compatibility",
+    "description": "Returns the k-th percentile of values in a range"
+  },
+  {
+    "name": "PERCENTOF",
+    "type": "Math and trigonometry",
+    "description": "Sums the values in the subset and divides it by all the values",
+    "version": "Micr"
+  },
+  {
+    "name": "PERCENTRANK.EXC",
+    "type": "Statistical",
+    "description": "Returns the rank of a value in a data set as a percentage (0..1, exclusive) of the data set",
+    "version": "2010"
+  },
+  {
+    "name": "PERCENTRANK.INC",
+    "type": "Statistical",
+    "description": "Returns the percentage rank of a value in a data set",
+    "version": "2010"
+  },
+  {
+    "name": "PERCENTRANK",
+    "type": "Compatibility",
+    "description": "Returns the percentage rank of a value in a data set"
+  },
+  {
+    "name": "PERMUT",
+    "type": "Statistical",
+    "description": "Returns the number of permutations for a given number of objects"
+  },
+  {
+    "name": "PERMUTATIONA",
+    "type": "Statistical",
+    "description": "Returns the number of permutations for a given number of objects (with repetitions) that can be selected from the total objects",
+    "version": "2013"
+  },
+  {
+    "name": "PHI",
+    "type": "Statistical",
+    "description": "Returns the value of the density function for a standard normal distribution",
+    "version": "2013"
+  },
+  {
+    "name": "PHONETIC",
+    "type": "Text",
+    "description": "Extracts the phonetic (furigana) characters from a text string"
+  },
+  {
+    "name": "PI",
+    "type": "Math and trigonometry",
+    "description": "Returns the value of pi"
+  },
+  {
+    "name": "PIVOTBY",
+    "type": "Lookup and reference",
+    "description": "Helps a user group, aggregate, sort, and filter data based on the row and column fields that you specify",
+    "version": "Micr"
+  },
+  {
+    "name": "PMT",
+    "type": "Financial",
+    "description": "Returns the periodic payment for an annuity"
+  },
+  {
+    "name": "POISSON.DIST",
+    "type": "Statistical",
+    "description": "Returns the Poisson distribution",
+    "version": "2010"
+  },
+  {
+    "name": "POISSON",
+    "type": "Compatibility",
+    "description": "Returns the Poisson distribution"
+  },
+  {
+    "name": "POWER",
+    "type": "Math and trigonometry",
+    "description": "Returns the result of a number raised to a power"
+  },
+  {
+    "name": "PPMT",
+    "type": "Financial",
+    "description": "Returns the payment on the principal for an investment for a given period"
+  },
+  {
+    "name": "PRICE",
+    "type": "Financial",
+    "description": "Returns the price per $100 face value of a security that pays periodic interest"
+  },
+  {
+    "name": "PRICEDISC",
+    "type": "Financial",
+    "description": "Returns the price per $100 face value of a discounted security"
+  },
+  {
+    "name": "PRICEMAT",
+    "type": "Financial",
+    "description": "Returns the price per $100 face value of a security that pays interest at maturity"
+  },
+  {
+    "name": "PROB",
+    "type": "Statistical",
+    "description": "Returns the probability that values in a range are between two limits"
+  },
+  {
+    "name": "PRODUCT",
+    "type": "Math and trigonometry",
+    "description": "Multiplies its arguments"
+  },
+  {
+    "name": "PROPER",
+    "type": "Text",
+    "description": "Capitalizes the first letter in each word of a text value"
+  },
+  {
+    "name": "PV",
+    "type": "Financial",
+    "description": "Returns the present value of an investment"
+  },
+  {
+    "name": "QUARTILE",
+    "type": "Compatibility",
+    "description": "Returns the quartile of a data set"
+  },
+  {
+    "name": "QUARTILE.EXC",
+    "type": "Statistical",
+    "description": "Returns the quartile of the data set, based on percentile values from 0..1, exclusive",
+    "version": "2010"
+  },
+  {
+    "name": "QUARTILE.INC",
+    "type": "Statistical",
+    "description": "Returns the quartile of a data set",
+    "version": "2010"
+  },
+  {
+    "name": "QUOTIENT",
+    "type": "Math and trigonometry",
+    "description": "Returns the integer portion of a division"
+  },
+  {
+    "name": "RADIANS",
+    "type": "Math and trigonometry",
+    "description": "Converts degrees to radians"
+  },
+  {
+    "name": "RAND",
+    "type": "Math and trigonometry",
+    "description": "Returns a random number between 0 and 1"
+  },
+  {
+    "name": "RANDARRAY",
+    "type": "Math and trigonometry",
+    "description": "Returns an array of random numbers between 0 and 1. However, you can specify the number of rows and columns to fill, minimum and maximum values, and whether to return whole numbers or decimal values.",
+    "version": "2021"
+  },
+  {
+    "name": "RANDBETWEEN",
+    "type": "Math and trigonometry",
+    "description": "Returns a random number between the numbers you specify"
+  },
+  {
+    "name": "RANK.AVG",
+    "type": "Statistical",
+    "description": "Returns the rank of a number in a list of numbers",
+    "version": "2010"
+  },
+  {
+    "name": "RANK.EQ",
+    "type": "Statistical",
+    "description": "Returns the rank of a number in a list of numbers",
+    "version": "2010"
+  },
+  {
+    "name": "RANK",
+    "type": "Compatibility",
+    "description": "Returns the rank of a number in a list of numbers"
+  },
+  {
+    "name": "RATE",
+    "type": "Financial",
+    "description": "Returns the interest rate per period of an annuity"
+  },
+  {
+    "name": "RECEIVED",
+    "type": "Financial",
+    "description": "Returns the amount received at maturity for a fully invested security"
+  },
+  {
+    "name": "REDUCE",
+    "type": "Logical",
+    "description": "Reduces an array to an accumulated value by applying a LAMBDA to each value and returning the total value in the accumulator",
+    "version": "2024"
+  },
+  {
+    "name": "REGEXEXTRACT",
+    "type": "Text",
+    "description": "Extracts strings within the provided text that matches the pattern",
+    "version": "Micr"
+  },
+  {
+    "name": "REGEXREPLACE",
+    "type": "Text",
+    "description": "Replaces strings within the provided text that matches the pattern with replacement",
+    "version": "Micr"
+  },
+  {
+    "name": "REGEXTEST",
+    "type": "Text",
+    "description": "Determines whether any part of text matches the pattern",
+    "version": "Micr"
+  },
+  {
+    "name": "REGISTER.ID",
+    "type": "Add-in and Automation",
+    "description": "Returns the register ID of the specified dynamic link library (DLL) or code resource that has been previously registered"
+  },
+  {
+    "name": "REPLACE,",
+    "type": "Text",
+    "description": "Replaces characters within text",
+    "version": "EPLA"
+  },
+  {
+    "name": "REPT",
+    "type": "Text",
+    "description": "Repeats text a given number of times"
+  },
+  {
+    "name": "RIGHT,",
+    "type": "Text",
+    "description": "Returns the rightmost characters from a text value",
+    "version": "IGHT"
+  },
+  {
+    "name": "ROMAN",
+    "type": "Math and trigonometry",
+    "description": "Converts an arabic numeral to roman, as text"
+  },
+  {
+    "name": "ROUND",
+    "type": "Math and trigonometry",
+    "description": "Rounds a number to a specified number of digits"
+  },
+  {
+    "name": "ROUNDDOWN",
+    "type": "Math and trigonometry",
+    "description": "Rounds a number down, toward zero"
+  },
+  {
+    "name": "ROUNDUP",
+    "type": "Math and trigonometry",
+    "description": "Rounds a number up, away from zero"
+  },
+  {
+    "name": "ROW",
+    "type": "Lookup and reference",
+    "description": "Returns the row number of a reference"
+  },
+  {
+    "name": "ROWS",
+    "type": "Lookup and reference",
+    "description": "Returns the number of rows in a reference"
+  },
+  {
+    "name": "RRI",
+    "type": "Financial",
+    "description": "Returns an equivalent interest rate for the growth of an investment",
+    "version": "2013"
+  },
+  {
+    "name": "RSQ",
+    "type": "Statistical",
+    "description": "Returns the square of the Pearson product moment correlation coefficient"
+  },
+  {
+    "name": "RTD",
+    "type": "Lookup and reference",
+    "description": "Retrieves real-time data from a program that supports COM automation"
+  },
+  {
+    "name": "SCAN",
+    "type": "Logical",
+    "description": "Scans an array by applying a LAMBDA to each value and returns an array that has each intermediate value",
+    "version": "2024"
+  },
+  {
+    "name": "SEARCH,",
+    "type": "Text",
+    "description": "Finds one text value within another (not case-sensitive)",
+    "version": "EARC"
+  },
+  {
+    "name": "SEC",
+    "type": "Math and trigonometry",
+    "description": "Returns the secant of an angle",
+    "version": "2013"
+  },
+  {
+    "name": "SECH",
+    "type": "Math and trigonometry",
+    "description": "Returns the hyperbolic secant of an angle",
+    "version": "2013"
+  },
+  {
+    "name": "SECOND",
+    "type": "Date and time",
+    "description": "Converts a serial number to a second"
+  },
+  {
+    "name": "SEQUENCE",
+    "type": "Math and trigonometry",
+    "description": "Generates a list of sequential numbers in an array, such as 1, 2, 3, 4",
+    "version": "2021"
+  },
+  {
+    "name": "SERIESSUM",
+    "type": "Math and trigonometry",
+    "description": "Returns the sum of a power series based on the formula"
+  },
+  {
+    "name": "SHEET",
+    "type": "Information",
+    "description": "Returns the sheet number of the referenced sheet",
+    "version": "2013"
+  },
+  {
+    "name": "SHEETS",
+    "type": "Information",
+    "description": "Returns the number of sheets in a reference",
+    "version": "2013"
+  },
+  {
+    "name": "SIGN",
+    "type": "Math and trigonometry",
+    "description": "Returns the sign of a number"
+  },
+  {
+    "name": "SIN",
+    "type": "Math and trigonometry",
+    "description": "Returns the sine of the given angle"
+  },
+  {
+    "name": "SINH",
+    "type": "Math and trigonometry",
+    "description": "Returns the hyperbolic sine of a number"
+  },
+  {
+    "name": "SKEW",
+    "type": "Statistical",
+    "description": "Returns the skewness of a distribution"
+  },
+  {
+    "name": "SKEW.P",
+    "type": "Statistical",
+    "description": "Returns the skewness of a distribution based on a population",
+    "version": "2013"
+  },
+  {
+    "name": "SLN",
+    "type": "Financial",
+    "description": "Returns the straight-line depreciation of an asset for one period"
+  },
+  {
+    "name": "SLOPE",
+    "type": "Statistical",
+    "description": "Returns the slope of the linear regression line"
+  },
+  {
+    "name": "SMALL",
+    "type": "Statistical",
+    "description": "Returns the k-th smallest value in a data set"
+  },
+  {
+    "name": "SORT",
+    "type": "Lookup and reference",
+    "description": "Sorts the contents of a range or array",
+    "version": "2021"
+  },
+  {
+    "name": "SORTBY",
+    "type": "Lookup and reference",
+    "description": "Sorts the contents of a range or array based on the values in a corresponding range or array",
+    "version": "2021"
+  },
+  {
+    "name": "SQRT",
+    "type": "Math and trigonometry",
+    "description": "Returns a positive square root"
+  },
+  {
+    "name": "SQRTPI",
+    "type": "Math and trigonometry",
+    "description": "Returns the square root of (number * pi)"
+  },
+  {
+    "name": "STANDARDIZE",
+    "type": "Statistical",
+    "description": "Returns a normalized value"
+  },
+  {
+    "name": "STOCKHISTORY",
+    "type": "Information",
+    "description": "Retrieves historical data about a financial instrument",
+    "version": "Micr"
+  },
+  {
+    "name": "STDEV",
+    "type": "Compatibility",
+    "description": "Estimates standard deviation based on a sample"
+  },
+  {
+    "name": "STDEV.P",
+    "type": "Statistical",
+    "description": "Calculates standard deviation based on the entire population",
+    "version": "2010"
+  },
+  {
+    "name": "STDEV.S",
+    "type": "Statistical",
+    "description": "Estimates standard deviation based on a sample",
+    "version": "2010"
+  },
+  {
+    "name": "STDEVA",
+    "type": "Statistical",
+    "description": "Estimates standard deviation based on a sample, including numbers, text, and logical values"
+  },
+  {
+    "name": "STDEVP",
+    "type": "Compatibility",
+    "description": "Calculates standard deviation based on the entire population"
+  },
+  {
+    "name": "STDEVPA",
+    "type": "Statistical",
+    "description": "Calculates standard deviation based on the entire population, including numbers, text, and logical values"
+  },
+  {
+    "name": "STEYX",
+    "type": "Statistical",
+    "description": "Returns the standard error of the predicted y-value for each x in the regression"
+  },
+  {
+    "name": "STOCKHISTORY",
+    "type": "Information",
+    "description": "Retrieves historical data about a financial instrument and loads it as an array"
+  },
+  {
+    "name": "SUBSTITUTE",
+    "type": "Text",
+    "description": "Substitutes new text for old text in a text string"
+  },
+  {
+    "name": "SUBTOTAL",
+    "type": "Math and trigonometry",
+    "description": "Returns a subtotal in a list or database"
+  },
+  {
+    "name": "SUM",
+    "type": "Math and trigonometry",
+    "description": "Adds its arguments"
+  },
+  {
+    "name": "SUMIF",
+    "type": "Math and trigonometry",
+    "description": "Adds the cells specified by a given criteria"
+  },
+  {
+    "name": "SUMIFS",
+    "type": "Math and trigonometry",
+    "description": "Adds the cells in a range that meet multiple criteria"
+  },
+  {
+    "name": "SUMPRODUCT",
+    "type": "Math and trigonometry",
+    "description": "Returns the sum of the products of corresponding array components"
+  },
+  {
+    "name": "SUMSQ",
+    "type": "Math and trigonometry",
+    "description": "Returns the sum of the squares of the arguments"
+  },
+  {
+    "name": "SUMX2MY2",
+    "type": "Math and trigonometry",
+    "description": "Returns the sum of the difference of squares of corresponding values in two arrays"
+  },
+  {
+    "name": "SUMX2PY2",
+    "type": "Math and trigonometry",
+    "description": "Returns the sum of the sum of squares of corresponding values in two arrays"
+  },
+  {
+    "name": "SUMXMY2",
+    "type": "Math and trigonometry",
+    "description": "Returns the sum of squares of differences of corresponding values in two arrays"
+  },
+  {
+    "name": "SWITCH",
+    "type": "Logical",
+    "description": "Evaluates an expression against a list of values and returns the result corresponding to the first matching value. If there is no match, an optional default value may be returned.",
+    "version": "2019"
+  },
+  {
+    "name": "SYD",
+    "type": "Financial",
+    "description": "Returns the sum-of-years' digits depreciation of an asset for a specified period"
+  },
+  {
+    "name": "T",
+    "type": "Text",
+    "description": "Converts its arguments to text"
+  },
+  {
+    "name": "TAN",
+    "type": "Math and trigonometry",
+    "description": "Returns the tangent of a number"
+  },
+  {
+    "name": "TANH",
+    "type": "Math and trigonometry",
+    "description": "Returns the hyperbolic tangent of a number"
+  },
+  {
+    "name": "TAKE",
+    "type": "Lookup and reference",
+    "description": "Returns a specified number of contiguous rows or columns from the start or end of an array",
+    "version": "2024"
+  },
+  {
+    "name": "TBILLEQ",
+    "type": "Financial",
+    "description": "Returns the bond-equivalent yield for a Treasury bill"
+  },
+  {
+    "name": "TBILLPRICE",
+    "type": "Financial",
+    "description": "Returns the price per $100 face value for a Treasury bill"
+  },
+  {
+    "name": "TBILLYIELD",
+    "type": "Financial",
+    "description": "Returns the yield for a Treasury bill"
+  },
+  {
+    "name": "T.DIST",
+    "type": "Statistical",
+    "description": "Returns the Percentage Points (probability) for the Student t-distribution",
+    "version": "2010"
+  },
+  {
+    "name": "T.DIST.2T",
+    "type": "Statistical",
+    "description": "Returns the Percentage Points (probability) for the Student t-distribution",
+    "version": "2010"
+  },
+  {
+    "name": "T.DIST.RT",
+    "type": "Statistical",
+    "description": "Returns the Student's t-distribution",
+    "version": "2010"
+  },
+  {
+    "name": "TDIST",
+    "type": "Compatibility",
+    "description": "Returns the Student's t-distribution"
+  },
+  {
+    "name": "TEXT",
+    "type": "Text",
+    "description": "Formats a number and converts it to text"
+  },
+  {
+    "name": "TEXTAFTER",
+    "type": "Text",
+    "description": "Returns text that occurs after given character or string",
+    "version": "2024"
+  },
+  {
+    "name": "TEXTBEFORE",
+    "type": "Text",
+    "description": "Returns text that occurs before a given character or string",
+    "version": "2024"
+  },
+  {
+    "name": "TEXTJOIN",
+    "type": "Text",
+    "description": "Combines the text from multiple ranges and/or strings",
+    "version": "2019"
+  },
+  {
+    "name": "TEXTSPLIT",
+    "type": "Text",
+    "description": "Splits text strings by using column and row delimiters",
+    "version": "2024"
+  },
+  {
+    "name": "TIME",
+    "type": "Date and time",
+    "description": "Returns the serial number of a particular time"
+  },
+  {
+    "name": "TIMEVALUE",
+    "type": "Date and time",
+    "description": "Converts a time in the form of text to a serial number"
+  },
+  {
+    "name": "T.INV",
+    "type": "Statistical",
+    "description": "Returns the t-value of the Student's t-distribution as a function of the probability and the degrees of freedom",
+    "version": "2010"
+  },
+  {
+    "name": "T.INV.2T",
+    "type": "Statistical",
+    "description": "Returns the inverse of the Student's t-distribution",
+    "version": "2010"
+  },
+  {
+    "name": "TINV",
+    "type": "Compatibility",
+    "description": "Returns the inverse of the Student's t-distribution"
+  },
+  {
+    "name": "TOCOL",
+    "type": "Lookup and reference",
+    "description": "Returns the array in a single column",
+    "version": "2024"
+  },
+  {
+    "name": "TOROW",
+    "type": "Lookup and reference",
+    "description": "Returns the array in a single row",
+    "version": "2024"
+  },
+  {
+    "name": "TODAY",
+    "type": "Date and time",
+    "description": "Returns the serial number of today's date"
+  },
+  {
+    "name": "TRANSLATE",
+    "type": "Text",
+    "description": "Translates a text from one language to another",
+    "version": "Micr"
+  },
+  {
+    "name": "TRANSPOSE",
+    "type": "Lookup and reference",
+    "description": "Returns the transpose of an array"
+  },
+  {
+    "name": "TREND",
+    "type": "Statistical",
+    "description": "Returns values along a linear trend"
+  },
+  { "name": "TRIM", "type": "Text", "description": "Removes spaces from text" },
+  {
+    "name": "TRIMMEAN",
+    "type": "Statistical",
+    "description": "Returns the mean of the interior of a data set"
+  },
+  {
+    "name": "TRIMRANGE",
+    "type": "Lookup and reference",
+    "description": "Scans in from the edges of a range or array until it finds a non-blank cell (or value), it then excludes those blank rows or columns",
+    "version": "Micr"
+  },
+  {
+    "name": "TRUE",
+    "type": "Logical",
+    "description": "Returns the logical value TRUE"
+  },
+  {
+    "name": "TRUNC",
+    "type": "Math and trigonometry",
+    "description": "Truncates a number to an integer"
+  },
+  {
+    "name": "T.TEST",
+    "type": "Statistical",
+    "description": "Returns the probability associated with a Student's t-test",
+    "version": "2010"
+  },
+  {
+    "name": "TTEST",
+    "type": "Compatibility",
+    "description": "Returns the probability associated with a Student's t-test"
+  },
+  {
+    "name": "TYPE",
+    "type": "Information",
+    "description": "Returns a number indicating the data type of a value"
+  },
+  {
+    "name": "UNICHAR",
+    "type": "Text",
+    "description": "Returns the Unicode character that is references by the given numeric value",
+    "version": "2013"
+  },
+  {
+    "name": "UNICODE",
+    "type": "Text",
+    "description": "Returns the number (code point) that corresponds to the first character of the text",
+    "version": "2013"
+  },
+  {
+    "name": "UNIQUE",
+    "type": "Lookup and reference",
+    "description": "Returns a list of unique values in a list or range",
+    "version": "2021"
+  },
+  {
+    "name": "UPPER",
+    "type": "Text",
+    "description": "Converts text to uppercase"
+  },
+  {
+    "name": "VALUE",
+    "type": "Text",
+    "description": "Converts a text argument to a number"
+  },
+  {
+    "name": "VALUETOTEXT",
+    "type": "Text",
+    "description": "Returns text from any specified value",
+    "version": "2021"
+  },
+  {
+    "name": "VAR",
+    "type": "Compatibility",
+    "description": "Estimates variance based on a sample"
+  },
+  {
+    "name": "VAR.P",
+    "type": "Statistical",
+    "description": "Calculates variance based on the entire population",
+    "version": "2010"
+  },
+  {
+    "name": "VAR.S",
+    "type": "Statistical",
+    "description": "Estimates variance based on a sample",
+    "version": "2010"
+  },
+  {
+    "name": "VARA",
+    "type": "Statistical",
+    "description": "Estimates variance based on a sample, including numbers, text, and logical values"
+  },
+  {
+    "name": "VARP",
+    "type": "Compatibility",
+    "description": "Calculates variance based on the entire population"
+  },
+  {
+    "name": "VARPA",
+    "type": "Statistical",
+    "description": "Calculates variance based on the entire population, including numbers, text, and logical values"
+  },
+  {
+    "name": "VDB",
+    "type": "Financial",
+    "description": "Returns the depreciation of an asset for a specified or partial period by using a declining balance method"
+  },
+  {
+    "name": "VLOOKUP",
+    "type": "Lookup and reference",
+    "description": "Looks in the first column of an array and moves across the row to return the value of a cell"
+  },
+  {
+    "name": "VSTACK",
+    "type": "Look and reference",
+    "description": "Appends arrays vertically and in sequence to return a larger array",
+    "version": "2024"
+  },
+  {
+    "name": "WEBSERVICE",
+    "type": "Web",
+    "description": "Returns data from a web service.",
+    "version": "2013"
+  },
+  {
+    "name": "WEEKDAY",
+    "type": "Date and time",
+    "description": "Converts a serial number to a day of the week"
+  },
+  {
+    "name": "WEEKNUM",
+    "type": "Date and time",
+    "description": "Converts a serial number to a number representing where the week falls numerically with a year"
+  },
+  {
+    "name": "WEIBULL",
+    "type": "Compatibility",
+    "description": "Calculates variance based on the entire population, including numbers, text, and logical values"
+  },
+  {
+    "name": "WEIBULL.DIST",
+    "type": "Statistical",
+    "description": "Returns the Weibull distribution",
+    "version": "2010"
+  },
+  {
+    "name": "WORKDAY",
+    "type": "Date and time",
+    "description": "Returns the serial number of the date before or after a specified number of workdays"
+  },
+  {
+    "name": "WORKDAY.INTL",
+    "type": "Date and time",
+    "description": "Returns the serial number of the date before or after a specified number of workdays using parameters to indicate which and how many days are weekend days",
+    "version": "2010"
+  },
+  {
+    "name": "WRAPCOLS",
+    "type": "Look and reference",
+    "description": "Wraps the provided row or column of values by columns after a specified number of elements",
+    "version": "2024"
+  },
+  {
+    "name": "WRAPROWS",
+    "type": "Look and reference",
+    "description": "Wraps the provided row or column of values by rows after a specified number of elements",
+    "version": "2024"
+  },
+  {
+    "name": "XIRR",
+    "type": "Financial",
+    "description": "Returns the internal rate of return for a schedule of cash flows that is not necessarily periodic"
+  },
+  {
+    "name": "XLOOKUP",
+    "type": "Lookup and reference",
+    "description": "Searches a range or an array, and returns an item corresponding to the first match it finds. If a match doesn't exist, then XLOOKUP can return the closest (approximate) match.",
+    "version": "2021"
+  },
+  {
+    "name": "XMATCH",
+    "type": "Lookup and reference",
+    "description": "Returns the relative position of an item in an array or range of cells.",
+    "version": "2021"
+  },
+  {
+    "name": "XNPV",
+    "type": "Financial",
+    "description": "Returns the net present value for a schedule of cash flows that is not necessarily periodic"
+  },
+  {
+    "name": "XOR",
+    "type": "Logical",
+    "description": "Returns a logical exclusive OR of all arguments",
+    "version": "2013"
+  },
+  {
+    "name": "YEAR",
+    "type": "Date and time",
+    "description": "Converts a serial number to a year"
+  },
+  {
+    "name": "YEARFRAC",
+    "type": "Date and time",
+    "description": "Returns the year fraction representing the number of whole days between start_date and end_date"
+  },
+  {
+    "name": "YIELD",
+    "type": "Financial",
+    "description": "Returns the yield on a security that pays periodic interest"
+  },
+  {
+    "name": "YIELDDISC",
+    "type": "Financial",
+    "description": "Returns the annual yield for a discounted security; for example, a Treasury bill"
+  },
+  {
+    "name": "YIELDMAT",
+    "type": "Financial",
+    "description": "Returns the annual yield of a security that pays interest at maturity"
+  },
+  {
+    "name": "Z.TEST",
+    "type": "Statistical",
+    "description": "Returns the one-tailed probability-value of a z-test",
+    "version": "2010"
+  },
+  {
+    "name": "ZTEST",
+    "type": "Compatibility",
+    "description": "Returns the one-tailed probability-value of a z-test"
+  }
+]

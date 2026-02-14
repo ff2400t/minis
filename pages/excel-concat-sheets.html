@@ -3,12 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <title>Excel Multi-File Date Consolidator</title>
+    <script type="module" src="/components/app-layout.js"></script>
 
     <!-- SheetJS (XLSX) library -->
     <script
       defer
       src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"
     ></script>
+    <style>
+      @import url("/unified-theme.css");
+    </style>
     <script type="module">
       import { html, map, render, when } from "/vendor/lit-html.js";
       import {
@@ -18,6 +22,7 @@
       } from "/vendor/haunted.js";
       import "/components/drop-zone.js";
       import "/components/simple-table.js";
+      import "/components/status-message.js";
 
       const initialState = {
         header: "Date",
@@ -161,120 +166,118 @@
         }
 
         return html`
-          <div class="container">
-            <header>
-              <div>
-                <h1>Excel Consolidator</h1>
-                <p class="subtitle">
-                  Multi-file sheet merging based on header anchor
-                </p>
-              </div>
-              ${when(state.rows.length, () =>
-                html`
-                  <div style="display:flex; gap:0.75rem;">
-                    <button class="btn btn-ghost" @click="${() =>
-                      dispatch({ type: "RESET" })}">Reset</button>
-                    <button class="btn btn-primary" @click="${download}">
-                      Download .xlsx
-                    </button>
-                  </div>
-                `)}
-            </header>
+          <app-layout title="Excel Consolidator">
+            <div class="space-y-8">
+              <header class="flex justify-between items-end">
+                <div>
+                  <p class="text-gray-500">
+                    Multi-file sheet merging based on header anchor
+                  </p>
+                </div>
+                ${when(state.rows.length, () =>
+                  html`
+                    <div class="flex gap-2">
+                      <button class="btn btn-secondary" @click="${() =>
+                        dispatch({ type: "RESET" })}">Reset</button>
+                      <button class="btn btn-primary" @click="${download}">
+                        Download .xlsx
+                      </button>
+                    </div>
+                  `)}
+              </header>
 
-            <main>
-              <div class="settings-card">
-                <div class="settings-grid">
-                  <div class="input-group">
-                    <span class="label-tiny">Target Header Row</span>
-                    <input
-                      type="text"
-                      .value="${state.header}"
-                      @input="${(e) =>
-                        dispatch({
-                          type: "SET_HEADER",
-                          payload: e.target.value,
-                        })}"
-                      placeholder="e.g. Date"
-                    />
-                  </div>
-                  <div style="flex: 1;">
-                    <drop-zone
-                      ?disabled="${state.isProcessing}"
-                      subtitle="Drop multiple .xlsx files"
-                      @file-selected="${(e) => handleFiles(e.detail)}"
-                    ></drop-zone>
+              <main class="space-y-6">
+                <div class="card">
+                  <div class="flex flex-col md:flex-row gap-6 items-start">
+                    <div class="w-full md:w-1/3">
+                      <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Target Header Row</label>
+                      <input
+                        type="text"
+                        .value="${state.header}"
+                        @input="${(e) =>
+                          dispatch({
+                            type: "SET_HEADER",
+                            payload: e.target.value,
+                          })}"
+                        placeholder="e.g. Date"
+                      />
+                    </div>
+                    <div class="flex-1 w-full">
+                      <drop-zone
+                        ?disabled="${state.isProcessing}"
+                        subtitle="Drop multiple .xlsx files"
+                        @file-selected="${(e) => handleFiles(e.detail)}"
+                      ></drop-zone>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              ${when(state.isProcessing, () =>
-                html`
-                  <div class="status-bar">
-                    <span class="dot-loader"></span>
-                    Processing ${state.files.length} files...
-                  </div>
-                `)} ${when(state.error, () =>
+                ${when(state.isProcessing, () =>
                   html`
-                    <div class="error-msg">${state.error}</div>
-                  `)} ${when(state.metrics, () =>
+                    <status-message type="info" message="Processing ${state.files.length} files..."></status-message>
+                  `)} 
+                
+                ${when(state.error, () =>
                   html`
-                    <div class="metrics-grid">
-                      <div class="metric-card">
-                        <span class="label-tiny">Files</span>
-                        <div class="metric-value">${state.metrics
-                          .fileCount}</div>
+                    <status-message type="error" .message="${state.error}"></status-message>
+                  `)} 
+                  
+                ${when(state.metrics, () =>
+                  html`
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div class="card p-4 text-center">
+                        <span class="text-xs font-bold text-gray-500 uppercase">Files</span>
+                        <div class="text-2xl font-bold text-blue-600">${state.metrics.fileCount}</div>
                       </div>
-                      <div class="metric-card">
-                        <span class="label-tiny">Sheets Found</span>
-                        <div class="metric-value">${state.metrics
-                          .sheetsJoined}</div>
+                      <div class="card p-4 text-center">
+                        <span class="text-xs font-bold text-gray-500 uppercase">Sheets Found</span>
+                        <div class="text-2xl font-bold text-blue-600">${state.metrics.sheetsJoined}</div>
                       </div>
-                      <div class="metric-card">
-                        <span class="label-tiny">Total Rows</span>
-                        <div class="metric-value">${state.metrics
-                          .rowsConsolidated}</div>
+                      <div class="card p-4 text-center">
+                        <span class="text-xs font-bold text-gray-500 uppercase">Total Rows</span>
+                        <div class="text-2xl font-bold text-blue-600">${state.metrics.rowsConsolidated}</div>
                       </div>
                     </div>
 
-                    <div class="file-list">
-                      ${map(
-                        Object.entries(state.metrics.fileSheetMap),
-                        ([filename, sheets]) =>
-                          html`
-                            <div class="file-item">
-                              <div class="file-info">
-                                <span class="file-name">${filename}</span>
-                                <span class="file-meta">${sheets
-                                  .length} sheets matched</span>
+                    <div class="card p-0 overflow-hidden">
+                      <div class="divide-y divide-gray-100">
+                        ${map(
+                          Object.entries(state.metrics.fileSheetMap),
+                          ([filename, sheets]) =>
+                            html`
+                              <div class="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+                                <div class="flex flex-col">
+                                  <span class="font-semibold text-sm">${filename}</span>
+                                  <span class="text-xs text-gray-500">${sheets.length} sheets matched</span>
+                                </div>
+                                <div class="flex gap-2 flex-wrap justify-end">
+                                  ${map(sheets, (s) =>
+                                    html`
+                                      <span class="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-full border border-blue-100">${s.name} (${s.rows})</span>
+                                    `)}
+                                </div>
                               </div>
-                              <div class="sheet-tags">
-                                ${map(sheets, (s) =>
-                                  html`
-                                    <span class="sheet-tag">${s
-                                      .name} (${s.rows})</span>
-                                  `)}
-                              </div>
-                            </div>
-                          `,
-                      )}
-                    </div>
-                  `)} ${when(state.rows.length, () =>
-                  html`
-                    <div class="preview-section">
-                      <div class="preview-header">
-                        <h3>Data Preview</h3>
-                        <span class="label-tiny">Top 100 rows shown</span>
+                            `,
+                        )}
                       </div>
-                      <div class="table-wrapper">
-                        <simple-table .data="${state.rows.slice(
-                          0,
-                          100,
-                        )}"></simple-table>
+                    </div>
+                  `)} 
+                  
+                ${when(state.rows.length, () =>
+                  html`
+                    <div class="space-y-4">
+                      <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-bold text-gray-700">Data Preview</h3>
+                        <span class="text-xs text-gray-500">Top 100 rows shown</span>
+                      </div>
+                      <div class="card p-0 overflow-auto max-h-[500px]">
+                        <simple-table .data="${state.rows.slice(0, 100)}"></simple-table>
                       </div>
                     </div>
                   `)}
-            </main>
-          </div>
+              </main>
+            </div>
+          </app-layout>
         `;
       }
 
@@ -302,281 +305,8 @@
           document.body.innerHTML =
             `<pre style="color:red">${e.stack}</pre>`;
         }
-
-        console.assert(
-          customElements.get("excel-consolidator"),
-          "Component not registered",
-        );
       });
     </script>
-
-    <style>
-      :root {
-        --primary: #0284c7;
-        --primary-hover: #0369a1;
-        --bg: #f8fafc;
-        --card-bg: #ffffff;
-        --text-main: #0f172a;
-        --text-muted: #64748b;
-        --border: #e2e8f0;
-        --shadow:
-          0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-      }
-
-      body {
-        margin: 0;
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        background-color: var(--bg);
-        color: var(--text-main);
-        line-height: 1.5;
-      }
-
-      .container {
-        max-width: 1000px;
-        margin: 0 auto;
-        padding: 5rem 2rem;
-        display: flex;
-        flex-direction: column;
-        gap: 3rem;
-      }
-
-      header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-end;
-        margin-bottom: 0.5rem;
-      }
-
-      h1 {
-        font-size: 2.25rem;
-        font-weight: 900;
-        margin: 0;
-        letter-spacing: -0.025em;
-        color: #0c4a6e;
-      }
-
-      .subtitle {
-        color: var(--text-muted);
-        font-size: 0.95rem;
-        margin-top: 0.4rem;
-      }
-
-      .btn {
-        display: inline-flex;
-        align-items: center;
-        padding: 0.625rem 1.25rem;
-        border-radius: 0.75rem;
-        font-weight: 700;
-        font-size: 0.875rem;
-        cursor: pointer;
-        transition: all 0.2s;
-        border: none;
-        gap: 0.5rem;
-      }
-
-      .btn-primary {
-        background: var(--primary);
-        color: white;
-        box-shadow: var(--shadow);
-      }
-
-      .btn-primary:hover {
-        background: var(--primary-hover);
-        transform: translateY(-1px);
-      }
-
-      .btn-ghost {
-        background: transparent;
-        color: var(--text-muted);
-      }
-
-      .btn-ghost:hover {
-        background: #f1f5f9;
-        color: #ef4444;
-      }
-
-      .settings-card {
-        background: var(--card-bg);
-        padding: 1.5rem;
-        border-radius: 1.25rem;
-        border: 1px solid var(--border);
-        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
-      }
-
-      .settings-grid {
-        display: flex;
-        gap: 2rem;
-        align-items: flex-start;
-      }
-
-      .input-group {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-        min-width: 200px;
-      }
-
-      .label-tiny {
-        font-size: 0.625rem;
-        font-weight: 800;
-        color: var(--text-muted);
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-      }
-
-      input[type="text"] {
-        padding: 0.75rem 1rem;
-        border: 2px solid var(--border);
-        border-radius: 0.75rem;
-        font-size: 0.95rem;
-        background: #f8fafc;
-        outline: none;
-        transition: border-color 0.2s;
-      }
-
-      input[type="text"]:focus {
-        border-color: var(--primary);
-      }
-
-      .metrics-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 1.5rem;
-      }
-
-      .metric-card {
-        background: white;
-        padding: 1.25rem;
-        border-radius: 1rem;
-        border: 1px solid var(--border);
-        text-align: center;
-      }
-
-      .metric-value {
-        font-size: 1.75rem;
-        font-weight: 800;
-        color: var(--primary);
-        margin-top: 0.25rem;
-      }
-
-      .file-list {
-        background: white;
-        border-radius: 1rem;
-        border: 1px solid var(--border);
-        overflow: hidden;
-      }
-
-      .file-item {
-        padding: 1rem 1.5rem;
-        border-bottom: 1px solid var(--border);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      .file-item:last-child {
-        border-bottom: none;
-      }
-
-      .file-info {
-        display: flex;
-        flex-direction: column;
-      }
-
-      .file-name {
-        font-weight: 600;
-        font-size: 0.9rem;
-      }
-
-      .file-meta {
-        font-size: 0.75rem;
-        color: var(--text-muted);
-      }
-
-      .sheet-tags {
-        display: flex;
-        gap: 0.5rem;
-        flex-wrap: wrap;
-        justify-content: flex-end;
-      }
-
-      .sheet-tag {
-        font-size: 0.7rem;
-        background: #f0f9ff;
-        color: #0369a1;
-        padding: 0.25rem 0.6rem;
-        border-radius: 2rem;
-        border: 1px solid #bae6fd;
-        font-weight: 600;
-      }
-
-      .preview-section {
-        background: white;
-        border-radius: 1.25rem;
-        border: 1px solid var(--border);
-        overflow: hidden;
-      }
-
-      .preview-header {
-        padding: 1rem 1.5rem;
-        background: #f8fafc;
-        border-bottom: 1px solid var(--border);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      .preview-header h3 {
-        margin: 0;
-        font-size: 1rem;
-      }
-
-      .table-wrapper {
-        max-height: 500px;
-        overflow: auto;
-      }
-
-      .status-bar {
-        background: #e0f2fe;
-        color: #0369a1;
-        padding: 1rem;
-        border-radius: 1rem;
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        font-weight: 600;
-        border: 1px solid #bae6fd;
-      }
-
-      .dot-loader {
-        width: 8px;
-        height: 8px;
-        background: var(--primary);
-        border-radius: 50%;
-        animation: pulse 1s infinite alternate;
-      }
-
-      .error-msg {
-        background: #fef2f2;
-        color: #dc2626;
-        padding: 1rem;
-        border-radius: 1rem;
-        border: 1px solid #fee2e2;
-        font-weight: 500;
-      }
-
-      @keyframes pulse {
-        from {
-          opacity: 0.3;
-          transform: scale(0.8);
-        }
-        to {
-          opacity: 1;
-          transform: scale(1.1);
-        }
-      }
-    </style>
   </head>
   <body></body>
 </html>
