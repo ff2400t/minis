@@ -188,9 +188,11 @@
 
               <main class="space-y-6">
                 <div class="card">
-                  <div class="flex flex-col md:flex-row gap-6 items-start">
+                  <div class="flex flex-col gap-6 items-start">
                     <div class="w-full md:w-1/3">
-                      <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Target Header Row</label>
+                      <label
+                        class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2"
+                      >Target Header Row</label>
                       <input
                         type="text"
                         .value="${state.header}"
@@ -214,67 +216,80 @@
 
                 ${when(state.isProcessing, () =>
                   html`
-                    <status-message type="info" message="Processing ${state.files.length} files..."></status-message>
-                  `)} 
-                
-                ${when(state.error, () =>
-                  html`
-                    <status-message type="error" .message="${state.error}"></status-message>
-                  `)} 
-                  
-                ${when(state.metrics, () =>
-                  html`
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div class="card p-4 text-center">
-                        <span class="text-xs font-bold text-gray-500 uppercase">Files</span>
-                        <div class="text-2xl font-bold text-blue-600">${state.metrics.fileCount}</div>
+                    <status-message
+                      type="info"
+                      message="Processing ${state.files
+                        .length} files..."
+                    ></status-message>
+                  `)} ${when(state.error, () =>
+                    html`
+                      <status-message type="error" .message="${state
+                        .error}"></status-message>
+                    `)} ${when(state.metrics, () =>
+                    html`
+                      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="card p-4 text-center">
+                          <span class="text-xs font-bold text-gray-500 uppercase">Files</span>
+                          <div class="text-2xl font-bold text-blue-600">${state
+                            .metrics.fileCount}</div>
+                        </div>
+                        <div class="card p-4 text-center">
+                          <span class="text-xs font-bold text-gray-500 uppercase"
+                          >Sheets Found</span>
+                          <div class="text-2xl font-bold text-blue-600">${state
+                            .metrics.sheetsJoined}</div>
+                        </div>
+                        <div class="card p-4 text-center">
+                          <span class="text-xs font-bold text-gray-500 uppercase"
+                          >Total Rows</span>
+                          <div class="text-2xl font-bold text-blue-600">${state
+                            .metrics.rowsConsolidated}</div>
+                        </div>
                       </div>
-                      <div class="card p-4 text-center">
-                        <span class="text-xs font-bold text-gray-500 uppercase">Sheets Found</span>
-                        <div class="text-2xl font-bold text-blue-600">${state.metrics.sheetsJoined}</div>
-                      </div>
-                      <div class="card p-4 text-center">
-                        <span class="text-xs font-bold text-gray-500 uppercase">Total Rows</span>
-                        <div class="text-2xl font-bold text-blue-600">${state.metrics.rowsConsolidated}</div>
-                      </div>
-                    </div>
 
-                    <div class="card p-0 overflow-hidden">
-                      <div class="divide-y divide-gray-100">
-                        ${map(
-                          Object.entries(state.metrics.fileSheetMap),
-                          ([filename, sheets]) =>
-                            html`
-                              <div class="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
-                                <div class="flex flex-col">
-                                  <span class="font-semibold text-sm">${filename}</span>
-                                  <span class="text-xs text-gray-500">${sheets.length} sheets matched</span>
+                      <div class="card p-0 overflow-hidden">
+                        <div class="divide-y divide-gray-100">
+                          ${map(
+                            Object.entries(state.metrics.fileSheetMap),
+                            ([filename, sheets]) =>
+                              html`
+                                <div
+                                  class="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-2"
+                                >
+                                  <div class="flex flex-col">
+                                    <span class="font-semibold text-sm">${filename}</span>
+                                    <span class="text-xs text-gray-500"
+                                    >${sheets
+                                      .length} sheets matched</span>
+                                  </div>
+                                  <div class="flex gap-2 flex-wrap justify-end">
+                                    ${map(sheets, (s) =>
+                                      html`
+                                        <span
+                                          class="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-full border border-blue-100"
+                                        >${s.name} (${s.rows})</span>
+                                      `)}
+                                  </div>
                                 </div>
-                                <div class="flex gap-2 flex-wrap justify-end">
-                                  ${map(sheets, (s) =>
-                                    html`
-                                      <span class="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-full border border-blue-100">${s.name} (${s.rows})</span>
-                                    `)}
-                                </div>
-                              </div>
-                            `,
-                        )}
+                              `,
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  `)} 
-                  
-                ${when(state.rows.length, () =>
-                  html`
-                    <div class="space-y-4">
-                      <div class="flex justify-between items-center">
-                        <h3 class="text-lg font-bold text-gray-700">Data Preview</h3>
-                        <span class="text-xs text-gray-500">Top 100 rows shown</span>
+                    `)} ${when(state.rows.length, () =>
+                    html`
+                      <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                          <h3 class="text-lg font-bold text-gray-700">Data Preview</h3>
+                          <span class="text-xs text-gray-500">Top 100 rows shown</span>
+                        </div>
+                        <div class="card p-0 overflow-auto max-h-[500px]">
+                          <simple-table .data="${state.rows.slice(
+                            0,
+                            100,
+                          )}"></simple-table>
+                        </div>
                       </div>
-                      <div class="card p-0 overflow-auto max-h-[500px]">
-                        <simple-table .data="${state.rows.slice(0, 100)}"></simple-table>
-                      </div>
-                    </div>
-                  `)}
+                    `)}
               </main>
             </div>
           </app-layout>
