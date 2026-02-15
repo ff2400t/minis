@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RegEx Toolbox</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module" src="/components/app-layout.js"></script>
+    <style>
+      @import url("/unified-theme.css");
+      .match-highlight {
+        background-color: #fef08a;
+        border-bottom: 2px solid #eab308;
+      }
+      .group-highlight-0 { background-color: #bfdbfe; }
+      .group-highlight-1 { background-color: #bbf7d0; }
+      .group-highlight-2 { background-color: #fbcfe8; }
+      .group-highlight-3 { background-color: #ddd6fe; }
+      .group-highlight-4 { background-color: #fed7aa; }
+    </style>
+  </head>
+  <body>
+    <script type="module" src="regex-toolbox.js"></script>
+    <app-layout title="RegEx Toolbox">
+      <app-root></app-root>
+    </app-layout>
+  </body>
+</html>

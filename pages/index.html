@@ -4,95 +4,112 @@
     <meta charset="UTF-8">
     <title>Mini Tools Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-      body {
-        font-family: system-ui, -apple-system, sans-serif;
-        line-height: 1.5;
-        max-width: 800px;
-        margin: 2rem auto;
-        padding: 0 1rem;
-        background-color: #f8fafc;
-        color: #1e293b;
-      }
-      header {
-        margin-bottom: 2rem;
-        border-bottom: 1px solid #e2e8f0;
-        padding-bottom: 1rem;
-      }
-      h1 {
-        font-size: 1.5rem;
-        margin: 0;
-      }
-      ul {
-        list-style: none;
-        padding: 0;
-      }
-      li {
-        margin-bottom: 1.5rem;
-      }
-      a {
-        color: #2563eb;
-        text-decoration: none;
-        font-weight: 700;
-        font-size: 1.25rem;
-      }
-      a:hover {
-        text-decoration: underline;
-      }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
   </head>
-  <body>
-    <header>
-      <h1>Mini Tools Dashboard</h1>
-    </header>
-    <main>
-      <ul>
-        <li>
-          <a href="pdf-data-extractor.html">PDF Data Extractor</a>
-          <span>Extract structured data from GST, Income Tax, and Bank
-            statements using predefined or custom regex parsers.</span>
-        </li>
-        <li>
-          <a href="merge-excel.html">Excel Sheet Combiner</a>
-          <span>Merge multiple Excel files into a single workbook, preserving
-            all sheets and content.</span>
-        </li>
-        <li>
-          <a href="ocr-pdf.html">PDF OCR & Overlay</a>
-          <span>Convert scanned PDFs or images into searchable PDF files with
-            invisible text overlays.</span>
-        </li>
-        <li>
-          <a href="pdf-table-extractor.html">PDF Table Extractor</a>
-          <span>Recover tabular data from searchable PDFs with automatic column
-            detection and manual adjustment.</span>
-        </li>
-        <li>
-          <a href="excel-concat-sheets.html">Excel Consolidator</a>
-          <span>Consolidate rows from multiple Excel sheets across different
-            files based on a target header anchor.</span>
-        </li>
-        <li>
-          <a href="pdf-modifier.html">PDF Modifier</a>
-          <span>Quickly rotate, reorder, or remove pages from your PDF
-            documents.</span>
-        </li>
-        <li>
-          <a href="excel_formula_helper.html">Excel Formula Studio</a>
-          <span>Interactive playground for building and testing complex Excel
-            formulas.</span>
-        </li>
-        <li>
-          <a href="kanata-visualizer.html">Kanata Visualizer</a>
-          <span>Visualize and debug Kanata keyboard remapping
-            configurations.</span>
-        </li>
-        <li>
-          <a href="docx-templater.html">Docx Templater</a>
-          <span>Generate Word documents from templates by filling in data
-            markers.</span>
-        </li>
-      </ul>
-    </main>
+  <body class="bg-slate-50 text-slate-900 font-sans min-h-screen py-12 px-4">
+    <div class="max-w-3xl mx-auto">
+      <header class="mb-10 border-b border-slate-200 pb-6">
+        <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight">Mini Tools Dashboard</h1>
+        <p class="text-slate-500 mt-2">A collection of fast, browser-based utilities for document and data processing.</p>
+      </header>
+      
+      <main>
+        <ul class="space-y-6">
+          <li class="group">
+            <a href="pdf-data-extractor.html" class="text-xl font-bold text-blue-600 hover:text-blue-800 hover:underline block mb-1">
+              PDF Data Extractor
+            </a>
+            <p class="text-slate-600 leading-relaxed">
+              Extract structured data from GST, Income Tax, and Bank statements using predefined or custom regex parsers.
+            </p>
+          </li>
+          
+          <li class="group">
+            <a href="regex-toolbox.html" class="text-xl font-bold text-blue-600 hover:text-blue-800 hover:underline block mb-1">
+              RegEx Toolbox
+            </a>
+            <p class="text-slate-600 leading-relaxed">
+              Interactive playground for building and testing regular expressions with real-time highlighting and group extraction.
+            </p>
+          </li>
+          
+          <li class="group">
+            <a href="merge-excel.html" class="text-xl font-bold text-blue-600 hover:text-blue-800 hover:underline block mb-1">
+              Excel Sheet Combiner
+            </a>
+            <p class="text-slate-600 leading-relaxed">
+              Merge multiple Excel files into a single workbook, preserving all sheets and content.
+            </p>
+          </li>
+          
+          <li class="group">
+            <a href="ocr-pdf.html" class="text-xl font-bold text-blue-600 hover:text-blue-800 hover:underline block mb-1">
+              PDF OCR & Overlay
+            </a>
+            <p class="text-slate-600 leading-relaxed">
+              Convert scanned PDFs or images into searchable PDF files with invisible text overlays.
+            </p>
+          </li>
+          
+          <li class="group">
+            <a href="pdf-table-extractor.html" class="text-xl font-bold text-blue-600 hover:text-blue-800 hover:underline block mb-1">
+              PDF Table Extractor
+            </a>
+            <p class="text-slate-600 leading-relaxed">
+              Recover tabular data from searchable PDFs with automatic column detection and manual adjustment.
+            </p>
+          </li>
+          
+          <li class="group">
+            <a href="excel-concat-sheets.html" class="text-xl font-bold text-blue-600 hover:text-blue-800 hover:underline block mb-1">
+              Excel Consolidator
+            </a>
+            <p class="text-slate-600 leading-relaxed">
+              Consolidate rows from multiple Excel sheets across different files based on a target header anchor.
+            </p>
+          </li>
+          
+          <li class="group">
+            <a href="pdf-modifier.html" class="text-xl font-bold text-blue-600 hover:text-blue-800 hover:underline block mb-1">
+              PDF Modifier
+            </a>
+            <p class="text-slate-600 leading-relaxed">
+              Quickly rotate, reorder, or remove pages from your PDF documents.
+            </p>
+          </li>
+          
+          <li class="group">
+            <a href="excel_formula_helper.html" class="text-xl font-bold text-blue-600 hover:text-blue-800 hover:underline block mb-1">
+              Excel Formula Studio
+            </a>
+            <p class="text-slate-600 leading-relaxed">
+              Interactive playground for building and testing complex Excel formulas.
+            </p>
+          </li>
+          
+          <li class="group">
+            <a href="kanata-visualizer.html" class="text-xl font-bold text-blue-600 hover:text-blue-800 hover:underline block mb-1">
+              Kanata Visualizer
+            </a>
+            <p class="text-slate-600 leading-relaxed">
+              Visualize and debug Kanata keyboard remapping configurations.
+            </p>
+          </li>
+          
+          <li class="group">
+            <a href="docx-templater.html" class="text-xl font-bold text-blue-600 hover:text-blue-800 hover:underline block mb-1">
+              Docx Templater
+            </a>
+            <p class="text-slate-600 leading-relaxed">
+              Generate Word documents from templates by filling in data markers.
+            </p>
+          </li>
+        </ul>
+      </main>
+      
+      <footer class="mt-16 pt-8 border-t border-slate-200 text-center text-slate-400 text-sm">
+        <p>Built for privacy & speed. All processing happens locally in your browser.</p>
+      </footer>
+    </div>
   </body>
 </html>
