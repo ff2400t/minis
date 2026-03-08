@@ -5,29 +5,29 @@
   --primary: #2563eb;
   --primary-hover: #1d4ed8;
   --primary-light: #eff6ff;
-  
+
   --secondary: #64748b;
   --secondary-hover: #475569;
-  
+
   --accent: #10b981;
   --accent-hover: #059669;
-  
+
   --danger: #ef4444;
   --danger-hover: #dc2626;
-  
+
   --warning: #f59e0b;
-  
+
   /* Backgrounds & Borders */
   --bg-main: #f8fafc;
   --bg-card: #ffffff;
   --border-color: #e2e8f0;
   --border-focus: #3b82f6;
-  
+
   /* Text */
   --text-main: #1e293b;
   --text-muted: #64748b;
   --text-on-primary: #ffffff;
-  
+
   /* Tables */
   --table-header-bg: #f9fafb;
   --table-row-hover: #f1f5f9;
@@ -35,7 +35,7 @@
   --table-meta-text: #0369a1;
   --table-file-row-bg: #bfdbfe;
   --table-file-row-text: #1e3a8a;
-  
+
   /* Effects */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
@@ -54,7 +54,9 @@ body {
 
 /* Typography */
 .font-mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
 }
 
 /* Buttons */
@@ -99,8 +101,14 @@ body {
   color: var(--primary);
 }
 
-.btn-sm { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
-.btn-lg { padding: 0.75rem 1.5rem; font-size: 1rem; }
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+.btn-lg {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+}
 
 /* Cards */
 .card {
@@ -145,7 +153,7 @@ input:focus, textarea:focus, select:focus {
   font-size: 0.875rem;
 }
 
-.data-table th, 
+.data-table th,
 .data-table td {
   padding: 0.75rem;
   text-align: left;
@@ -178,39 +186,6 @@ input:focus, textarea:focus, select:focus {
   color: var(--table-meta-text);
 }
 
-/* Toggle Switch (nd-switch pattern) */
-.nd-switch {
-  appearance: none;
-  width: 2.5rem;
-  height: 1.25rem;
-  background: #cbd5e1;
-  border-radius: 1rem;
-  position: relative;
-  cursor: pointer;
-  transition: background 0.2s;
-  vertical-align: middle;
-}
-
-.nd-switch:checked {
-  background: var(--primary);
-}
-
-.nd-switch::before {
-  content: "";
-  position: absolute;
-  width: 1rem;
-  height: 1rem;
-  background: white;
-  border-radius: 50%;
-  top: 0.125rem;
-  left: 0.125rem;
-  transition: transform 0.2s;
-}
-
-.nd-switch:checked::before {
-  transform: translateX(1.25rem);
-}
-
 /* Modal Backdrop */
 .modal-backdrop {
   position: fixed;
@@ -226,7 +201,9 @@ input:focus, textarea:focus, select:focus {
 
 /* Animations */
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .spinner {
