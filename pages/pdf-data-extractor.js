@@ -313,11 +313,16 @@ const renderConsolidatedSummary = (
 const renderDetailedTable = (
   /** @type {Docs[]} */ documents,
   /** @type {boolean} */ inlineMetadata,
+  /** @type {boolean} */ excludeRepeatHeaders = false,
+  /** @type {boolean} */ excludeFileNameRow = false,
 ) => {
   const maxTableCols = Math.max.apply(
     null,
     documents.map((a) => a.headers.length),
   );
+
+  let lastDocType = "";
+  let lastHeaders = "";
 
   return html`
     <div class="mt-6">
@@ -329,14 +334,20 @@ const renderDetailedTable = (
               const docMetaKeys = Object.keys(doc.metadata);
               const activeExtraCols = inlineMetadata ? docMetaKeys : [];
               
+              const currentHeadersStr = JSON.stringify(doc.headers);
+              const shouldShowHeaders = !excludeRepeatHeaders || (doc.docType !== lastDocType || currentHeadersStr !== lastHeaders);
+              
+              lastDocType = doc.docType;
+              lastHeaders = currentHeadersStr;
+
               // 1. Render Source Header
-              const fileRow = html`
+              const fileRow = !excludeFileNameRow ? html`
                 <tr class="file-row">
                   <td colspan="${maxTableCols + activeExtraCols.length}">
                     Source: ${doc.fileName} (${doc.docType})
                   </td>
                 </tr>
-              `;
+              ` : nothing;
 
               // 2. Render Metadata Rows (only if NOT inlining)
               const metaRows = !inlineMetadata
@@ -356,7 +367,7 @@ const renderDetailedTable = (
                 : nothing;
 
               // 3. Render Table Header (Standard Headers + Active Metadata Keys)
-              const headers = html`
+              const headers = shouldShowHeaders ? html`
                 <tr class="bg-gray-50 border-b-2 border-gray-200">
                   ${doc.headers.map((h) =>
                     html`
@@ -368,7 +379,7 @@ const renderDetailedTable = (
                     `
                   )}
                 </tr>
-              `;
+              ` : nothing;
 
               // 4. Render Table Rows (Data + Active Metadata Values)
               const rows = doc.rows.map((row) => {
@@ -415,6 +426,9 @@ const consolidatedMetadataInitial = [];
  * @property {boolean} isRawTextVisible
  * @property {boolean} isConsolidatedVisible
  * @property {boolean} inlineMetadata
+ * @property {boolean} excludeRepeatHeaders
+ * @property {boolean} excludeFileNameRow
+ * @property {boolean} isSettingsModalVisible
  * @property {PasswordModalState} passwordModal
  * @property {string} savedPassword
  */
@@ -429,6 +443,9 @@ const initialAppState = {
   isRawTextVisible: false,
   isConsolidatedVisible: false,
   inlineMetadata: false,
+  excludeRepeatHeaders: true,
+  excludeFileNameRow: true,
+  isSettingsModalVisible: false,
   passwordModal: INITIAL_MODAL_STATE,
   savedPassword: "",
 };
@@ -454,6 +471,15 @@ function appReducer(state, action) {
       return { ...state, isConsolidatedVisible: action.payload };
     case "SET_INLINE_METADATA":
       return { ...state, inlineMetadata: action.payload };
+    case "SET_EXCLUDE_REPEAT_HEADERS":
+      return { ...state, excludeRepeatHeaders: action.payload };
+    case "SET_EXCLUDE_FILE_NAME_ROW":
+      return { ...state, excludeFileNameRow: action.payload };
+    case "TOGGLE_SETTINGS_MODAL":
+      return {
+        ...state,
+        isSettingsModalVisible: action.payload ?? !state.isSettingsModalVisible,
+      };
     case "SET_PASSWORD_MODAL": // Payload replaces the whole object
       return { ...state, passwordModal: action.payload };
     case "UPDATE_PASSWORD_MODAL": // Payload merges
@@ -915,6 +941,9 @@ function App() {
     isRawTextVisible,
     isConsolidatedVisible,
     inlineMetadata,
+    excludeRepeatHeaders,
+    excludeFileNameRow,
+    isSettingsModalVisible,
     passwordModal,
     savedPassword,
   } = appState;
@@ -1170,6 +1199,8 @@ function App() {
             inlineMetadata,
             isRawTextVisible,
             selectedParser,
+            excludeRepeatHeaders,
+            excludeFileNameRow,
           ),
       )}
     </div>
@@ -1196,12 +1227,79 @@ function App() {
       () =>
         renderParserListModal(expandedParsers, dispatchParser, customParsers),
     )}
+    <!-- Settings Modal -->
+    ${when(
+      isSettingsModalVisible,
+      () => renderSettingsModal(dispatchApp, excludeRepeatHeaders, excludeFileNameRow),
+    )}
   `;
 }
 
 // Register the Web Component
 // @ts-ignore
 customElements.define("app-root", component(App, { useShadowDOM: false }));
+
+/**
+ * @param {{(action: { type: string; payload: any; }): void; }} dispatchApp
+ * @param {boolean} excludeRepeatHeaders
+ * @param {boolean} excludeFileNameRow
+ */
+function renderSettingsModal(dispatchApp, excludeRepeatHeaders, excludeFileNameRow) {
+  return html`
+    <div class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop">
+      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+        <div class="flex justify-between items-center mb-6">
+          <h3 class="text-xl font-bold text-gray-800">View Settings</h3>
+          <button
+            @click="${() => dispatchApp({ type: "TOGGLE_SETTINGS_MODAL", payload: false })}"
+            class="text-gray-500 hover:text-gray-700"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="space-y-6">
+          <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div>
+              <label for="excludeRepeatHeaders" class="font-semibold text-gray-700 block">Exclude duplicate headers</label>
+              <span class="text-xs text-gray-500">Hide table headers if they are the same as the previous document.</span>
+            </div>
+            <input
+              id="excludeRepeatHeaders"
+              class="nd-switch"
+              type="checkbox"
+              ?checked="${excludeRepeatHeaders}"
+              @click="${() => dispatchApp({ type: "SET_EXCLUDE_REPEAT_HEADERS", payload: !excludeRepeatHeaders })}"
+            />
+          </div>
+
+          <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div>
+              <label for="excludeFileNameRow" class="font-semibold text-gray-700 block">Exclude file name row</label>
+              <span class="text-xs text-gray-500">Do not show the "Source: file.pdf" row in the detailed view.</span>
+            </div>
+            <input
+              id="excludeFileNameRow"
+              class="nd-switch"
+              type="checkbox"
+              ?checked="${excludeFileNameRow}"
+              @click="${() => dispatchApp({ type: "SET_EXCLUDE_FILE_NAME_ROW", payload: !excludeFileNameRow })}"
+            />
+          </div>
+        </div>
+
+        <div class="mt-8 pt-4 border-t flex justify-end">
+          <button
+            @click="${() => dispatchApp({ type: "TOGGLE_SETTINGS_MODAL", payload: false })}"
+            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold transition shadow"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
 
 /**
  * @param {{ message: string; type: string; }} status
@@ -1351,6 +1449,8 @@ function renderResults(
   inlineMetadata,
   isRawTextVisible,
   selectedParser,
+  excludeRepeatHeaders,
+  excludeFileNameRow,
 ) {
   const isOneShot = selectedParser === "one-shot";
   return html`
@@ -1367,6 +1467,14 @@ function renderResults(
           Use the toggles below to adjust the view.
         </p>
         <div class="flex flex-col flex-wrap gap-2 w-full md:w-auto">
+          <div class="flex gap-2">
+            <button
+              @click="${() => dispatchApp({ type: "TOGGLE_SETTINGS_MODAL", payload: true })}"
+              class="px-3 py-1 bg-white border border-gray-300 rounded text-sm font-semibold hover:bg-gray-50 transition shadow-sm"
+            >
+              ⚙️ View Settings
+            </button>
+          </div>
           ${when(!isOneShot, () => html`
             <div>
               <input
@@ -1427,6 +1535,8 @@ function renderResults(
         renderDetailedTable(
           documents,
           inlineMetadata,
+          excludeRepeatHeaders,
+          excludeFileNameRow,
         ), () =>
         html`
           <div class="p-8 text-center text-gray-500 border rounded-lg bg-white mt-6">

@@ -2,9 +2,9 @@
  * @typedef {Object} Parser
  * @property {string} name
  * @property {string[]} matches - Array of keywords to match
- * @property {RegExp | undefined} metadata - The regular expression used to extract metadata from the text.
- * @property {RegExp | undefined} table - The regular expression used to match table data from the text.
- * @property {ParseFunc | undefined} func - A function that processes the text and applies regex patterns to extract metadata and table data.
+ * @property {RegExp} metadata - The regular expression used to extract metadata from the text.
+ * @property {RegExp} [table] - The regular expression used to match table data from the text.
+ * @property {ParseFunc} [func] - A function that processes the text and applies regex patterns to extract metadata and table data.
  */
 
 /**
@@ -126,14 +126,7 @@ export const BUILT_IN_PARSERS = [
           )
           : [];
 
-        headers.push(...Object.keys(metadataFields));
-        const metaValues = Object.values(metadataFields);
-        dataRows.forEach((row) => row.push(...metaValues));
-
-        return {
-          allRows: [headers, ...dataRows],
-          metadataFields: {},
-        };
+        return { allRows: [headers, ...dataRows], metadataFields };
       } catch (e) {
         console.error("GSTR-3B: Table Regex Error", e);
       }
