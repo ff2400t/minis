@@ -53,6 +53,8 @@ const initialParserState = {
      customParsers: Array<Parser>;
      templatesText: string;
      selectedParser: string;
+     oneShotRegex: string,
+     oneShotGlobal: boolean,
 }} ParserState
  */
 
@@ -316,9 +318,11 @@ const renderDetailedTable = (
   /** @type {boolean} */ excludeRepeatHeaders = false,
   /** @type {boolean} */ excludeFileNameRow = false,
 ) => {
+  if (!documents || documents.length === 0) return nothing;
+
   const maxTableCols = Math.max.apply(
     null,
-    documents.map((a) => a.headers.length),
+    documents.map((a) => (a.headers ? a.headers.length : 0)),
   );
 
   let lastDocType = "";
@@ -331,10 +335,10 @@ const renderDetailedTable = (
         <table id="outputTable" class="data-table">
           <tbody>
             ${documents.map((doc) => {
-              const docMetaKeys = Object.keys(doc.metadata);
+              const docMetaKeys = Object.keys(doc.metadata || {});
               const activeExtraCols = inlineMetadata ? docMetaKeys : [];
               
-              const currentHeadersStr = JSON.stringify(doc.headers);
+              const currentHeadersStr = JSON.stringify(doc.headers || []);
               const shouldShowHeaders = !excludeRepeatHeaders || (doc.docType !== lastDocType || currentHeadersStr !== lastHeaders);
               
               lastDocType = doc.docType;
@@ -351,7 +355,7 @@ const renderDetailedTable = (
 
               // 2. Render Metadata Rows (only if NOT inlining)
               const metaRows = !inlineMetadata
-                ? Object.entries(doc.metadata).map(([key, val]) =>
+                ? Object.entries(doc.metadata || {}).map(([key, val]) =>
                   html`
                     <tr>
                       <td class="font-medium text-gray-700 bg-gray-50">
@@ -369,7 +373,7 @@ const renderDetailedTable = (
               // 3. Render Table Header (Standard Headers + Active Metadata Keys)
               const headers = shouldShowHeaders ? html`
                 <tr class="bg-gray-50 border-b-2 border-gray-200">
-                  ${doc.headers.map((h) =>
+                  ${(doc.headers || []).map((h) =>
                     html`
                       <th class="font-bold text-gray-800">${h}</th>
                     `
@@ -382,7 +386,7 @@ const renderDetailedTable = (
               ` : nothing;
 
               // 4. Render Table Rows (Data + Active Metadata Values)
-              const rows = doc.rows.map((row) => {
+              const rows = (doc.rows || []).map((row) => {
                 return html`
                   <tr class="hover:bg-gray-50 transition-colors">
                     ${row.map((cell) =>
@@ -390,7 +394,7 @@ const renderDetailedTable = (
                         <td>${cell}</td>
                       `
                     )} ${activeExtraCols.map((colKey) => {
-                      const val = doc.metadata[colKey] || "";
+                      const val = (doc.metadata && doc.metadata[colKey]) || "";
                       return html`
                         <td class="meta-col-cell">${val}</td>
                       `;
@@ -661,7 +665,7 @@ class FileProcessor {
     rawText = rawText.replace(/   /g, " ");
 
     /** @type {import("./data-extractor.js").ParserResult} */
-    let parsedData = { allRows: [], metadataFields: {} };
+    let parsedData = { headers: [], rows: [], metadataFields: {} };
     let docType = "Unknown";
     const cleanCheckText = rawText.replace(/\s+/g, " ");
 
@@ -756,22 +760,12 @@ class FileProcessor {
         });
       }
 
-      const metaKeys = Object.keys(parsedData.metadataFields);
-      const metaCount = metaKeys.length;
-
-      const headerRow = parsedData.allRows.length > metaCount
-        ? parsedData.allRows[metaCount]
-        : [];
-      const dataRows = parsedData.allRows.length > metaCount + 1
-        ? parsedData.allRows.slice(metaCount + 1)
-        : [];
-
       this.tempDocuments.push({
         fileName: file.name,
         docType: docType,
         metadata: parsedData.metadataFields,
-        headers: headerRow,
-        rows: dataRows,
+        headers: parsedData.headers,
+        rows: parsedData.rows,
         text: "",
         rawText,
         status: "success",
@@ -1163,6 +1157,57 @@ function App() {
 
   const handlePasswordSkip = () => fileProcessor.current.handlePasswordSkip();
 
+  const copyOptimized = () => {
+    if (documents.length === 0) return;
+
+    // Group by docType
+    /** @type {Object.<string, Docs[]>} */
+    const groups = {};
+    documents.forEach((doc) => {
+      if (!groups[doc.docType]) groups[doc.docType] = [];
+      groups[doc.docType].push(doc);
+    });
+
+    let output = "";
+    Object.keys(groups).forEach((type) => {
+      const docs = groups[type];
+      if (docs.length === 0) return;
+
+      // Get all unique metadata keys for this group
+      const metaKeys = new Set();
+      docs.forEach((d) => Object.keys(d.metadata).forEach((k) => metaKeys.add(k)));
+      const metaKeysArr = Array.from(metaKeys);
+
+      // Get headers from first doc that has them
+      const docWithHeaders = docs.find((d) => d.headers && d.headers.length > 0);
+      const baseHeaders = docWithHeaders ? docWithHeaders.headers : [];
+      const fullHeaders = [...baseHeaders, ...metaKeysArr];
+
+      output += fullHeaders.join("\t") + "\n";
+
+      docs.forEach((d) => {
+        if (!d.rows) return;
+        d.rows.forEach((row) => {
+          const metaValues = metaKeysArr.map((k) => d.metadata[k] || "");
+          const fullRow = [...row, ...metaValues];
+          output += fullRow.join("\t") + "\n";
+        });
+      });
+      output += "\n"; // Space between types
+    });
+
+    navigator.clipboard.writeText(output.trim()).then(() => {
+      dispatchApp({
+        type: "SET_STATUS",
+        payload: { message: "Optimized data copied to clipboard!", type: "success" },
+      });
+      setTimeout(
+        () => dispatchApp({ type: "SET_STATUS", payload: { message: "", type: "" } }),
+        3000,
+      );
+    });
+  };
+
   // --- Main Render Function (Lit-HTML Template) ---
   return html`
     <div class="relative">
@@ -1201,6 +1246,7 @@ function App() {
             selectedParser,
             excludeRepeatHeaders,
             excludeFileNameRow,
+            copyOptimized,
           ),
       )}
     </div>
@@ -1437,6 +1483,9 @@ function renderControls(selectedParser, oneShotRegex, oneShotGlobal, dispatchPar
  * @param {boolean} inlineMetadata
  * @param {boolean} isRawTextVisible
  * @param {string} selectedParser
+ * @param {boolean | undefined} excludeRepeatHeaders
+ * @param {boolean | undefined} excludeFileNameRow
+ * @param {unknown} copyOptimized
  */
 function renderResults(
   isTableVisible,
@@ -1451,6 +1500,7 @@ function renderResults(
   selectedParser,
   excludeRepeatHeaders,
   excludeFileNameRow,
+  copyOptimized,
 ) {
   const isOneShot = selectedParser === "one-shot";
   return html`
@@ -1520,7 +1570,14 @@ function renderResults(
 
       ${when(isResultVisible, () =>
         html`
-          <div class="flex" style="justify-content: end">
+          <div class="flex gap-3" style="justify-content: end">
+            <button
+              @click="${copyOptimized}"
+              class="flex-shrink-0 w-full md:w-auto px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg shadow hover:bg-indigo-700 transition"
+              title="Copy all documents grouped by type with metadata inlined in each row"
+            >
+              Copy Optimized (Tabular)
+            </button>
             <button
               @click="${() => copyTable("outputTable")}"
               class="flex-shrink-0 w-full md:w-auto px-4 py-2 bg-green-500 text-white font-bold rounded-lg shadow hover:bg-green-600 transition"

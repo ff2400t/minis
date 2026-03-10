@@ -9,7 +9,7 @@
 
 /**
  * @typedef {Object.<string, string>} StringMap
- * @typedef {{ allRows: string[][], metadataFields: StringMap}} ParserResult
+ * @typedef {{ headers: string[], rows: string[][], metadataFields: StringMap}} ParserResult
  */
 
 /**
@@ -43,9 +43,6 @@ export const BUILT_IN_PARSERS = [
         Object.assign(metadataFields, metaMatch.groups);
       }
 
-      const metadataRows = Object.entries(metadataFields).map((
-        [k, v],
-      ) => [k, v, "", "", "", "", ""]);
       // @ts-ignore
       const matches = [...text.matchAll(tableRx)];
       const headers = [
@@ -86,7 +83,8 @@ export const BUILT_IN_PARSERS = [
         ]);
       }
       return {
-        allRows: [...metadataRows, headers, ...dataRows],
+        headers,
+        rows: dataRows,
         metadataFields,
       };
     },
@@ -126,7 +124,7 @@ export const BUILT_IN_PARSERS = [
           )
           : [];
 
-        return { allRows: [headers, ...dataRows], metadataFields };
+        return { headers, rows: dataRows, metadataFields };
       } catch (e) {
         console.error("GSTR-3B: Table Regex Error", e);
       }
@@ -177,9 +175,6 @@ export const BUILT_IN_PARSERS = [
         "Account Name": metadataMatch?.groups?.Name?.trim() || "N/A",
         "Account Number": metadataMatch?.groups?.AccNo || "N/A",
       };
-      const metadataRows = Object.entries(metadataFields).map((
-        [k, v],
-      ) => [k, v, "", "", "", "", ""]);
 
       // @ts-ignore
       const matches = [...text.matchAll(tableRx)];
@@ -190,7 +185,6 @@ export const BUILT_IN_PARSERS = [
         "Amount",
         "Serial No",
         "Balance",
-        "",
       ];
       const dataRows = matches.map((m) => {
         /** @type {any} */
@@ -203,11 +197,11 @@ export const BUILT_IN_PARSERS = [
           amount.replace(/,/g, ""),
           g.serialNo,
           g.Bal.replace(/,/g, ""),
-          "",
         ];
       });
       return {
-        allRows: [...metadataRows, headers, ...dataRows],
+        headers,
+        rows: dataRows,
         metadataFields,
       };
     },
@@ -262,7 +256,6 @@ export function generalDocumentParser(
   tableRegex,
   name = "",
 ) {
-  let metadataRows = [];
   /** @type {{[key: string]: string}} */
   let metadataFields = {};
 
@@ -274,7 +267,6 @@ export function generalDocumentParser(
         for (const [key, value] of Object.entries(metaMatch.groups)) {
           const val = value ? value.trim() : "";
           metadataFields[key] = val;
-          metadataRows.push([key, val, "", "", "", "", ""]);
         }
       }
     } catch (e) {
@@ -319,5 +311,5 @@ export function generalDocumentParser(
     }
   }
 
-  return { allRows: [...metadataRows, headers, ...dataRows], metadataFields };
+  return { headers, rows: dataRows, metadataFields };
 }
