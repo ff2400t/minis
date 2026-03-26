@@ -1,32 +1,49 @@
 @import url("/utils.css");
 
 :root {
-  /* Core Palette */
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --primary-light: #eff6ff;
+  /* Libadwaita Colors (Light) */
+  --adw-window-bg: #f6f6f6;
+  --adw-window-fg: rgba(0, 0, 0, 0.8);
+  --adw-view-bg: #ffffff;
+  --adw-view-fg: #000000;
+  --adw-header-bg: #ebebeb;
+  --adw-accent-bg: #3584e4;
+  --adw-accent-fg: #ffffff;
+  --adw-card-bg: #ffffff;
+  --adw-card-border: rgba(0, 0, 0, 0.08);
+  --adw-destructive-bg: #e01b24;
+  --adw-destructive-fg: #ffffff;
+  --adw-success-bg: #26a269;
+  --adw-success-fg: #ffffff;
+  --adw-warning-bg: #e66100;
+  --adw-warning-fg: #ffffff;
+
+  /* Legacy compatibility / Mapping to Libadwaita */
+  --primary: var(--adw-accent-bg);
+  --primary-hover: #1c71d8;
+  --primary-light: #d6e6f8;
 
   --secondary: #64748b;
   --secondary-hover: #475569;
 
-  --accent: #10b981;
-  --accent-hover: #059669;
+  --accent: var(--adw-accent-bg);
+  --accent-hover: #1c71d8;
 
-  --danger: #ef4444;
-  --danger-hover: #dc2626;
+  --danger: var(--adw-destructive-bg);
+  --danger-hover: #c0171e;
 
-  --warning: #f59e0b;
+  --warning: var(--adw-warning-bg);
 
   /* Backgrounds & Borders */
-  --bg-main: #f8fafc;
-  --bg-card: #ffffff;
-  --border-color: #e2e8f0;
-  --border-focus: #3b82f6;
+  --bg-main: var(--adw-window-bg);
+  --bg-card: var(--adw-card-bg);
+  --border-color: var(--adw-card-border);
+  --border-focus: var(--adw-accent-bg);
 
   /* Text */
-  --text-main: #1e293b;
-  --text-muted: #64748b;
-  --text-on-primary: #ffffff;
+  --text-main: var(--adw-window-fg);
+  --text-muted: rgba(0, 0, 0, 0.5);
+  --text-on-primary: var(--adw-accent-fg);
 
   /* Tables */
   --table-header-bg: #f9fafb;
@@ -40,8 +57,8 @@
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
-  --radius: 0.5rem;
-  --radius-lg: 0.75rem;
+  --radius: 6px;
+  --radius-lg: 12px;
 }
 
 /* Base Styles */
@@ -50,93 +67,176 @@ body {
   color: var(--text-main);
   line-height: 1.5;
   margin: 0;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
 }
 
 /* Typography */
 .font-mono {
   font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
 }
 
-/* Buttons */
+/* Libadwaita Header Bar Style */
+.header-bar {
+  background-color: var(--adw-header-bg);
+  border-bottom: 1px solid var(--adw-card-border);
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0 6px;
+}
+
+.header-bar-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+/* Libadwaita Cards (Preferences Group) */
+.adw-group {
+  margin-bottom: 24px;
+}
+
+.adw-group-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: none;
+  margin-left: 12px;
+  margin-bottom: 8px;
+}
+
+.adw-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.adw-row {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  gap: 12px;
+  border-bottom: 1px solid var(--adw-card-border);
+}
+
+.adw-row:last-child {
+  border-bottom: none;
+}
+
+.adw-row-content {
+  flex: 1;
+}
+
+.adw-row-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.adw-row-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Libadwaita Buttons */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.5rem 1rem;
+  padding: 6px 12px;
   font-weight: 600;
   border-radius: var(--radius);
-  transition: all 0.2s;
+  transition: all 0.15s;
   cursor: pointer;
   border: 1px solid transparent;
   font-size: 0.875rem;
   gap: 0.5rem;
 }
 
+.btn-pill {
+  border-radius: 999px;
+}
+
 .btn-primary {
-  background-color: var(--primary);
-  color: var(--text-on-primary);
+  background-color: var(--adw-accent-bg);
+  color: var(--adw-accent-fg);
 }
 .btn-primary:hover {
-  background-color: var(--primary-hover);
+  filter: brightness(1.1);
 }
 
 .btn-secondary {
-  background-color: var(--bg-card);
-  border-color: var(--border-color);
-  color: var(--text-main);
+  background-color: #ffffff;
+  border-color: var(--adw-card-border);
+  color: var(--adw-window-fg);
 }
 .btn-secondary:hover {
-  background-color: var(--bg-main);
-  border-color: var(--secondary);
+  background-color: #f6f6f6;
 }
 
-.btn-ghost {
+.btn-flat {
   background-color: transparent;
-  color: var(--secondary);
+  color: var(--adw-accent-bg);
 }
-.btn-ghost:hover {
-  background-color: var(--primary-light);
-  color: var(--primary);
-}
-
-.btn-sm {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-}
-.btn-lg {
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem;
+.btn-flat:hover {
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
-/* Cards */
-.card {
-  background: var(--bg-card);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  border: 1px solid var(--border-color);
-  padding: 1.5rem;
+.btn-destructive {
+  background-color: var(--adw-destructive-bg);
+  color: var(--adw-destructive-fg);
 }
 
-/* Form Elements */
+/* Forms */
 input[type="text"],
 input[type="password"],
 textarea,
 select {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
+  padding: 8px 12px;
   border-radius: var(--radius);
-  border: 1px solid var(--border-color);
-  background-color: var(--bg-card);
-  transition: border-color 0.2s, box-shadow 0.2s;
-  font-size: 0.875rem;
+  border: 1px solid var(--adw-card-border);
+  background-color: #f1f1f1;
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+  font-size: 0.9rem;
 }
 
 input:focus, textarea:focus, select:focus {
   outline: none;
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background-color: #ffffff;
+  border-color: var(--adw-accent-bg);
+  box-shadow: 0 0 0 1px var(--adw-accent-bg);
+}
+
+/* Segmented Control */
+.segmented-control {
+  display: flex;
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: var(--radius);
+  padding: 3px;
+  gap: 2px;
+}
+
+.segmented-button {
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-muted);
+}
+
+.segmented-button.active {
+  background-color: #ffffff;
+  color: var(--adw-window-fg);
+  box-shadow: var(--shadow-sm);
 }
 
 /* The Universal Data Table */

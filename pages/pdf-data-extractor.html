@@ -20,61 +20,60 @@
     <style>
       @import url("/unified-theme.css");
       .data-table {
-        table-layout: auto; /* Changed from fixed to auto to accommodate dynamic columns */
+        table-layout: auto;
         width: 100%;
         border-collapse: collapse;
-        font-family:
-          ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-          "Liberation Mono", "Courier New", monospace;
-        font-size: 0.875rem; /* text-sm */
+        font-family: var(--font-mono);
+        font-size: 0.875rem;
       }
       .data-table td, .data-table th {
-        border: 1px solid #e5e7eb;
+        border: 1px solid var(--adw-card-border);
         padding: 8px;
         text-align: left;
         word-break: break-word;
         white-space: normal;
-        min-width: 100px; /* Ensure columns don't squish too much */
+        min-width: 100px;
       }
       .data-table tr:nth-child(even) {
-        background-color: #f9fafb;
+        background-color: rgba(0, 0, 0, 0.02);
       }
       .file-row td {
-        background-color: #bfdbfe !important; /* Blue-200 */
+        background-color: var(--primary-light) !important;
         font-weight: bold;
         color: #1e3a8a;
-        border-top: 2px solid #3b82f6;
+        border-top: 2px solid var(--adw-accent-bg);
         font-size: 1rem;
       }
       .meta-col-header {
-        background-color: #eff6ff !important; /* Blue-50 */
+        background-color: var(--primary-light) !important;
         color: #1e40af !important;
-        border-bottom: 2px solid #93c5fd !important;
+        border-bottom: 2px solid var(--adw-accent-bg) !important;
       }
       .meta-col-cell {
-        background-color: #f0f9ff !important; /* Sky-50 */
+        background-color: rgba(53, 132, 228, 0.05) !important;
         color: #0369a1;
       }
       .drag-active {
-        border-color: #3b82f6 !important;
-        background-color: #eff6ff !important;
+        border-color: var(--adw-accent-bg) !important;
+        background-color: var(--primary-light) !important;
         transform: scale(1.01);
         transition: all 0.2s ease;
       }
       .modal-backdrop {
-        background-color: rgba(0, 0, 0, 0.5);
+        background-color: rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(8px);
       }
       .regex-scroll::-webkit-scrollbar {
         height: 6px;
       }
       .regex-scroll::-webkit-scrollbar-thumb {
-        background-color: #cbd5e1;
+        background-color: var(--adw-card-border);
         border-radius: 3px;
       }
       /* Checkbox styling */
       .meta-checkbox {
         cursor: pointer;
-        accent-color: #2563eb;
+        accent-color: var(--adw-accent-bg);
         transform: scale(1.1);
       }
       .meta-key-label {
@@ -82,15 +81,12 @@
         user-select: none;
       }
       .meta-key-label:hover {
-        color: #2563eb;
+        color: var(--adw-accent-bg);
       }
     </style>
   </head>
   <body>
-    <script type="module" src="pdf-data-extractor.js">
-    </script>
-    <app-layout title="Universal Data Extractor">
-      <app-root></app-root>
-    </app-layout>
+    <app-root></app-root>
+    <script type="module" src="pdf-data-extractor.js"></script>
   </body>
 </html>

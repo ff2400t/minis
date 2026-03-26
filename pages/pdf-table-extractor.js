@@ -220,25 +220,23 @@ class VisualModal extends HTMLElement {
         <div class="modal-overlay">
           <div class="modal-container">
             <div class="modal-header">
-              <div style="display: flex; align-items: center; gap: 2rem;">
-                <h2 style="margin:0; font-size:1.1rem; color:white;">Visual Aligner</h2>
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                  <button class="btn btn-ghost" 
+              <div style="display: flex; align-items: center; gap: 1rem;">
+                <h2 style="margin:0; font-size:0.95rem; font-weight:700; color:var(--adw-window-fg);">Visual Aligner</h2>
+                <div class="segmented-control" style="width: 160px;">
+                  <button class="segmented-button" 
                     ?disabled="${this.currentPage <= 1}" 
-                    style="color:white"
                     @click="${() => this.renderPage(this.currentPage - 1)}">←</button>
-                  <span style="color:white; font-size: 0.875rem; font-family: monospace;">Page ${this.currentPage} / ${this.totalPages}</span>
-                  <button class="btn btn-ghost" 
+                  <span style="display:flex; align-items:center; justify-content:center; flex:1; font-size: 0.75rem; font-family: var(--font-mono); font-weight:700;">${this.currentPage} / ${this.totalPages}</span>
+                  <button class="segmented-button" 
                     ?disabled="${this.currentPage >= this.totalPages}" 
-                    style="color:white"
                     @click="${() => this.renderPage(this.currentPage + 1)}">→</button>
                 </div>
               </div>
-              <button class="btn btn-ghost" style="color:white;" @click="${() => this.dispatchEvent(new CustomEvent("close"))}">✕</button>
+              <button class="btn btn-flat btn-sm" @click="${() => this.dispatchEvent(new CustomEvent("close"))}">✕</button>
             </div>
             
             <div class="modal-body">
-              ${when(this.status, () => html`<div style="color: #94a3b8; font-weight: 600;">${this.status}</div>`)}
+              ${when(this.status, () => html`<div style="color: var(--text-muted); font-weight: 600;">${this.status}</div>`)}
               <div class="visual-canvas-wrapper" style="${this.status ? "display:none" : ""}">
                 <canvas ${ref(this.canvasRef)}></canvas>
                 <div class="visual-overlay" 
@@ -247,7 +245,7 @@ class VisualModal extends HTMLElement {
                   ${map(this.localAnchors, (x, i) => html`
                     <div class="anchor-marker ${this.activeIdx === i ? "active" : ""}" 
                       style="left: ${x * this.scale}px; height: 100%; top: 0;">
-                      <span style="position: absolute; top: -24px; left: 50%; transform: translateX(-50%); background: ${this.activeIdx === i ? "#ef4444" : "var(--primary)"}; color: white; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; pointer-events: none; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                      <span style="position: absolute; top: -24px; left: 50%; transform: translateX(-50%); background: ${this.activeIdx === i ? "var(--adw-destructive-bg)" : "var(--adw-accent-bg)"}; color: white; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; pointer-events: none; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                         ${i + 1}
                       </span>
                     </div>
@@ -257,16 +255,16 @@ class VisualModal extends HTMLElement {
             </div>
 
             <div class="modal-footer">
-              <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-                <span style="color: #94a3b8; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">
+              <div style="display: flex; flex-direction: column; gap: 2px;">
+                <span style="color: var(--text-muted); font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">
                   Click to add • Drag to move • Alt+Click to remove
                 </span>
-                <span style="color: #64748b; font-size: 0.65rem;">
+                <span style="color: var(--text-muted); font-size: 0.65rem;">
                   Align markers with PDF columns for better extraction
                 </span>
               </div>
-              <div style="display:flex; gap:1rem;">
-                <button class="btn btn-ghost" @click="${() => {
+              <div style="display:flex; gap:12px;">
+                <button class="btn btn-secondary" @click="${() => {
                   this.localAnchors = [];
                   this.dispatchEvent(new CustomEvent("update", { detail: [] }));
                   this.render();
@@ -378,47 +376,48 @@ class ColumnAdjuster extends HTMLElement {
   render() {
     render(
       html`
-        <div
-          class="settings-card"
-          style="margin-top:1rem; border-color: #e2e8f0; background: #ffffff; padding: 1rem;"
-        >
-          <div
-            style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;"
-          >
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-               <span class="label-tiny">Column Markers</span>
-               <span class="value-badge" style="background: #f1f5f9; color: #64748b;">${this.localAnchors.length}</span>
+        <div class="adw-group" style="margin-top: 1rem;">
+          <div class="adw-card">
+            <div class="adw-row">
+              <div class="adw-row-content">
+                <div class="adw-row-title">Column Markers</div>
+                <div class="adw-row-subtitle">Manual column boundaries for extraction.</div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span class="value-badge">${this.localAnchors.length}</span>
+                <button
+                  class="btn btn-secondary"
+                  @click="${this.onOpenVisual}"
+                >
+                  Launch Aligner
+                </button>
+              </div>
             </div>
-            <button
-              class="btn btn-primary"
-              style="padding: 0.4rem 0.8rem; font-size: 0.7rem;"
-              @click="${this.onOpenVisual}"
-            >
-              Launch Visual Aligner
-            </button>
-          </div>
 
-          <div class="anchor-track" 
-            ${ref((el) => (this.trackRef.current = el))} 
-            @mousedown="${this.onMouseDown}"
-            style="height: 40px; background: #f8fafc; border-style: dashed;"
-          >
-            ${when(this.localAnchors.length === 0, () =>
-              html`
-                <div class="track-hint">Click here to place markers manually</div>
-              `)} 
-            ${map(this.localAnchors, (x, i) =>
-                html`
-                  <div class="anchor-marker ${this.activeIdx === i ? "active" : ""}" 
-                    style="left:${(x / this.trackWidthPt) * 100}%">
-                    <span style="position: absolute; top: -22px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 800; color: ${this.activeIdx === i ? "#ef4444" : "var(--primary)"}; pointer-events: none;">${i + 1}</span>
-                  </div>
-                `)}
-          </div>
-          <div style="margin-top: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 0.65rem; color: var(--text-muted);">
-              Alt + Click to remove • Drag to adjust
-            </span>
+            <div class="p-4 bg-black/[0.01]">
+              <div class="anchor-track" 
+                ${ref((el) => (this.trackRef.current = el))} 
+                @mousedown="${this.onMouseDown}"
+                style="height: 40px; margin: 0.5rem 0;"
+              >
+                ${when(this.localAnchors.length === 0, () =>
+                  html`
+                    <div class="track-hint">Click here to place markers manually</div>
+                  `)} 
+                ${map(this.localAnchors, (x, i) =>
+                    html`
+                      <div class="anchor-marker ${this.activeIdx === i ? "active" : ""}" 
+                        style="left:${(x / this.trackWidthPt) * 100}%">
+                        <span style="position: absolute; top: -22px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 800; color: ${this.activeIdx === i ? "var(--adw-destructive-bg)" : "var(--adw-accent-bg)"}; pointer-events: none;">${i + 1}</span>
+                      </div>
+                    `)}
+              </div>
+              <div class="mt-2 flex justify-between">
+                <span style="font-size: 0.65rem; color: var(--text-muted);">
+                  Alt + Click to remove • Drag to adjust
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       `,
@@ -609,96 +608,122 @@ function App() {
   };
 
   return html`
-    <app-layout title="PDF Table Extractor">
-      <div class="space-y-6">
-        <header class="flex justify-between items-end gap-4">
-          <div>
-            <p class="text-gray-500">Searchable PDF Data Recovery</p>
+    <app-layout title="PDF Table Extractor" utility-open>
+      <div class="adw-group">
+        <div class="adw-group-title">Document</div>
+        <div class="adw-card">
+          <div class="adw-row">
+            <div class="adw-row-content">
+              <div class="adw-row-title">Source PDF</div>
+              <div class="adw-row-subtitle">Searchable PDF Data Recovery</div>
+            </div>
+            ${when(state.extractedData.length, () =>
+              html`
+                <div class="flex gap-2">
+                  <button class="btn btn-secondary" @click="${() =>
+                    dispatch({
+                      type: "RESET",
+                      payload: undefined,
+                    })}">Reset</button>
+                  <button class="btn btn-primary" @click="${copyTSV}">
+                    ${state.copyStatus.all ? "✓ Copied" : "Copy TSV"}
+                  </button>
+                </div>
+              `)}
           </div>
-          ${when(state.extractedData.length, () =>
-            html`
-              <div class="flex gap-4">
-                <button class="btn btn-secondary" @click="${() =>
-                  dispatch({
-                    type: "RESET",
-                    payload: undefined,
-                  })}">Reset</button>
-                <button class="btn btn-primary" @click="${copyTSV}">
-                  ${state.copyStatus.all ? "✓ Copied" : "Copy TSV"}
+          <div class="p-4">
+            <drop-zone
+              ?disabled="${state.isProcessing}"
+              .fileName="${state.lastFile?.name}"
+              @file-selected="${(e) => extractFromPdf(e.detail[0])}"
+            ></drop-zone>
+          </div>
+        </div>
+      </div>
+
+      <div slot="utility">
+        <div class="adw-group">
+          <div class="adw-group-title">Settings</div>
+          <div class="adw-card">
+            <div class="adw-row">
+              <div class="adw-row-content">
+                <div class="adw-row-title">Mode</div>
+              </div>
+              <div class="segmented-control" style="width: 120px;">
+                <button 
+                  class="segmented-button ${!state.showManualSettings ? "active" : ""}"
+                  @click="${() => dispatch({ type: "SET_CONFIG", payload: { key: "showManualSettings", value: false } })}"
+                >
+                  Auto
+                </button>
+                <button 
+                  class="segmented-button ${state.showManualSettings ? "active" : ""}"
+                  @click="${() => dispatch({ type: "SET_CONFIG", payload: { key: "showManualSettings", value: true } })}"
+                >
+                  Man
                 </button>
               </div>
-            `)}
-        </header>
+            </div>
 
-        <drop-zone
-          ?disabled="${state.isProcessing}"
-          .fileName="${state.lastFile?.name}"
-          @file-selected="${(e) => extractFromPdf(e.detail[0])}"
-        ></drop-zone>
-
-        <div class="card">
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-6 items-center">
-            <div class="input-group">
-              <span class="label-tiny">Row Trigger</span>
-              <input type="text" .value="${state.triggerWord}" @input="${(e) =>
+            <div class="adw-row">
+              <div class="adw-row-content">
+                <div class="adw-row-title">Row Trigger</div>
+                <div class="adw-row-subtitle">Table start keyword</div>
+              </div>
+            </div>
+            <div class="px-3 pb-3">
+              <input type="text" class="w-full" .value="${state.triggerWord}" @input="${(e) =>
                 dispatch({
                   type: "SET_CONFIG",
                   payload: { key: "triggerWord", value: e.target.value },
                 })}" />
             </div>
-            <div class="input-group">
-              <div style="display:flex; justify-content: space-between;">
-                <span class="label-tiny">Row Leniency</span>
+
+            <div class="adw-row">
+              <div class="adw-row-content">
+                <div class="adw-row-title">Row Leniency</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
                 <span class="value-badge">${state.rowLeniency}</span>
+                <input
+                  type="range"
+                  min="1"
+                  max="30"
+                  style="width: 80px;"
+                  .value="${state.rowLeniency}"
+                  @input="${(e) =>
+                    dispatch({
+                      type: "SET_CONFIG",
+                      payload: { key: "rowLeniency", value: e.target.value },
+                    })}"
+                />
               </div>
-              <input
-                type="range"
-                min="1"
-                max="30"
-                .value="${state.rowLeniency}"
-                @input="${(e) =>
-                  dispatch({
-                    type: "SET_CONFIG",
-                    payload: { key: "rowLeniency", value: e.target.value },
-                  })}"
-              />
             </div>
-            <div class="input-group">
-              <div style="display:flex; justify-content: space-between;">
-                <span class="label-tiny">Auto-Col Cluster</span>
+
+            <div class="adw-row">
+              <div class="adw-row-content">
+                <div class="adw-row-title">Col Clustering</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
                 <span class="value-badge">${state.colLeniency}</span>
+                <input
+                  type="range"
+                  min="10"
+                  max="150"
+                  style="width: 80px;"
+                  .value="${state.colLeniency}"
+                  @input="${(e) =>
+                    dispatch({
+                      type: "SET_CONFIG",
+                      payload: { key: "colLeniency", value: e.target.value },
+                    })}"
+                />
               </div>
-              <input
-                type="range"
-                min="10"
-                max="150"
-                .value="${state.colLeniency}"
-                @input="${(e) =>
-                  dispatch({
-                    type: "SET_CONFIG",
-                    payload: { key: "colLeniency", value: e.target.value },
-                  })}"
-              />
             </div>
-            <div
-              class="flex flex-col gap-2 pt-4 md:pt-0"
-            >
-              <label
-                class="flex items-center gap-2 text-xs font-bold text-gray-600 uppercase"
-              >
-                <input type="checkbox" .checked="${state
-                  .showManualSettings}" @change="${(e) =>
-                  dispatch({
-                    type: "SET_CONFIG",
-                    payload: {
-                      key: "showManualSettings",
-                      value: e.target.checked,
-                    },
-                  })}" />
-                Manual Mode
-              </label>
+            
+            <div class="p-3">
               <button
-                class="btn btn-primary py-2 text-xs"
+                class="btn btn-primary w-full"
                 @click="${handleReparse}"
                 ?disabled="${!state.lastFile || state.isProcessing}"
               >
@@ -706,29 +731,30 @@ function App() {
               </button>
             </div>
           </div>
+
           ${when(state.showManualSettings, () =>
             html`
-              <div
-                style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: flex-end;"
-              >
+              <div class="mt-4 flex gap-2 justify-end">
                 <button
-                  class="btn btn-secondary text-xs py-1"
+                  class="btn btn-secondary btn-sm"
                   @click="${copyMarkers}"
+                  title="Copy Markers"
                 >
-                  ${state.copyStatus.markers ? "✓ Copied" : "Copy Markers"}
+                  ${state.copyStatus.markers ? "✓" : html`<svg style="width:14px;height:14px" viewBox="0 0 24 24"><path fill="currentColor" d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z" /></svg>`}
                 </button>
                 <button
-                  class="btn btn-secondary text-xs py-1"
+                  class="btn btn-secondary btn-sm"
                   @click="${pasteMarkers}"
+                  title="Paste Markers"
                 >
-                  Paste Markers
+                  <svg style="width:14px;height:14px" viewBox="0 0 24 24"><path fill="currentColor" d="M19,20H5V4H7V7H17V4H19M12,2A3,3 0 0,1 15,5V6H9V5A3,3 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2Z" /></svg>
                 </button>
                 <button
-                  class="btn btn-secondary text-xs py-1 text-red-500 hover:text-red-700"
+                  class="btn btn-flat btn-sm text-red-600"
                   @click="${() =>
                     dispatch({ type: "SET_ANCHORS", payload: { anchors: [] } })}"
                 >
-                  Clear All
+                  Clear
                 </button>
               </div>
               <column-adjuster
@@ -747,93 +773,142 @@ function App() {
               ></column-adjuster>
             `)}
         </div>
-
-        ${when(state.isProcessing, () =>
-          html`
-            <status-message type="info" .message="${state.processingStep}"></status-message>
-          `)} ${when(state.error, () =>
-            html`
-              <status-message type="error" .message="${state.error}"></status-message>
-            `)} ${when(state.extractedData.length, () =>
-            html`
-              <div class="toggle-container">
-                <h3 style="margin:0; font-size: 0.875rem; font-weight:700;">Data Preview</h3>
-                <label class="flex items-center gap-2">
-                  <span class="label-tiny">Show All Pages</span>
-                  <input type="checkbox" class="nd-switch" .checked="${state
-                    .showAllPages}" @change="${(e) =>
-                    dispatch({
-                      type: "SET_CONFIG",
-                      payload: { key: "showAllPages", value: e.target.checked },
-                    })}" />
-                </label>
-              </div>
-              <div class="space-y-6">
-                ${map(
-                  state.showAllPages
-                    ? state.extractedData
-                    : state.extractedData.slice(0, 1),
-                  (page) =>
-                    html`
-                      <div class="page-card">
-                        <div class="page-header">
-                          <span>Page ${page.page}</span>
-                          <span>${page.rows.length} Rows</span>
-                        </div>
-                        <div class="table-container">
-                          <table>
-                            <tbody>
-                              ${map(page.rows, (r, i) =>
-                                html`
-                                  <tr>
-                                    <td class="row-num">${i + 1}</td>
-                                    ${map(r, (c) =>
-                                      html`
-                                        <td>${c}</td>
-                                      `)}
-                                  </tr>
-                                `)}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    `,
-                )}
-              </div>
-            `)}
       </div>
+
+      ${when(state.isProcessing, () =>
+        html`
+          <status-message type="info" .message="${state.processingStep}"></status-message>
+        `)} ${when(state.error, () =>
+          html`
+            <status-message type="error" .message="${state.error}"></status-message>
+          `)} 
+          
+      ${when(state.extractedData.length, () =>
+        html`
+          <div class="adw-group">
+            <div class="adw-group-title">Data Preview</div>
+
+            <div class="mt-6 space-y-6">
+              ${map(
+                state.showAllPages
+                  ? state.extractedData
+                  : state.extractedData.slice(0, 1),
+                (page) =>
+                  html`
+                    <div class="page-card">
+                      <div class="page-header">
+                        <span>Page ${page.page}</span>
+                        <span>${page.rows.length} Rows</span>
+                      </div>
+                      <div class="table-container">
+                        <table>
+                          <tbody>
+                            ${map(page.rows, (r, i) =>
+                              html`
+                                <tr>
+                                  <td class="row-num">${i + 1}</td>
+                                  ${map(r, (c) =>
+                                    html`
+                                      <td>${c}</td>
+                                    `)}
+                                </tr>
+                              `)}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  `,
+              )}
+            </div>
+          </div>
+        `)}
 
       <!-- Modals -->
       ${when(state.showPasswordModal, () =>
         html`
           <div class="modal-backdrop">
-            <form
-              class="card w-full max-w-md flex flex-col gap-4"
-              @submit="${(e) => {
-                e.preventDefault();
-                extractFromPdf(state.lastFile, state.manualAnchors, password);
-              }}"
-            >
-              <h2 class="text-xl font-bold">Protected PDF</h2>
-              <p class="text-sm text-gray-500">This document is encrypted. Please enter the password to unlock it.</p>
-              <input
-                type="password"
-                placeholder="Password"
-                .value="${password}"
-                @input="${(e) => setPassword(e.target.value)}"
-                required
-              />
-              <div class="flex gap-3 justify-end mt-2">
-                <button type="button" class="btn btn-secondary" @click="${() =>
-                  dispatch({
-                    type: "SET_CONFIG",
-                    payload: { key: "showPasswordModal", value: false },
-                  })}">
-                  Cancel
-                </button>
-                <button type="submit" class="btn btn-primary">Unlock</button>
+            <div class="adw-card shadow-xl w-full max-w-sm mx-4 overflow-hidden">
+              <div class="header-bar">
+                <div class="header-bar-title">Protected PDF</div>
               </div>
-            </form>
+              <form
+                class="p-6 flex flex-col gap-4"
+                @submit="${(e) => {
+                  e.preventDefault();
+                  extractFromPdf(state.lastFile, state.manualAnchors, password);
+                }}"
+              >
+                <p class="text-sm text-center text-muted">This document is encrypted. Please enter the password to unlock it.</p>
+                <input
+                  type="password"
+                  class="w-full"
+                  placeholder="Password"
+                  .value="${password}"
+                  @input="${(e) => setPassword(e.target.value)}"
+                  required
+                  autofocus
+                />
+                <div class="flex flex-col gap-2 mt-2">
+                  <button type="submit" class="btn btn-primary">Unlock</button>
+                  <button type="button" class="btn btn-flat" @click="${() =>
+                    dispatch({
+                      type: "SET_CONFIG",
+                      payload: { key: "showPasswordModal", value: false },
+                    })}">
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        `)} ${when(state.showVisualModal, () =>
+        html`
+          <visual-alignment-modal
+            .pdfFile="${state.lastFile}"
+            .anchors="${state.manualAnchors}"
+            @update="${(e) =>
+              dispatch({
+                type: "SET_ANCHORS",
+                payload: { anchors: e.detail },
+              })}"
+            @close="${() =>
+              dispatch({
+                type: "TOGGLE_VISUAL_MODAL",
+                payload: { value: false },
+              })}"
+          ></visual-alignment-modal>
+        `)}
+    </app-layout>
+  `;
+}
+
+customElements.define("main-app", component(App, { useShadowDOM: false }));
+render(
+  html`
+    <main-app></main-app>
+  `,
+  // @ts-ignore
+  document.getElementById("app"),
+);
+l"
+                  placeholder="Password"
+                  .value="${password}"
+                  @input="${(e) => setPassword(e.target.value)}"
+                  required
+                  autofocus
+                />
+                <div class="flex flex-col gap-2 mt-2">
+                  <button type="submit" class="btn btn-primary">Unlock</button>
+                  <button type="button" class="btn btn-flat" @click="${() =>
+                    dispatch({
+                      type: "SET_CONFIG",
+                      payload: { key: "showPasswordModal", value: false },
+                    })}">
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         `)} ${when(state.showVisualModal, () =>
         html`

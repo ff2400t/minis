@@ -259,33 +259,30 @@ const renderConsolidatedSummary = (
   /** @type {(arg0: string) => any} */ copyTable,
 ) => {
   return html`
-    <div class="mt-8 border-t pt-8">
-      <h2 class="text-2xl font-bold text-gray-800 mb-4">
-        Consolidated Metadata Summary
-      </h2>
-      <p class="text-gray-600 mb-4">
-        A combined view of metadata across all processed files, grouped by document
-        type.
+    <div class="adw-group mt-8">
+      <div class="adw-group-title">Consolidated Metadata Summary</div>
+      <p class="text-xs text-muted mb-4 ml-3">
+        A combined view of metadata across all processed files, grouped by document type.
       </p>
       ${consolidatedTables.map((tbl, i) =>
         html`
           <div class="mb-8">
-            <div class="flex justify-between items-center mb-3">
-              <h3 class="text-lg font-semibold text-blue-700">${tbl.title}</h3>
+            <div class="flex justify-between items-center mb-2 px-3">
+              <h3 class="text-sm font-bold text-blue-700 uppercase tracking-tight">${tbl.title}</h3>
               <button
                 @click="${() => copyTable(`consTable-${i}`)}"
-                class="px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded text-sm font-bold transition"
+                class="btn btn-flat btn-sm"
               >
                 Copy Table
               </button>
             </div>
-            <div class="overflow-x-auto border rounded-lg shadow-sm">
+            <div class="overflow-x-auto adw-card">
               <table id="${`consTable-${i}`}" class="data-table">
-                <thead class="bg-gray-50">
-                  <tr>
+                <thead>
+                  <tr class="bg-black/[0.02]">
                     ${tbl.headers.map((h) =>
                       html`
-                        <th class="font-bold text-gray-600">${h}</th>
+                        <th class="font-bold text-gray-600 text-xs">${h}</th>
                       `
                     )}
                   </tr>
@@ -293,7 +290,7 @@ const renderConsolidatedSummary = (
                 <tbody>
                   ${tbl.rows.map((row) =>
                     html`
-                      <tr>
+                      <tr class="hover:bg-black/[0.01]">
                         ${row.map((cell) =>
                           html`
                             <td>${cell}</td>
@@ -432,7 +429,6 @@ const consolidatedMetadataInitial = [];
  * @property {boolean} inlineMetadata
  * @property {boolean} excludeRepeatHeaders
  * @property {boolean} excludeFileNameRow
- * @property {boolean} isSettingsModalVisible
  * @property {PasswordModalState} passwordModal
  * @property {string} savedPassword
  */
@@ -449,7 +445,6 @@ const initialAppState = {
   inlineMetadata: false,
   excludeRepeatHeaders: true,
   excludeFileNameRow: true,
-  isSettingsModalVisible: false,
   passwordModal: INITIAL_MODAL_STATE,
   savedPassword: "",
 };
@@ -479,11 +474,6 @@ function appReducer(state, action) {
       return { ...state, excludeRepeatHeaders: action.payload };
     case "SET_EXCLUDE_FILE_NAME_ROW":
       return { ...state, excludeFileNameRow: action.payload };
-    case "TOGGLE_SETTINGS_MODAL":
-      return {
-        ...state,
-        isSettingsModalVisible: action.payload ?? !state.isSettingsModalVisible,
-      };
     case "SET_PASSWORD_MODAL": // Payload replaces the whole object
       return { ...state, passwordModal: action.payload };
     case "UPDATE_PASSWORD_MODAL": // Payload merges
@@ -937,7 +927,6 @@ function App() {
     inlineMetadata,
     excludeRepeatHeaders,
     excludeFileNameRow,
-    isSettingsModalVisible,
     passwordModal,
     savedPassword,
   } = appState;
@@ -1210,142 +1199,163 @@ function App() {
 
   // --- Main Render Function (Lit-HTML Template) ---
   return html`
-    <div class="relative">
-      ${renderParserForm(
-        customParsers,
-        dispatchParser,
-        removeCustomParser,
-        addCustomParser,
-        isParserFormVisible,
-        selectedParser,
-      )}${renderControls(selectedParser, oneShotRegex, oneShotGlobal, dispatchParser, allParsers)}
+    <app-layout title="Universal Data Extractor" utility-open>
+      <div class="relative">
+        ${renderParserForm(
+          customParsers,
+          dispatchParser,
+          removeCustomParser,
+          addCustomParser,
+          isParserFormVisible,
+          selectedParser,
+        )}${renderControls(selectedParser, oneShotRegex, oneShotGlobal, dispatchParser, allParsers)}
 
-      <!-- Drop Zone -->
-      <drop-zone @file-selected="${(/** @type {CustomEvent} */ e) => {
-        // @ts-ignore we know this will work
-        processFiles(e.detail);
-      }}"></drop-zone>
+        <!-- Drop Zone -->
+        <drop-zone @file-selected="${(/** @type {CustomEvent} */ e) => {
+          // @ts-ignore we know this will work
+          processFiles(e.detail);
+        }}"></drop-zone>
 
-      <!-- Status Container -->
-      ${renderStatus(status)}
+        <!-- Status Container -->
+        ${renderStatus(status)}
 
-      <!-- Results Display -->
+        <!-- Results Display -->
+        ${when(
+          isResultVisible,
+          () =>
+            renderResults(
+              isTableVisible,
+              dispatchApp,
+              isConsolidatedVisible,
+              consolidatedTables,
+              copyTable,
+              isResultVisible,
+              documents,
+              inlineMetadata,
+              isRawTextVisible,
+              selectedParser,
+              excludeRepeatHeaders,
+              excludeFileNameRow,
+              copyOptimized,
+            ),
+        )}
+      </div>
+
+      <div slot="utility">
+        <div class="adw-group">
+          <div class="adw-group-title">View Settings</div>
+          <div class="adw-card">
+            <div class="adw-row">
+              <div class="adw-row-content">
+                <div class="adw-row-title">Inline Metadata</div>
+                <div class="adw-row-subtitle">Metadata as columns.</div>
+              </div>
+              <input
+                id="inlineMetadata"
+                class="nd-switch"
+                type="checkbox"
+                ?checked="${inlineMetadata}"
+                @click="${() => dispatchApp({ type: "SET_INLINE_METADATA", payload: !inlineMetadata })}"
+              />
+            </div>
+
+            <div class="adw-row">
+              <div class="adw-row-content">
+                <div class="adw-row-title">No Duplicate Headers</div>
+              </div>
+              <input
+                id="excludeRepeatHeaders"
+                class="nd-switch"
+                type="checkbox"
+                ?checked="${excludeRepeatHeaders}"
+                @click="${() => dispatchApp({ type: "SET_EXCLUDE_REPEAT_HEADERS", payload: !excludeRepeatHeaders })}"
+              />
+            </div>
+
+            <div class="adw-row">
+              <div class="adw-row-content">
+                <div class="adw-row-title">Hide File Name Row</div>
+              </div>
+              <input
+                id="excludeFileNameRow"
+                class="nd-switch"
+                type="checkbox"
+                ?checked="${excludeFileNameRow}"
+                @click="${() => dispatchApp({ type: "SET_EXCLUDE_FILE_NAME_ROW", payload: !excludeFileNameRow })}"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="adw-group">
+          <div class="adw-group-title">Display Options</div>
+          <div class="adw-card">
+            <div class="adw-row">
+              <div class="adw-row-content">
+                <div class="adw-row-title">Show Details</div>
+              </div>
+              <input
+                id="isTableVisible"
+                class="nd-switch"
+                type="checkbox"
+                ?checked="${isTableVisible}"
+                @click="${() =>
+                  dispatchApp({
+                    type: "SET_IS_TABLE_VISIBLE",
+                    payload: !isTableVisible,
+                  })}"
+              />
+            </div>
+
+            <div class="adw-row">
+              <div class="adw-row-content">
+                <div class="adw-row-title">Summary Table</div>
+              </div>
+              <input
+                id="isConsolidatedVisible"
+                class="nd-switch"
+                type="checkbox"
+                ?checked="${isConsolidatedVisible}"
+                @click="${() =>
+                  dispatchApp({
+                    type: "SET_IS_CONSOLIDATED_VISIBLE",
+                    payload: !isConsolidatedVisible,
+                  })}"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modals -->
       ${when(
-        isResultVisible,
+        passwordModal.isOpen,
         () =>
-          renderResults(
-            isTableVisible,
+          renderPasswordModal(
             dispatchApp,
-            isConsolidatedVisible,
-            consolidatedTables,
-            copyTable,
-            isResultVisible,
-            documents,
-            inlineMetadata,
-            isRawTextVisible,
-            selectedParser,
-            excludeRepeatHeaders,
-            excludeFileNameRow,
-            copyOptimized,
+            passwordModal,
+            handlePasswordSubmit,
+            handlePasswordSkip,
           ),
       )}
-    </div>
-
-    <!-- Modals -->
-    ${when(
-      passwordModal.isOpen,
-      () =>
-        renderPasswordModal(
-          dispatchApp,
-          passwordModal,
-          handlePasswordSubmit,
-          handlePasswordSkip,
-        ),
-    )}
-    <!-- Seperator -->
-    ${when(
-      isTemplatesModalVisible,
-      () => renderTemplatesModal(dispatchParser, dispatchApp, templatesText),
-    )}
-    <!-- Seperator -->
-    ${when(
-      isParserListModalVisible,
-      () =>
-        renderParserListModal(expandedParsers, dispatchParser, customParsers),
-    )}
-    <!-- Settings Modal -->
-    ${when(
-      isSettingsModalVisible,
-      () => renderSettingsModal(dispatchApp, excludeRepeatHeaders, excludeFileNameRow),
-    )}
+      <!-- Seperator -->
+      ${when(
+        isTemplatesModalVisible,
+        () => renderTemplatesModal(dispatchParser, dispatchApp, templatesText),
+      )}
+      <!-- Seperator -->
+      ${when(
+        isParserListModalVisible,
+        () =>
+          renderParserListModal(expandedParsers, dispatchParser, customParsers),
+      )}
+    </app-layout>
   `;
 }
 
 // Register the Web Component
 // @ts-ignore
 customElements.define("app-root", component(App, { useShadowDOM: false }));
-
-/**
- * @param {{(action: { type: string; payload: any; }): void; }} dispatchApp
- * @param {boolean} excludeRepeatHeaders
- * @param {boolean} excludeFileNameRow
- */
-function renderSettingsModal(dispatchApp, excludeRepeatHeaders, excludeFileNameRow) {
-  return html`
-    <div class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop">
-      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
-        <div class="flex justify-between items-center mb-6">
-          <h3 class="text-xl font-bold text-gray-800">View Settings</h3>
-          <button
-            @click="${() => dispatchApp({ type: "TOGGLE_SETTINGS_MODAL", payload: false })}"
-            class="text-gray-500 hover:text-gray-700"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div class="space-y-6">
-          <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-            <div>
-              <label for="excludeRepeatHeaders" class="font-semibold text-gray-700 block">Exclude duplicate headers</label>
-              <span class="text-xs text-gray-500">Hide table headers if they are the same as the previous document.</span>
-            </div>
-            <input
-              id="excludeRepeatHeaders"
-              class="nd-switch"
-              type="checkbox"
-              ?checked="${excludeRepeatHeaders}"
-              @click="${() => dispatchApp({ type: "SET_EXCLUDE_REPEAT_HEADERS", payload: !excludeRepeatHeaders })}"
-            />
-          </div>
-
-          <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-            <div>
-              <label for="excludeFileNameRow" class="font-semibold text-gray-700 block">Exclude file name row</label>
-              <span class="text-xs text-gray-500">Do not show the "Source: file.pdf" row in the detailed view.</span>
-            </div>
-            <input
-              id="excludeFileNameRow"
-              class="nd-switch"
-              type="checkbox"
-              ?checked="${excludeFileNameRow}"
-              @click="${() => dispatchApp({ type: "SET_EXCLUDE_FILE_NAME_ROW", payload: !excludeFileNameRow })}"
-            />
-          </div>
-        </div>
-
-        <div class="mt-8 pt-4 border-t flex justify-end">
-          <button
-            @click="${() => dispatchApp({ type: "TOGGLE_SETTINGS_MODAL", payload: false })}"
-            class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold transition shadow"
-          >
-            Done
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-}
 
 /**
  * @param {{ message: string; type: string; }} status
@@ -1371,100 +1381,108 @@ function renderControls(selectedParser, oneShotRegex, oneShotGlobal, dispatchPar
   const isOneShot = selectedParser === "one-shot";
   
   return html`
-    <div class="mb-6 flex flex-col gap-4">
-      <div class="flex flex-col md:flex-row justify-between items-end gap-4">
-        <div class="w-full md:w-1/2">
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Extraction Mode
-          </label>
-          <div class="flex items-center gap-2">
-            <button
-              @click="${() => dispatchParser({ type: "SET_SELECTED_PARSER", payload: isOneShot ? "auto" : "one-shot" })}"
-              class="flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-sm transition shadow-sm border-2 ${isOneShot 
-                ? "bg-blue-600 text-white border-blue-700" 
-                : "bg-white text-gray-700 border-gray-300 hover:border-blue-400"}"
-            >
-              One Shot Regex Mode
-            </button>
-            
-            ${when(!isOneShot, () => html`
-              <select
-                class="flex-grow border border-gray-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                .value="${selectedParser}"
-                @change="${(/** @type {Event} */ e) =>
-                  dispatchParser({
-                    type: "SET_SELECTED_PARSER",
-                    // @ts-ignore
-                    payload: e.target.value,
-                  })}"
-              >
-                <option value="auto">Auto-detect (Default)</option>
-                ${allParsers.map((p) =>
-                  html`
-                    <option value="${p.name}">${p.name}</option>
-                  `
-                )}
-              </select>
-            `)}
+    <div class="adw-group">
+      <div class="adw-group-title">Extraction Mode</div>
+      <div class="adw-card">
+        <div class="adw-row">
+          <div class="adw-row-content">
+            <div class="adw-row-title">Mode Selection</div>
+            <div class="adw-row-subtitle">Choose between automatic detection or manual regex.</div>
           </div>
-          <p class="text-xs text-gray-500 mt-1">
-            ${isOneShot 
-              ? "Applying a single regex to all files. Click to return to standard mode." 
-              : "Select a parser or enable One-shot mode for manual regex extraction."}
-          </p>
+          <div class="segmented-control" style="width: 240px;">
+            <button 
+              class="segmented-button ${!isOneShot ? "active" : ""}"
+              @click="${() => dispatchParser({ type: "SET_SELECTED_PARSER", payload: "auto" })}"
+            >
+              Standard
+            </button>
+            <button 
+              class="segmented-button ${isOneShot ? "active" : ""}"
+              @click="${() => dispatchParser({ type: "SET_SELECTED_PARSER", payload: "one-shot" })}"
+            >
+              One-shot
+            </button>
+          </div>
         </div>
 
         ${when(!isOneShot, () => html`
-          <button
-            @click="${() =>
-              dispatchParser({ type: "TOGGLE_LIST_MODAL", payload: true })}"
-            class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg shadow flex items-center transition h-10"
-          >
-            <span>ℹ️ Show Available Parsers</span>
-          </button>
+          <div class="adw-row">
+            <div class="adw-row-content">
+              <div class="adw-row-title">Specific Parser</div>
+              <div class="adw-row-subtitle">Select a specific parser if auto-detect fails.</div>
+            </div>
+            <select
+              class="border-none bg-transparent font-semibold text-right cursor-pointer"
+              style="max-width: 200px;"
+              .value="${selectedParser}"
+              @change="${(/** @type {Event} */ e) =>
+                dispatchParser({
+                  type: "SET_SELECTED_PARSER",
+                  // @ts-ignore
+                  payload: e.target.value,
+                })}"
+            >
+              <option value="auto">Auto-detect (Default)</option>
+              ${allParsers.map((p) =>
+                html`
+                  <option value="${p.name}">${p.name}</option>
+                `
+              )}
+            </select>
+          </div>
+          <div class="adw-row">
+            <div class="adw-row-content text-center">
+              <button
+                @click="${() =>
+                  dispatchParser({ type: "TOGGLE_LIST_MODAL", payload: true })}"
+                class="btn btn-flat w-full"
+              >
+                <span>ℹ️ Show Available Parsers</span>
+              </button>
+            </div>
+          </div>
         `)}
       </div>
 
       ${when(isOneShot, () => html`
-        <div class="w-full p-4 bg-blue-50 border-2 border-blue-200 rounded-xl shadow-inner">
-          <label class="block text-sm font-bold text-blue-800 mb-2 flex items-center gap-2">
-            <span>⚡ One-shot Regex (Global Table Match)</span>
-            <span class="font-normal text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">One-time use</span>
-          </label>
-          <div class="flex gap-2 items-stretch">
-            <input
-              type="text"
-              class="flex-grow border-2 border-blue-300 rounded-lg p-3 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm shadow-sm"
-              placeholder="e.g. (?<Date>\d{2}/\d{2}/\d{4})\s+(?<Amt>[\d,]+\.\d{2})"
-              .value="${oneShotRegex}"
-              @input="${(/** @type {Event} */ e) =>
-                dispatchParser({
-                  type: "SET_ONE_SHOT_REGEX",
-                  // @ts-ignore
-                  payload: e.target.value,
-                })}"
-            />
-            <button
-              @click="${() => dispatchParser({ type: "SET_ONE_SHOT_GLOBAL", payload: !oneShotGlobal })}"
-              class="px-4 rounded-lg font-bold text-sm transition shadow-sm border-2 flex items-center justify-center ${oneShotGlobal 
-                ? "bg-blue-600 text-white border-blue-700" 
-                : "bg-white text-gray-700 border-gray-300 hover:border-blue-400"}"
-              title="Toggle Global Mode (/g flag) for table extraction"
-              style="min-width: 3rem;"
-            >
-              /g
-            </button>
-          </div>
-          <div class="flex justify-between mt-2">
-            <p class="text-xs text-blue-700">
-              Use <strong>(?&lt;Name&gt;...)</strong> groups to define columns. ${oneShotGlobal ? "Extracts multiple matches per file as a table." : "Extracts first match as metadata."}
-            </p>
-            <button 
-              @click="${() => dispatchParser({ type: "SET_ONE_SHOT_REGEX", payload: "" })}"
-              class="text-xs text-blue-600 hover:text-blue-800 font-semibold"
-            >
-              Clear Regex
-            </button>
+        <div class="adw-card mt-3">
+          <div class="p-4 bg-blue-50">
+            <label class="block text-sm font-bold text-blue-800 mb-2 flex items-center gap-2">
+              <span>⚡ One-shot Regex (Global Table Match)</span>
+            </label>
+            <div class="flex gap-2 items-stretch">
+              <input
+                type="text"
+                class="flex-grow border-2 border-blue-300 rounded-lg p-3 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm shadow-sm"
+                placeholder="(?<Date>\\d{2}/\\d{2}/\\d{4})\\s+(?<Amt>[\\d,]+\\.\\d{2})"
+                .value="${oneShotRegex}"
+                @input="${(/** @type {Event} */ e) =>
+                  dispatchParser({
+                    type: "SET_ONE_SHOT_REGEX",
+                    // @ts-ignore
+                    payload: e.target.value,
+                  })}"
+              />
+              <button
+                @click="${() => dispatchParser({ type: "SET_ONE_SHOT_GLOBAL", payload: !oneShotGlobal })}"
+                class="btn ${oneShotGlobal ? "btn-primary" : "btn-secondary"}"
+                title="Toggle Global Mode (/g flag) for table extraction"
+                style="min-width: 3.5rem;"
+              >
+                /g
+              </button>
+            </div>
+            <div class="flex justify-between mt-2">
+              <p class="text-xs text-blue-700">
+                Use <strong>(?&lt;Name&gt;...)</strong> groups to define columns. ${oneShotGlobal ? "Extracts multiple matches." : "Extracts first match."}
+              </p>
+              <button 
+                @click="${() => dispatchParser({ type: "SET_ONE_SHOT_REGEX", payload: "" })}"
+                class="text-xs text-blue-600 hover:text-blue-800 font-semibold"
+              >
+                Clear
+              </button>
+            </div>
           </div>
         </div>
       `)}
@@ -1504,88 +1522,24 @@ function renderResults(
 ) {
   const isOneShot = selectedParser === "one-shot";
   return html`
-    <div>
-      <h2 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">
-        Extracted Data
-      </h2>
+    <div class="adw-group">
+      <div class="adw-group-title">Results</div>
 
-      <div
-        class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg"
-      >
-        <p class="text-sm font-medium text-yellow-800 mb-3 md:mb-0">
-          <span class="font-bold">Instructions:</span> Data is extracted from your PDFs. 
-          Use the toggles below to adjust the view.
-        </p>
-        <div class="flex flex-col flex-wrap gap-2 w-full md:w-auto">
-          <div class="flex gap-2">
-            <button
-              @click="${() => dispatchApp({ type: "TOGGLE_SETTINGS_MODAL", payload: true })}"
-              class="px-3 py-1 bg-white border border-gray-300 rounded text-sm font-semibold hover:bg-gray-50 transition shadow-sm"
-            >
-              ⚙️ View Settings
-            </button>
-          </div>
-          ${when(!isOneShot, () => html`
-            <div>
-              <input
-                id="inlineAllMeta"
-                class="nd-switch"
-                type="checkbox"
-                ?checked="${inlineMetadata}"
-                @click="${() => dispatchApp({ type: "SET_INLINE_METADATA", payload: !inlineMetadata })}"
-              />
-              <label for="inlineAllMeta">Inline All Metadata</label>
-            </div>
-          `)}
-          <div>
-            <input
-              id="isTableVisible"
-              class="nd-switch"
-              type="checkbox"
-              ?checked="${isTableVisible}"
-              @click="${() =>
-                dispatchApp({
-                  type: "SET_IS_TABLE_VISIBLE",
-                  payload: !isTableVisible,
-                })}"
-            />
-            <label for="isTableVisible">Show Details</label>
-          </div>
-          <div>
-            <input
-              id="isConsolidatedVisible"
-              class="nd-switch"
-              type="checkbox"
-              ?checked="${isConsolidatedVisible}"
-              @click="${() =>
-                dispatchApp({
-                  type: "SET_IS_CONSOLIDATED_VISIBLE",
-                  payload: !isConsolidatedVisible,
-                })}"
-            />
-            <label for="isConsolidatedVisible">${isOneShot ? "Show Consolidated Table" : "Show Summary Table"}</label>
-          </div>
-        </div>
+      <div class="flex gap-3 justify-end mb-6">
+        <button
+          @click="${copyOptimized}"
+          class="btn btn-primary"
+          title="Copy all documents grouped by type with metadata inlined in each row"
+        >
+          Copy Optimized
+        </button>
+        <button
+          @click="${() => copyTable("outputTable")}"
+          class="btn btn-secondary"
+        >
+          Copy Details
+        </button>
       </div>
-
-      ${when(isResultVisible, () =>
-        html`
-          <div class="flex gap-3" style="justify-content: end">
-            <button
-              @click="${copyOptimized}"
-              class="flex-shrink-0 w-full md:w-auto px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg shadow hover:bg-indigo-700 transition"
-              title="Copy all documents grouped by type with metadata inlined in each row"
-            >
-              Copy Optimized (Tabular)
-            </button>
-            <button
-              @click="${() => copyTable("outputTable")}"
-              class="flex-shrink-0 w-full md:w-auto px-4 py-2 bg-green-500 text-white font-bold rounded-lg shadow hover:bg-green-600 transition"
-            >
-              Copy Details
-            </button>
-          </div>
-        `)}
 
       <!-- Detailed Table -->
       ${when(isTableVisible, () =>
@@ -1597,7 +1551,7 @@ function renderResults(
         ), () =>
         html`
           <div class="p-8 text-center text-gray-500 border rounded-lg bg-white mt-6">
-            The extracted data table is currently hidden.
+            Details are hidden.
           </div>
         `)}
 
@@ -1609,57 +1563,52 @@ function renderResults(
       )}
 
       <!-- Raw Text Display -->
-      <div class="mt-8">
-        <div class="flex justify-between items-center mb-2">
-          <h3 class="text-xl font-medium text-gray-700">
-            Raw Extracted Text (For Debugging)
-          </h3>
-          <button
+      <div class="adw-group mt-8">
+        <div class="adw-group-title">Debugging</div>
+        <div class="adw-card">
+          <div 
+            class="adw-row cursor-pointer hover:bg-black/5 transition"
             @click="${() =>
               dispatchApp({
                 type: "SET_IS_RAW_TEXT_VISIBLE",
                 payload: !isRawTextVisible,
               })}"
-            class="px-3 py-1 text-sm text-white font-bold rounded shadow transition ${isRawTextVisible
-              ? "bg-blue-500 hover:bg-blue-600"
-              : "bg-gray-500 hover:bg-gray-600"}"
           >
-            ${isRawTextVisible ? "Hide Raw Text" : "Show Raw Text"}
-          </button>
-        </div>
+            <div class="adw-row-content">
+              <div class="adw-row-title">Raw Extracted Text</div>
+              <div class="adw-row-subtitle">View the plain text extracted from PDFs.</div>
+            </div>
+            <span class="text-xs text-muted">${isRawTextVisible ? "Hide" : "Show"}</span>
+          </div>
 
-        ${when(isRawTextVisible, () =>
-          html`
-            <div class="space-y-4">
-              ${documents.map((item) =>
-                html`
-                  <div class="border rounded-lg p-3 bg-gray-50">
-                    <div class="flex justify-between items-center mb-2">
-                      <span class="font-bold text-sm text-gray-700"
-                      >SOURCE: ${item.fileName} (${item.docType})</span>
-                      <a
-                        href="https://regex101.com/?testString=${encodeURIComponent(
-                          item.rawText,
-                        )}"
-                        target="_blank"
-                        class="px-2 py-1 bg-purple-600 text-white text-xs font-bold rounded hover:bg-purple-700 transition"
-                      >
-                        Test in Regex101
-                      </a>
+          ${when(isRawTextVisible, () =>
+            html`
+              <div class="p-4 border-t bg-black/[0.02] space-y-4">
+                ${documents.map((item) =>
+                  html`
+                    <div class="adw-card p-3 bg-white">
+                      <div class="flex justify-between items-center mb-2">
+                        <span class="font-bold text-xs text-muted"
+                        >SOURCE: ${item.fileName}</span>
+                        <a
+                          href="https://regex101.com/?testString=${encodeURIComponent(
+                            item.rawText,
+                          )}"
+                          target="_blank"
+                          class="btn btn-flat btn-sm text-purple-600"
+                        >
+                          Regex101
+                        </a>
+                      </div>
+                      <pre
+                        class="bg-gray-50 p-2 rounded border text-xs overflow-auto max-h-64 font-mono"
+                      >${item.rawText}</pre>
                     </div>
-                    <pre
-                      class="bg-white p-3 rounded border text-xs overflow-auto max-h-64"
-                    >${item.rawText}</pre>
-                  </div>
-                `
-              )}
-            </div>
-          `, () =>
-          html`
-            <div class="p-4 bg-gray-50 border rounded text-xs text-gray-500 italic">
-              Raw text hidden.
-            </div>
-          `)}
+                  `
+                )}
+              </div>
+            `)}
+        </div>
       </div>
     </div>
   `;
@@ -1838,48 +1787,48 @@ function renderParserForm(
   if (selectedParser === "one-shot") {
     return nothing;
   }
+  
   const customParsersHtml = when(customParsers.length > 0, () =>
     html`
-      <div class="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
-        <div class="flex justify-between items-center mb-3">
-          <h4 class="font-bold text-indigo-800">Active Custom Parsers:</h4>
-          <button
-            @click="${() => {
-              const text = customParsers.map((p) => {
-                return `name:${p.name}\nmatches:${
-                  p.matches.join(", ")
-                }\nmetadata: ${p.metadata || ""}\ntable:${p.table || ""}`;
-              }).join("\n\n---\n\n");
-              dispatchParser({ type: "SET_TEMPLATES_TEXT", payload: text });
-              dispatchParser({
-                type: "TOGGLE_TEMPLATES_MODAL",
-                payload: true,
-              });
-            }}"
-            class="text-xs bg-indigo-600 text-white px-2 py-1 rounded hover:bg-indigo-700 transition"
-          >
-            Edit / Export All
-          </button>
-        </div>
-        <ul class="space-y-2">
+      <div class="adw-group">
+        <div class="adw-group-title">Active Custom Parsers</div>
+        <div class="adw-card">
           ${customParsers.map((p, i) =>
             html`
-              <li class="flex justify-between items-center bg-white p-2 rounded shadow-sm">
-                <div>
-                  <span class="font-semibold text-gray-800">${p.name}</span>
-                  <span class="text-xs text-gray-500 ml-2">(Match: ${p.matches
-                    .join(", ")})</span>
+              <div class="adw-row">
+                <div class="adw-row-content">
+                  <div class="adw-row-title">${p.name}</div>
+                  <div class="adw-row-subtitle">Match: ${p.matches.join(", ")}</div>
                 </div>
                 <button
                   @click="${() => removeCustomParser(i)}"
-                  class="text-red-500 hover:text-red-700 text-sm font-medium px-2"
+                  class="btn btn-flat text-red-600"
                 >
                   Remove
                 </button>
-              </li>
+              </div>
             `
           )}
-        </ul>
+          <div class="adw-row">
+            <button
+              @click="${() => {
+                const text = customParsers.map((p) => {
+                  return `name:${p.name}\nmatches:${
+                    p.matches.join(", ")
+                  }\nmetadata: ${p.metadata || ""}\ntable:${p.table || ""}`;
+                }).join("\n\n---\n\n");
+                dispatchParser({ type: "SET_TEMPLATES_TEXT", payload: text });
+                dispatchParser({
+                  type: "TOGGLE_TEMPLATES_MODAL",
+                  payload: true,
+                });
+              }}"
+              class="btn btn-flat w-full"
+            >
+              Edit / Export All
+            </button>
+          </div>
+        </div>
       </div>
     `);
 
@@ -1895,49 +1844,46 @@ function renderParserForm(
   const textAreaDefault ="name:;;\nmatches:;;\nmetadata:;;\ntable:";
 
   return html`
-    <div class="mb-6 border rounded-lg overflow-hidden">
-      <button
-        class="w-full text-left px-6 py-4 bg-gray-100 font-semibold text-gray-700 hover:bg-gray-200 flex justify-between items-center transition"
-        @click="${() =>
-          dispatchParser({ type: "TOGGLE_FORM", payload: undefined })}"
-      >
-        <span>🛠️ Configure Custom Parser (Add/Update/Import)</span>
-        <span>${isParserFormVisible ? "▲" : "▼"}</span>
-      </button>
-      ${when(isParserFormVisible, () =>
-        html`
-          <div class="p-6 bg-white border-t">
-            ${customParsersHtml}
-
-            <form @submit="${submitForm}">
-              <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-700 mb-1"
-                >Quick Import (Paste Config Block)</label>
-                <textarea
-                  id="configTextInput"
-                  class="w-full h-48 rounded-md border-gray-300 shadow-sm border p-2 text-sm font-mono focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Define your parser here using the required keys.&#10;&#10;name:My Custom Bank Statement;;&#10;matches: Bank Statement, Account Summary, MyBankCorp;;&#10;metadata:Account Number: (?<AccNo>\\d+).*?Name: (?<Name>.*?);;&#10;table:(?<Date>\\d{2}\\.\\d{2}\\.\\d{4})\\s+.*\\s+(?<Amount>\\d+)"
-                  .defaultValue=${textAreaDefault}
-                ></textarea>
-                <p class="text-xs text-gray-500 mt-1">
-                  Define your parser using the keys: <code class="font-semibold"
-                  >Name:</code>, <code class="font-semibold">matches:</code>
-                  (comma-separated document identifiers), <code class="font-semibold"
-                  >Metadata:</code> (single-match regex for key info), and <code
-                    class="font-semibold"
-                  >Table:</code> (global-match regex for rows).
-                </p>
-              </div>
-
-              <button
-                type="submit"
-                class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition font-medium"
-              >
-                Add / Update Parser
-              </button>
-            </form>
+    <div class="adw-group">
+      <div class="adw-group-title">Configuration</div>
+      <div class="adw-card">
+        <div 
+          class="adw-row cursor-pointer hover:bg-black/5 transition"
+          @click="${() => dispatchParser({ type: "TOGGLE_FORM", payload: undefined })}"
+        >
+          <div class="adw-row-content">
+            <div class="adw-row-title">🛠️ Custom Parsers</div>
+            <div class="adw-row-subtitle">Add, update or import custom extraction rules.</div>
           </div>
-        `)}
+          <span class="text-xs text-muted">${isParserFormVisible ? "▲" : "▼"}</span>
+        </div>
+        
+        ${when(isParserFormVisible, () =>
+          html`
+            <div class="p-4 border-t bg-black/[0.02]">
+              ${customParsersHtml}
+
+              <form @submit="${submitForm}" class="space-y-4">
+                <div>
+                  <label class="block text-sm font-bold text-gray-700 mb-2">Quick Import</label>
+                  <textarea
+                    id="configTextInput"
+                    class="w-full h-48 font-mono"
+                    placeholder="name:My Custom Bank Statement;;&#10;matches: Bank Statement, Account Summary, MyBankCorp;;&#10;metadata:Account Number: (?<AccNo>\\d+).*?Name: (?<Name>.*?);;&#10;table:(?<Date>\\d{2}\\.\\d{2}\\.\\d{4})\\s+.*\\s+(?<Amount>\\d+)"
+                    .defaultValue=${textAreaDefault}
+                  ></textarea>
+                </div>
+
+                <button
+                  type="submit"
+                  class="btn btn-primary w-full"
+                >
+                  Add / Update Parser
+                </button>
+              </form>
+            </div>
+          `)}
+      </div>
     </div>
   `;
 }
@@ -2102,56 +2048,59 @@ function renderPasswordModal(
 
   return html`
     <div class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop">
-      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
-        <h3 class="text-xl font-bold text-gray-800 mb-4">Password Required</h3>
-        <p class="text-sm text-gray-600 mb-2">
-          The file <span class="font-bold text-blue-600">${passwordModal
-            .fileName}</span> is
-          encrypted.
-        </p>
-
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-1"
-          >Enter Password</label>
+      <div class="adw-card shadow-xl w-full max-w-sm mx-4 overflow-hidden">
+        <div class="header-bar">
+          <div class="header-bar-title">Password Required</div>
+        </div>
+        
+        <div class="p-6 space-y-4">
+          <p class="text-sm text-center text-muted">
+            The file <span class="font-bold text-blue-600">${passwordModal.fileName}</span> is encrypted.
+          </p>
+          
           <input
             type="password"
             id="passwordInput"
-            class="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Password"
+            class="w-full"
+            placeholder="Enter PDF Password"
             .value="${passwordModal.passwordInput}"
             @input="${updatePassInput}"
             @keydown="${(/** @type {KeyboardEvent} */ e) => {
               if (e.key === "Enter") handlePasswordSubmit();
             }}"
+            autofocus
           />
-        </div>
 
-        <div class="flex items-center mb-6">
-          <input
-            type="checkbox"
-            id="useForSubsequent"
-            class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            ?checked="${passwordModal.useForSubsequent}"
-            @change="${updateCheckbox}"
-          />
-          <label for="useForSubsequent" class="ml-2 block text-sm text-gray-700">
-            Use this password for subsequent files
-          </label>
-        </div>
+          <div class="adw-card">
+            <div class="adw-row">
+              <div class="adw-row-content">
+                <div class="adw-row-title">Remember password</div>
+                <div class="adw-row-subtitle">Use for subsequent files.</div>
+              </div>
+              <input
+                type="checkbox"
+                id="useForSubsequent"
+                class="nd-switch"
+                ?checked="${passwordModal.useForSubsequent}"
+                @change="${updateCheckbox}"
+              />
+            </div>
+          </div>
 
-        <div class="flex justify-end space-x-3">
-          <button
-            @click="${handlePasswordSkip}"
-            class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium text-sm transition"
-          >
-            Skip File
-          </button>
-          <button
-            @click="${handlePasswordSubmit}"
-            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm transition"
-          >
-            Decrypt & Extract
-          </button>
+          <div class="flex flex-col gap-2 mt-4">
+            <button
+              @click="${handlePasswordSubmit}"
+              class="btn btn-primary w-full"
+            >
+              Unlock
+            </button>
+            <button
+              @click="${handlePasswordSkip}"
+              class="btn btn-flat w-full"
+            >
+              Skip File
+            </button>
+          </div>
         </div>
       </div>
     </div>

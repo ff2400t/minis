@@ -113,7 +113,7 @@ export class DropZone extends HTMLElement {
       }
 
       .upload-section {
-        margin-bottom: 2rem;
+        margin-bottom: 24px;
       }
 
       .drop-zone {
@@ -121,54 +121,85 @@ export class DropZone extends HTMLElement {
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        height: 10rem;
-        border: 2px dashed #cbd5e1;
-        border-radius: 12px;
-        background: #ffffff;
+        min-height: 12rem;
+        border: 2px dashed var(--adw-card-border);
+        border-radius: var(--radius-lg);
+        background: var(--adw-view-bg);
         cursor: pointer;
-        transition: all 0.15s ease-in-out;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        padding: 2rem;
+        position: relative;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.05);
       }
 
       .drop-zone:hover {
-        background: #f8fafc;
+        background: rgba(0, 0, 0, 0.01);
+        border-color: rgba(0, 0, 0, 0.2);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
       }
 
       .drop-zone.drag-over {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
-        transform: scale(1.02);
+        border-color: var(--adw-accent-bg);
+        background: rgba(53, 132, 228, 0.04);
+        box-shadow: 0 0 0 1px var(--adw-accent-bg), 0 10px 15px -3px rgba(53, 132, 228, 0.2);
+        transform: scale(1.01);
       }
 
       .drop-zone.disabled {
         opacity: 0.5;
         cursor: not-allowed;
+        filter: grayscale(1);
       }
 
       .content {
         pointer-events: none;
         text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .icon-wrapper {
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(53, 132, 228, 0.1);
+        color: var(--adw-accent-bg);
+        border-radius: 999px;
+        margin-bottom: 0.25rem;
+        transition: transform 0.2s;
+      }
+
+      .drop-zone:hover .icon-wrapper {
+        transform: translateY(-2px);
       }
 
       svg {
-        width: 32px;
-        height: 32px;
-        margin-bottom: 0.75rem;
-        color: #94a3b8;
+        width: 24px;
+        height: 24px;
       }
 
       .title {
-        font-size: 0.875rem;
-        color: #64748b;
+        font-size: 0.95rem;
+        font-weight: 500;
+        color: var(--adw-window-fg);
+        margin: 0;
       }
 
       .title strong {
-        font-weight: 600;
+        font-weight: 700;
+        color: var(--adw-accent-bg);
       }
 
       .subtitle {
-        margin-top: 0.25rem;
-        font-size: 0.75rem;
-        color: #94a3b8;
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin: 0;
+        max-width: 300px;
+        line-height: 1.4;
       }
 
       input[type="file"] {
@@ -184,23 +215,25 @@ export class DropZone extends HTMLElement {
           @drop="${this.handleDrop}"
         >
           <div class="content">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 20 16"
-              aria-hidden="true"
-            >
-              <path
+            <div class="icon-wrapper">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="2.5"
                 stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
-              />
-            </svg>
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"
+                />
+              </svg>
+            </div>
 
             <p class="title">
-              <strong>Click to upload PDF or Images</strong> or drag and drop
+              <strong>Select Files</strong> or drag and drop
             </p>
             <p class="subtitle">
               ${this.subtitle}
