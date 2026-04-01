@@ -608,7 +608,7 @@ function App() {
   };
 
   return html`
-    <app-layout title="PDF Table Extractor" utility-open>
+    <app-layout title="PDF Table Extractor">
       <div class="adw-group">
         <div class="adw-group-title">Document</div>
         <div class="adw-card">
@@ -773,6 +773,23 @@ function App() {
               ></column-adjuster>
             `)}
         </div>
+
+        <div class="adw-group">
+          <div class="adw-group-title">Display Options</div>
+          <div class="adw-card">
+            <div class="adw-row">
+              <div class="adw-row-content">
+                <div class="adw-row-title">Pagination</div>
+                <div class="adw-row-subtitle">Show all pages.</div>
+              </div>
+              <input type="checkbox" class="nd-switch" .checked="${state.showAllPages}" @change="${(e) =>
+                dispatch({
+                  type: "SET_CONFIG",
+                  payload: { key: "showAllPages", value: e.target.checked },
+                })}" />
+            </div>
+          </div>
+        </div>
       </div>
 
       ${when(state.isProcessing, () =>
@@ -842,55 +859,6 @@ function App() {
                 <input
                   type="password"
                   class="w-full"
-                  placeholder="Password"
-                  .value="${password}"
-                  @input="${(e) => setPassword(e.target.value)}"
-                  required
-                  autofocus
-                />
-                <div class="flex flex-col gap-2 mt-2">
-                  <button type="submit" class="btn btn-primary">Unlock</button>
-                  <button type="button" class="btn btn-flat" @click="${() =>
-                    dispatch({
-                      type: "SET_CONFIG",
-                      payload: { key: "showPasswordModal", value: false },
-                    })}">
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        `)} ${when(state.showVisualModal, () =>
-        html`
-          <visual-alignment-modal
-            .pdfFile="${state.lastFile}"
-            .anchors="${state.manualAnchors}"
-            @update="${(e) =>
-              dispatch({
-                type: "SET_ANCHORS",
-                payload: { anchors: e.detail },
-              })}"
-            @close="${() =>
-              dispatch({
-                type: "TOGGLE_VISUAL_MODAL",
-                payload: { value: false },
-              })}"
-          ></visual-alignment-modal>
-        `)}
-    </app-layout>
-  `;
-}
-
-customElements.define("main-app", component(App, { useShadowDOM: false }));
-render(
-  html`
-    <main-app></main-app>
-  `,
-  // @ts-ignore
-  document.getElementById("app"),
-);
-l"
                   placeholder="Password"
                   .value="${password}"
                   @input="${(e) => setPassword(e.target.value)}"
