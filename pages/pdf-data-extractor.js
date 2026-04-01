@@ -1199,7 +1199,7 @@ function App() {
 
   // --- Main Render Function (Lit-HTML Template) ---
   return html`
-    <app-layout title="Universal Data Extractor" utility-open>
+    <app-layout title="Universal Data Extractor">
       <div class="relative">
         ${renderParserForm(
           customParsers,

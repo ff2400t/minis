@@ -154,21 +154,38 @@ export class AppLayout extends HTMLElement {
         }
 
         .utility-pane {
-          width: 320px;
+          width: 0;
           background-color: var(--adw-window-bg);
-          border-left: 1px solid var(--adw-card-border);
-          overflow-y: auto;
-          display: none;
+          border-left: 0 solid var(--adw-card-border);
+          overflow: hidden;
           flex-shrink: 0;
           z-index: 20;
+          visibility: hidden;
+          transition: 
+            width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+            border-left-width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+            visibility 0.25s;
+        }
+
+        .utility-container {
+          width: 320px;
+          height: 100%;
+          overflow-y: auto;
           padding: 1rem;
+          box-sizing: border-box;
         }
 
         :host([utility-open]) .utility-pane {
-          display: block;
+          width: 320px;
+          border-left-width: 1px;
+          visibility: visible;
         }
 
         @media (max-width: 1024px) {
+          .main-view {
+            transition: filter 0.25s ease;
+          }
+
           .utility-pane {
             position: absolute;
             top: 0;
@@ -178,6 +195,20 @@ export class AppLayout extends HTMLElement {
             max-width: 400px;
             box-shadow: -4px 0 12px rgba(0, 0, 0, 0.1);
             border-left: none;
+            transform: translateX(105%);
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.25s;
+            visibility: hidden;
+            overflow-y: auto;
+          }
+
+          .utility-container {
+            width: 100%;
+          }
+          
+          :host([utility-open]) .utility-pane {
+            transform: translateX(0);
+            width: 85%;
+            visibility: visible;
           }
           
           :host([utility-open]) .main-view {
@@ -232,7 +263,9 @@ export class AppLayout extends HTMLElement {
           </main>
         </div>
         <aside class="utility-pane">
-          <slot name="utility"></slot>
+          <div class="utility-container">
+            <slot name="utility"></slot>
+          </div>
         </aside>
       </div>
     `, this.shadowRoot);
