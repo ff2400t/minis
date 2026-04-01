@@ -2,6 +2,7 @@ import { html, map, ref, render, when } from "/vendor/lit-html.js";
 import { component, useReducer, useRef, useState } from "/vendor/haunted.js";
 import "/components/drop-zone.js";
 import "/components/status-message.js";
+import { adwBadge, adwCard, adwGroup, adwRow, adwSegmentedControl } from "/components/ui.js";
 
 // @ts-ignore
 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -475,24 +476,6 @@ class ColumnAdjuster extends HTMLElement {
 }
 customElements.define("column-adjuster", ColumnAdjuster);
 
-// UI Helpers
-const card = (content) => html`<div class="adw-card">${content}</div>`;
-const group = (title, content) => html`
-  <div class="adw-group">
-    <div class="adw-group-title">${title}</div>
-    ${content}
-  </div>
-`;
-const row = (title, subtitle, action) => html`
-  <div class="adw-row">
-    <div class="adw-row-content">
-      <div class="adw-row-title">${title}</div>
-      ${when(subtitle, () => html`<div class="adw-row-subtitle">${subtitle}</div>`)}
-    </div>
-    ${action}
-  </div>
-`;
-
 function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [password, setPassword] = useState("");
@@ -675,8 +658,8 @@ function App() {
 
   return html`
     <app-layout title="PDF Table Extractor">
-      ${group("Document", card(html`
-        ${row("Source PDF", "Searchable PDF Data Recovery", when(state.extractedData.length, () => html`
+      ${adwGroup("Document", adwCard(html`
+        ${adwRow("Source PDF", "Searchable PDF Data Recovery", when(state.extractedData.length, () => html`
           <div class="flex gap-2">
             <button class="btn btn-secondary" @click="${() => dispatch({ type: "RESET" })}">Reset</button>
             <button class="btn btn-primary" @click="${copyTSV}">
@@ -693,19 +676,11 @@ function App() {
         </div>
       `))}
 
-      ${group("Configuration", card(html`
-        ${row("Extraction Mode", "Choose between automatic detection or manual markers", html`
-          <div class="segmented-control" style="width: 120px;">
-            <button
-              class="segmented-button ${!state.showManualSettings ? "active" : ""}"
-              @click="${() => dispatch({ type: "SET_CONFIG", payload: { key: "showManualSettings", value: false } })}"
-            >Auto</button>
-            <button
-              class="segmented-button ${state.showManualSettings ? "active" : ""}"
-              @click="${() => dispatch({ type: "SET_CONFIG", payload: { key: "showManualSettings", value: true } })}"
-            >Man</button>
-          </div>
-        `)}
+      ${adwGroup("Configuration", adwCard(html`
+        ${adwRow("Extraction Mode", "Choose between automatic detection or manual markers", adwSegmentedControl([
+          { label: "Auto", active: !state.showManualSettings, onClick: () => dispatch({ type: "SET_CONFIG", payload: { key: "showManualSettings", value: false } }) },
+          { label: "Man", active: state.showManualSettings, onClick: () => dispatch({ type: "SET_CONFIG", payload: { key: "showManualSettings", value: true } }) }
+        ]))}
 
         ${when(state.showManualSettings, () => html`
           <div class="p-4 border-t border-[var(--adw-card-border)] bg-black/[0.01]">
@@ -729,7 +704,7 @@ function App() {
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-[var(--adw-card-border)] p-4">
           <div class="space-y-4">
-            ${row("Row Trigger", "Table start keyword", html`
+            ${adwRow("Row Trigger", "Table start keyword", html`
               <input
                 type="text"
                 style="width: 120px;"
@@ -737,9 +712,9 @@ function App() {
                 @input="${(e) => dispatch({ type: "SET_CONFIG", payload: { key: "triggerWord", value: e.target.value } })}"
               />
             `)}
-            ${row("Row Leniency", undefined, html`
+            ${adwRow("Row Leniency", undefined, html`
               <div style="display:flex; align-items:center; gap:8px;">
-                <span class="value-badge">${state.rowLeniency}</span>
+                ${adwBadge(state.rowLeniency)}
                 <input
                   type="range" min="1" max="30" style="width: 80px;"
                   .value="${state.rowLeniency}"
@@ -749,9 +724,9 @@ function App() {
             `)}
           </div>
           <div class="space-y-4">
-            ${row("Col Clustering", undefined, html`
+            ${adwRow("Col Clustering", undefined, html`
               <div style="display:flex; align-items:center; gap:8px;">
-                <span class="value-badge">${state.colLeniency}</span>
+                ${adwBadge(state.colLeniency)}
                 <input
                   type="range" min="10" max="150" style="width: 80px;"
                   .value="${state.colLeniency}"
@@ -759,7 +734,7 @@ function App() {
                 />
               </div>
             `)}
-            ${row("Show All Pages", undefined, html`
+            ${adwRow("Show All Pages", undefined, html`
               <input
                 type="checkbox"
                 class="nd-switch"
@@ -788,7 +763,7 @@ function App() {
         <status-message type="error" .message="${state.error}"></status-message>
       `)}
 
-      ${when(state.extractedData.length, () => group("Data Preview", html`
+      ${when(state.extractedData.length, () => adwGroup("Data Preview", html`
         <div class="mt-4 space-y-6">
           ${map(
             state.showAllPages ? state.extractedData : state.extractedData.slice(0, 1),
