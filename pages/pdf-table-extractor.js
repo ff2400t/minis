@@ -1,17 +1,21 @@
 import { html, map, ref, render, when } from "/vendor/lit-html.js";
-import { component, useReducer, useRef, useState } from "/vendor/haunted.js";
+import { component, useReducer, useRef, useState, useEffect, useCallback } from "/vendor/haunted.js";
 import "/components/drop-zone.js";
 import "/components/status-message.js";
+import "/components/batch-processor.js";
 import { adwBadge, adwCard, adwGroup, adwRow, adwSegmentedControl } from "/components/ui.js";
 
 // @ts-ignore
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
+// @ts-ignore
+const JSZip = globalThis.JSZip;
+
 const initialState = {
   isProcessing: false,
   processingStep: "",
-  extractedData: [],
+  extractedData: [], // Preview data for the LAST processed file
   error: null,
   /** @type {File | null} */
   lastFile: null,
@@ -24,6 +28,10 @@ const initialState = {
   showAllPages: false,
   showPasswordModal: false,
   showVisualModal: false,
+  
+  // Batch State
+  jobs: [],
+  isProcessingQueue: false,
 };
 
 /**
@@ -34,6 +42,43 @@ function reducer(state, action) {
   switch (type) {
     case "SET_CONFIG":
       return { ...state, [payload.key]: payload.value };
+    case "ADD_FILES": {
+      const newJobs = payload.map((file) => ({
+        id: crypto.randomUUID(),
+        file,
+        status: "PENDING",
+        progress: 0,
+        resultBlob: null,
+        error: "",
+        extractedData: []
+      }));
+      return { ...state, jobs: [...state.jobs, ...newJobs] };
+    }
+    case "UPDATE_JOB": {
+      const { id, updates } = payload;
+      const newState = {
+        ...state,
+        jobs: state.jobs.map((job) =>
+          job.id === id ? { ...job, ...updates } : job
+        ),
+      };
+      // If we just completed a job, update the global preview to this one
+      if (updates.status === 'COMPLETED' && updates.extractedData) {
+        newState.extractedData = updates.extractedData;
+        const job = state.jobs.find(j => j.id === id);
+        newState.lastFile = job ? job.file : state.lastFile;
+      }
+      return newState;
+    }
+    case "SET_PROCESSING_QUEUE":
+      return { ...state, isProcessingQueue: payload };
+    case "CANCEL_JOB":
+      return {
+        ...state,
+        jobs: state.jobs.map((job) =>
+          job.id === payload ? { ...job, status: "CANCELLED" } : job
+        ),
+      };
     case "START_PROCESSING":
       return {
         ...state,
@@ -480,134 +525,179 @@ function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [password, setPassword] = useState("");
   const adjusterRef = useRef(null);
+  const jobsRef = useRef(state.jobs);
 
-  const extractFromPdf = async (
-    /** @type {File} */ file,
-    providedAnchors = null,
-    pdfPassword = "",
-  ) => {
-    if (!file) return;
+  useEffect(() => {
+    jobsRef.current = state.jobs;
+  }, [state.jobs]);
 
-    // Use provided anchors, or existing manual anchors if in manual mode
-    let anchorsToUse = providedAnchors;
-    if (anchorsToUse === null && state.showManualSettings) {
-      anchorsToUse = state.manualAnchors;
+  const processJob = async (jobId, config) => {
+    const job = jobsRef.current.find(j => j.id === jobId);
+    if (!job) return;
+
+    const { file } = job;
+    const arrayBuffer = await file.arrayBuffer();
+    // @ts-ignore
+    const pdf = await pdfjsLib.getDocument({
+      data: arrayBuffer,
+      password: "", // Batch currently doesn't support individual passwords easily
+    }).promise;
+
+    let anchors = config.showManualSettings ? config.manualAnchors : null;
+    if (!anchors?.length && !config.showManualSettings) {
+      const page = await pdf.getPage(1);
+      const content = await page.getTextContent();
+      const clusters = [];
+      content.items.forEach((it) => {
+        // @ts-ignore
+        const x = it.transform[4] + (it.width / 2);
+        let c = clusters.find((cl) =>
+          Math.abs(cl.avg - x) < config.colLeniency
+        );
+        if (c) {
+          c.pts.push(x);
+          c.avg = c.pts.reduce((a, b) => a + b, 0) / c.pts.length;
+        } else clusters.push({ avg: x, pts: [x] });
+      });
+      anchors = clusters.map((c) => c.avg).sort((a, b) => a - b);
     }
 
-    dispatch({ type: "START_PROCESSING", payload: { file } });
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      // @ts-ignore
-      const pdf = await pdfjsLib.getDocument({
-        data: arrayBuffer,
-        password: pdfPassword,
-      }).promise;
+    const allPageData = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      // Check cancellation
+      const currentJob = jobsRef.current.find(j => j.id === jobId);
+      if (!currentJob || currentJob.status === 'CANCELLED') throw new Error('CANCELLED');
 
-      let anchors = anchorsToUse;
-      if (!anchors?.length && !state.showManualSettings) {
-        dispatch({
-          type: "SET_STEP",
-          payload: { step: "Auto-detecting columns..." },
-        });
-        const page = await pdf.getPage(1);
-        const content = await page.getTextContent();
-        const clusters = [];
-        content.items.forEach((it) => {
-          // @ts-ignore
-          const x = it.transform[4] + (it.width / 2);
-          let c = clusters.find((cl) =>
-            Math.abs(cl.avg - x) < state.colLeniency
-          );
-          if (c) {
-            c.pts.push(x);
-            c.avg = c.pts.reduce((a, b) => a + b, 0) / c.pts.length;
-          } else clusters.push({ avg: x, pts: [x] });
-        });
-        anchors = clusters.map((c) => c.avg).sort((a, b) => a - b);
-      }
+      dispatch({ type: 'UPDATE_JOB', payload: { id: jobId, updates: { progress: Math.round((i / pdf.numPages) * 100) } } });
 
-      for (let i = 1; i <= pdf.numPages; i++) {
-        dispatch({
-          type: "SET_STEP",
-          payload: { step: `Reading Page ${i}/${pdf.numPages}...` },
-        });
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        const viewport = page.getViewport({ scale: 1.0 });
-        const scale = 800 / viewport.width;
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const viewport = page.getViewport({ scale: 1.0 });
+      const scale = 800 / viewport.width;
 
-        const items = content.items.map((it) => ({
-          // @ts-ignore
-          str: it.str,
-          // @ts-ignore
-          y: it.transform[5],
-          // @ts-ignore
-          centerX: (it.transform[4] + (it.width / 2)) * scale,
-        })).filter((it) => it.str.trim());
+      const items = content.items.map((it) => ({
+        // @ts-ignore
+        str: it.str,
+        // @ts-ignore
+        y: it.transform[5],
+        // @ts-ignore
+        centerX: (it.transform[4] + (it.width / 2)) * scale,
+      })).filter((it) => it.str.trim());
 
-        const lines = [];
-        items.forEach((it) => {
-          let l = lines.find((ln) => Math.abs(ln.y - it.y) < state.rowLeniency);
-          if (l) l.items.push(it);
-          else lines.push({ y: it.y, items: [it] });
-        });
-        lines.sort((a, b) => b.y - a.y);
-
-        const startIdx = lines.findIndex((ln) =>
-          ln.items.some((it) =>
-            it.str.toLowerCase().includes(state.triggerWord.toLowerCase())
-          )
-        );
-
-        const safeAnchors = anchors || [];
-        const rows = (startIdx === -1 ? lines : lines.slice(startIdx)).map(
-          (ln) => {
-            const r = new Array(safeAnchors.length).fill("");
-            ln.items.forEach((it) => {
-              let b = 0, m = Infinity;
-              safeAnchors.forEach((a, idx) => {
-                const d = Math.abs(a - it.centerX);
-                if (d < m) {
-                  m = d;
-                  b = idx;
-                }
-              });
-              r[b] = r[b] ? r[b] + " " + it.str : it.str;
-            });
-            return r;
-          },
-        );
-
-        dispatch({
-          type: "APPEND_PAGE_DATA",
-          payload: {
-            pageData: { page: i, rows },
-            anchors: i === 1 ? anchors : undefined,
-          },
-        });
-      }
-      dispatch({
-        type: "FINISH_PROCESSING",
-        payload: undefined,
+      const lines = [];
+      items.forEach((it) => {
+        let l = lines.find((ln) => Math.abs(ln.y - it.y) < config.rowLeniency);
+        if (l) l.items.push(it);
+        else lines.push({ y: it.y, items: [it] });
       });
-    } catch (err) {
-      console.error(err);
-      if (err instanceof Error) {
-        if (err.name === "PasswordException") {
-          dispatch({
-            type: "SHOW_PASSWORD_PROMPT",
-            payload: undefined,
+      lines.sort((a, b) => b.y - a.y);
+
+      const startIdx = lines.findIndex((ln) =>
+        ln.items.some((it) =>
+          it.str.toLowerCase().includes(config.triggerWord.toLowerCase())
+        )
+      );
+
+      const safeAnchors = anchors || [];
+      const rows = (startIdx === -1 ? lines : lines.slice(startIdx)).map(
+        (ln) => {
+          const r = new Array(safeAnchors.length).fill("");
+          ln.items.forEach((it) => {
+            let b = 0, m = Infinity;
+            safeAnchors.forEach((a, idx) => {
+              const d = Math.abs(a - it.centerX);
+              if (d < m) {
+                m = d;
+                b = idx;
+              }
+            });
+            r[b] = r[b] ? r[b] + " " + it.str : it.str;
           });
-        } else {
-          dispatch({ type: "SET_ERROR", payload: { error: err.message } });
+          return r;
+        },
+      );
+      allPageData.push({ page: i, rows });
+    }
+
+    const tsv = allPageData.flatMap((p) => p.rows).map((r) => r.join("\t")).join("\n");
+    return {
+      resultBlob: new Blob([tsv], { type: 'text/tab-separated-values' }),
+      extractedData: allPageData
+    };
+  };
+
+  const startQueue = useCallback(async () => {
+    if (state.isProcessingQueue) return;
+    dispatch({ type: 'SET_PROCESSING_QUEUE', payload: true });
+
+    const config = {
+      showManualSettings: state.showManualSettings,
+      manualAnchors: state.manualAnchors,
+      colLeniency: state.colLeniency,
+      rowLeniency: state.rowLeniency,
+      triggerWord: state.triggerWord
+    };
+
+    try {
+      const pendingIds = state.jobs.filter(j => j.status === 'PENDING').map(j => j.id);
+      for (const id of pendingIds) {
+        const currentJob = jobsRef.current.find(j => j.id === id);
+        if (!currentJob || currentJob.status !== 'PENDING') continue;
+
+        dispatch({ type: 'UPDATE_JOB', payload: { id, updates: { status: 'PROCESSING' } } });
+        try {
+          const result = await processJob(id, config);
+          dispatch({ type: 'UPDATE_JOB', payload: { id, updates: { status: 'COMPLETED', ...result, progress: 100 } } });
+        } catch (err) {
+          if (err.message !== 'CANCELLED') {
+            dispatch({ type: 'UPDATE_JOB', payload: { id, updates: { status: 'ERROR', error: err.message } } });
+          }
         }
       }
+    } finally {
+      dispatch({ type: 'SET_PROCESSING_QUEUE', payload: false });
     }
+  }, [state.jobs, state.isProcessingQueue, state.showManualSettings, state.manualAnchors, state.colLeniency, state.rowLeniency, state.triggerWord]);
+
+  const downloadZip = useCallback(async () => {
+    const zip = new JSZip();
+    state.jobs.forEach(job => {
+      if (job.status === 'COMPLETED' && job.resultBlob) {
+        zip.file(job.file.name.replace(/\.pdf$/i, '') + '.tsv', job.resultBlob);
+      }
+    });
+    const content = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(content);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'extracted-tables.zip';
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [state.jobs]);
+
+  const downloadJob = useCallback((id) => {
+    const job = state.jobs.find(j => j.id === id);
+    if (job && job.resultBlob) {
+      const url = URL.createObjectURL(job.resultBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = job.file.name.replace(/\.pdf$/i, '') + '.tsv';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  }, [state.jobs]);
+
+  const handleFileSelect = (files) => {
+    dispatch({ type: 'ADD_FILES', payload: Array.from(files) });
   };
 
-  const handleReparse = () => {
-    extractFromPdf(state.lastFile, state.manualAnchors, password);
-  };
+  const uiJobs = state.jobs.map(j => ({
+    id: j.id,
+    name: j.file.name,
+    status: j.status,
+    progress: j.progress,
+    error: j.error
+  }));
 
   const copyTSV = () => {
     const text = state.extractedData.flatMap((p) => p.rows).map((r) =>
@@ -669,12 +759,21 @@ function App() {
         `))}
         <div class="p-4">
           <drop-zone
-            ?disabled="${state.isProcessing}"
-            .fileName="${state.lastFile?.name}"
-            @file-selected="${(e) => extractFromPdf(e.detail[0])}"
+            ?disabled="${state.isProcessingQueue}"
+            @file-selected="${(e) => handleFileSelect(e.detail)}"
           ></drop-zone>
         </div>
       `))}
+
+      <batch-processor
+        .jobs="${uiJobs}"
+        .isProcessing="${state.isProcessingQueue}"
+        title="Batch Extraction"
+        @start-requested="${startQueue}"
+        @zip-requested="${downloadZip}"
+        @cancel-job="${(e) => dispatch({ type: 'CANCEL_JOB', payload: e.detail })}"
+        @download-job="${(e) => downloadJob(e.detail)}"
+      ></batch-processor>
 
       ${adwGroup("Configuration", adwCard(html`
         ${adwRow("Extraction Mode", "Choose between automatic detection or manual markers", adwSegmentedControl([
@@ -744,24 +843,7 @@ function App() {
             `)}
           </div>
         </div>
-
-        <div class="p-3 bg-black/[0.02] border-t border-[var(--adw-card-border)]">
-          <button
-            class="btn btn-primary w-full"
-            @click="${handleReparse}"
-            ?disabled="${!state.lastFile || state.isProcessing}"
-          >
-            Apply & Reparse
-          </button>
-        </div>
       `))}
-
-      ${when(state.isProcessing, () => html`
-        <status-message type="info" .message="${state.processingStep}"></status-message>
-      `)}
-      ${when(state.error, () => html`
-        <status-message type="error" .message="${state.error}"></status-message>
-      `)}
 
       ${when(state.extractedData.length, () => adwGroup("Data Preview", html`
         <div class="mt-4 space-y-6">
@@ -792,41 +874,6 @@ function App() {
       `))}
 
       <!-- Modals -->
-      ${when(state.showPasswordModal, () => html`
-        <div class="modal-backdrop">
-          <div class="adw-card shadow-xl w-full max-w-sm mx-4 overflow-hidden">
-            <div class="header-bar">
-              <div class="header-bar-title">Protected PDF</div>
-            </div>
-            <form
-              class="p-6 flex flex-col gap-4"
-              @submit="${(e) => {
-                e.preventDefault();
-                extractFromPdf(state.lastFile, state.manualAnchors, password);
-              }}"
-            >
-              <p class="text-sm text-center text-muted">
-                This document is encrypted. Please enter the password to unlock it.
-              </p>
-              <input
-                type="password"
-                class="w-full"
-                placeholder="Password"
-                .value="${password}"
-                @input="${(e) => setPassword(e.target.value)}"
-                required
-                autofocus
-              />
-              <div class="flex flex-col gap-2 mt-2">
-                <button type="submit" class="btn btn-primary">Unlock</button>
-                <button type="button" class="btn btn-flat" @click="${() => dispatch({ type: "SET_CONFIG", payload: { key: "showPasswordModal", value: false } })}">
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      `)}
       ${when(state.showVisualModal, () => html`
         <visual-alignment-modal
           .pdfFile="${state.lastFile}"
