@@ -27,11 +27,13 @@
     ></script>
 
     <!-- JSZip -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
+    ></script>
 
     <style>
       @import url("/unified-theme.css");
-      
+
       /* Custom scrollbar for text areas */
       .custom-scrollbar::-webkit-scrollbar {
         width: 8px;
@@ -50,9 +52,7 @@
   </head>
   <body>
     <!-- Main Haunted Web Component -->
-    <app-layout title="PDF OCR & Text Overlay">
-      <ocr-app></ocr-app>
-    </app-layout>
+    <ocr-app></ocr-app>
 
     <script type="module" src="/ocr-pdf.js">
     </script>

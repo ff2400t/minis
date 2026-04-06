@@ -7,6 +7,7 @@ import { component } from "/vendor/haunted.js";
  * @property {string} name
  * @property {'PENDING'|'PROCESSING'|'COMPLETED'|'CANCELLED'|'ERROR'} status
  * @property {number} progress
+ * @property {string} [secondaryStatus] - Optional second line of status (e.g. "Page 1/5")
  * @property {string} [error]
  */
 
@@ -86,10 +87,10 @@ function BatchProcessor({
 
       .job-row {
         position: relative;
-        padding: 0.75rem 1rem;
+        padding: 1rem;
         display: flex;
         align-items: center;
-        gap: 1rem;
+        gap: 1.25rem;
         transition: background-color 0.2s;
       }
       .job-row:not(:last-child) {
@@ -99,10 +100,9 @@ function BatchProcessor({
         background-color: var(--adw-view-bg, #f8fafc);
       }
       
-      /* Libadwaita Style Circular Buttons */
       .btn-circle {
-        width: 30px;
-        height: 30px;
+        width: 32px;
+        height: 32px;
         border-radius: 50%;
         display: flex;
         align-items: center;
@@ -118,8 +118,8 @@ function BatchProcessor({
         background: rgba(0,0,0,0.05);
       }
       .btn-circle svg {
-        width: 16px;
-        height: 16px;
+        width: 18px;
+        height: 18px;
       }
       .btn-circle.destructive {
         color: var(--adw-destructive-bg, #ef4444);
@@ -180,22 +180,41 @@ function BatchProcessor({
       .job-info {
         flex: 1;
         min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
       }
       .job-name {
-        font-size: 0.875rem;
-        font-weight: 500;
+        font-size: 0.9375rem;
+        font-weight: 600;
         color: var(--adw-window-fg, #1e293b);
-        display: block;
+        line-height: 1.2;
       }
-      .job-status-text {
-        font-size: 0.75rem;
+      .job-secondary {
+        font-size: 0.8125rem;
         color: var(--text-muted, #64748b);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 500;
       }
+      .job-badge {
+        font-size: 0.625rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        padding: 0.125rem 0.4rem;
+        border-radius: 4px;
+        background: #f1f5f9;
+        color: #475569;
+        letter-spacing: 0.025em;
+      }
+      .job-badge.processing { background: #dbeafe; color: #1e40af; }
+      .job-badge.completed { background: #dcfce7; color: #166534; }
     </style>
 
     <div class="mt-8">
       <div class="batch-header">
-        <h2 class="text-lg font-semibold text-slate-700">${title}</h2>
+        <h2 class="text-lg font-bold text-slate-800">${title}</h2>
         <div class="flex gap-2">
            ${!isProcessing && hasPending ? html`
              <button @click="${onStart}" class="btn btn-primary">
@@ -211,10 +230,9 @@ function BatchProcessor({
       </div>
 
       <div class="batch-container">
-        <!-- Integrated Global Progress -->
         <div class="global-status-bar">
           <div class="global-status-info">
-            <span>Progress</span>
+            <span>Overall Progress</span>
             <span>${completedJobs} / ${totalJobs} (${overallProgress}%)</span>
           </div>
           <div class="global-progress-line" style="width: ${overallProgress}%"></div>
@@ -223,7 +241,6 @@ function BatchProcessor({
         <div class="divide-y divide-slate-100">
           ${jobs.map(job => html`
             <div class="job-row ${job.status === 'PROCESSING' ? 'processing' : ''}">
-              <!-- Status Icon -->
               <div class="status-icon">
                 ${job.status === 'COMPLETED' ? html`
                   <svg class="text-success" viewBox="0 0 20 20" fill="currentColor">
@@ -237,25 +254,28 @@ function BatchProcessor({
                   <svg class="text-muted" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
                   </svg>
-                ` : (job.status === 'CANCELLED' ? html`
+                ` : html`
                   <svg class="text-muted" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
                   </svg>
-                ` : html`
-                  <svg class="text-error" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                  </svg>
-                `)))}
+                `))}
               </div>
 
-              <!-- Job Details -->
               <div class="job-info">
                 <span class="job-name truncate" title="${job.name}">${job.name}</span>
-                <span class="job-status-text">${job.status}${job.status === 'PROCESSING' ? ` • ${job.progress}%` : ''}</span>
+                <div class="job-secondary">
+                  <span class="job-badge ${job.status === 'PROCESSING' ? 'processing' : (job.status === 'COMPLETED' ? 'completed' : '')}">
+                    ${job.status}
+                  </span>
+                  ${job.secondaryStatus ? html`
+                    <span class="truncate">• ${job.secondaryStatus}</span>
+                  ` : (job.status === 'PROCESSING' ? html`
+                    <span>• ${job.progress}%</span>
+                  ` : "")}
+                </div>
                 ${job.error ? html`<div class="text-xs text-error mt-0.5 truncate">${job.error}</div>` : ""}
               </div>
               
-              <!-- Action Buttons -->
               <div class="flex items-center gap-1">
                 ${job.status === 'COMPLETED' ? html`
                   <button @click="${() => onDownloadJob(job.id)}" class="btn-circle suggested" title="Download">
@@ -273,7 +293,6 @@ function BatchProcessor({
                 ` : "")}
               </div>
 
-              <!-- Item-specific Status Line (Active when processing) -->
               ${job.status === 'PROCESSING' ? html`
                 <div class="item-progress-bar" style="width: ${job.progress}%"></div>
               ` : ""}
