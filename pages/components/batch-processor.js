@@ -1,4 +1,4 @@
-import { html } from "/vendor/lit-html.js";
+import { html, classMap } from "/vendor/lit-html.js";
 import { component } from "/vendor/haunted.js";
 
 /**
@@ -240,7 +240,7 @@ function BatchProcessor({
 
         <div class="divide-y divide-slate-100">
           ${jobs.map(job => html`
-            <div class="job-row ${job.status === 'PROCESSING' ? 'processing' : ''}">
+            <div class="job-row ${classMap({ processing: job.status === 'PROCESSING' })}">
               <div class="status-icon">
                 ${job.status === 'COMPLETED' ? html`
                   <svg class="text-success" viewBox="0 0 20 20" fill="currentColor">
@@ -264,7 +264,10 @@ function BatchProcessor({
               <div class="job-info">
                 <span class="job-name truncate" title="${job.name}">${job.name}</span>
                 <div class="job-secondary">
-                  <span class="job-badge ${job.status === 'PROCESSING' ? 'processing' : (job.status === 'COMPLETED' ? 'completed' : '')}">
+                  <span class="job-badge ${classMap({ 
+                    processing: job.status === 'PROCESSING',
+                    completed: job.status === 'COMPLETED'
+                  })}">
                     ${job.status}
                   </span>
                   ${job.secondaryStatus ? html`

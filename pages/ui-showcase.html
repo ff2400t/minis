@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UI Component Showcase</title>
+    <link rel="stylesheet" href="/unified-theme.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <ui-showcase></ui-showcase>
+
+    <script type="module">
+        import { html, render, when, nothing, classMap, styleMap } from "/vendor/lit-html.js";
+        import { component, useState } from "/vendor/haunted.js";
+        import "/components/app-layout.js";
+        import { 
+            adwCard, 
+            adwGroup, 
+            adwRow, 
+            adwExpanderRow, 
+            adwEntryRow, 
+            adwStatusPage, 
+            adwBanner, 
+            adwSegmentedControl, 
+            adwBadge 
+        } from "/components/ui.js";
+
+        function ShowcaseApp() {
+            const [isExpanderOpen, setIsExpanderOpen] = useState(false);
+            const [entryValue, setEntryValue] = useState("Default Value");
+            const [segmentedValue, setSegmentedValue] = useState("left");
+            const [showBanner, setShowBanner] = useState(false);
+            const [bannerType, setBannerType] = useState("info");
+
+            const triggerBanner = (type) => {
+                setBannerType(type);
+                setShowBanner(true);
+                setTimeout(() => setShowBanner(false), 3000);
+            };
+
+            return html`
+                <app-layout title="UI Component Showcase">
+                    ${when(showBanner, () => adwBanner(`This is a ${bannerType} banner!`, bannerType, () => setShowBanner(false)))}
+
+                    <div class="max-w-4xl mx-auto p-6 lg:p-12 space-y-12">
+                        
+                        <section class="space-y-2">
+                            <h2 class="text-3xl font-black text-slate-900 tracking-tight">Component Gallery</h2>
+                            <p class="text-slate-500 font-medium">Standardized Libadwaita-inspired building blocks for the Pages project.</p>
+                        </section>
+
+                        <!-- Basic Groups & Rows -->
+                        ${adwGroup("Basic Groups & Rows", adwCard(html`
+                            ${adwRow("Standard Row", "This is a basic row with a title and subtitle.")}
+                            ${adwRow("Action Row", "A row containing a primary action button.", html`
+                                <button class="btn btn-primary btn-pill px-4" @click="${() => triggerBanner('success')}">Click Me</button>
+                            `)}
+                            ${adwRow("Status Badge Row", "Using the adwBadge component for indicators.", html`
+                                <div class="flex gap-2">
+                                    ${adwBadge("Active")}
+                                    ${adwBadge(42)}
+                                </div>
+                            `)}
+                            ${adwRow("Switch Row", "The standard nd-switch toggle.", html`
+                                <input type="checkbox" class="nd-switch" checked>
+                            `)}
+                        `))}
+
+                        <!-- Specialized Controls -->
+                        ${adwGroup("Specialized Controls", adwCard(html`
+                            ${adwExpanderRow(
+                                "Expander Row", 
+                                "Click to reveal more options below.", 
+                                isExpanderOpen, 
+                                () => setIsExpanderOpen(!isExpanderOpen),
+                                html`
+                                    <div class="p-4 space-y-4">
+                                        <p class="text-sm text-slate-600">This content is only visible when the row is expanded. You can nest other components here.</p>
+                                        ${adwCard(html`
+                                            <div class="p-3 text-xs font-mono bg-slate-50">Nested content inside the expander</div>
+                                        `)}
+                                    </div>
+                                `
+                            )}
+                            ${adwEntryRow(
+                                "Entry Row", 
+                                entryValue, 
+                                (e) => setEntryValue(e.target.value), 
+                                "Type something..."
+                            )}
+                            ${adwRow("Segmented Control", "Ideal for mode switching.", adwSegmentedControl([
+                                { label: "Left", active: segmentedValue === "left", onClick: () => setSegmentedValue("left") },
+                                { label: "Right", active: segmentedValue === "right", onClick: () => setSegmentedValue("right") }
+                            ], "160px"))}
+                        `))}
+
+                        <!-- Status Pages -->
+                        ${adwGroup("Status Layouts", adwCard(html`
+                            ${adwStatusPage(
+                                "✨", 
+                                "Status Page Example", 
+                                "Use this for empty states, successful completions, or landing pages.",
+                                html`<button class="btn btn-secondary px-8" @click="${() => triggerBanner('info')}">Refresh State</button>`
+                            )}
+                        `))}
+
+                        <!-- Standard Elements (Native Styled) -->
+                        <section class="space-y-6 pt-6 border-t border-slate-100">
+                            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest px-2">Native Element Styling</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div class="space-y-4">
+                                    <h4 class="text-sm font-bold text-slate-700">Buttons</h4>
+                                    <div class="flex flex-wrap gap-3">
+                                        <button class="btn btn-primary">Primary</button>
+                                        <button class="btn btn-secondary">Secondary</button>
+                                        <button class="btn btn-destructive">Destructive</button>
+                                        <button class="btn btn-flat">Flat</button>
+                                    </div>
+                                    <div class="flex flex-wrap gap-3">
+                                        <button class="btn btn-primary btn-pill px-6">Pill Primary</button>
+                                        <button class="btn btn-secondary btn-pill px-6">Pill Secondary</button>
+                                    </div>
+                                </div>
+                                <div class="space-y-4">
+                                    <h4 class="text-sm font-bold text-slate-700">Inputs</h4>
+                                    <div class="space-y-3">
+                                        <input type="text" class="w-full" placeholder="Standard Text Input">
+                                        <select class="w-full">
+                                            <option>Option One</option>
+                                            <option>Option Two</option>
+                                        </select>
+                                        <textarea class="w-full h-24" placeholder="Standard Textarea"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                    </div>
+
+                    <!-- Sidebar Example -->
+                    <div slot="utility">
+                        ${adwGroup("Quick Actions", adwCard(html`
+                            ${adwRow("Success", null, html`<button class="btn btn-flat" @click="${() => triggerBanner('success')}">Show</button>`)}
+                            ${adwRow("Warning", null, html`<button class="btn btn-flat text-orange-600" @click="${() => triggerBanner('error')}">Show</button>`)}
+                        `))}
+                        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 mt-6">
+                            <p class="text-[11px] text-slate-500 font-medium leading-relaxed">
+                                This sidebar demonstrates how the <code class="bg-white/80 px-1 rounded">utility</code> slot in <code class="bg-white/80 px-1 rounded">app-layout</code> can be used for secondary controls.
+                            </p>
+                        </div>
+                    </div>
+                </app-layout>
+            `;
+        }
+
+        customElements.define("ui-showcase", component(ShowcaseApp, { useShadowDOM: false }));
+    </script>
+</body>
+</html>

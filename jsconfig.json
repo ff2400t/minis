@@ -10,13 +10,15 @@
     "resolveJsonModule": true, // Ensures JSON imports work
     "baseUrl": ".", // Base directory for resolving non-relative module imports
     "paths": {
-      "*": ["node_modules/*", "src/*"] // Define module resolution paths
+      // "*": ["node_modules/*", "src/*"] // Define module resolution paths
+      "*": ["pages/*"] // Define module resolution paths
     },
     "exclude": ["node_modules"] // Exclude node_modules folder from being included
   },
   "include": [
     "**/*.html", // Include all HTML files
-    "**/*.js" // Include all JavaScript files
+    "**/*.js", // Include all JavaScript files
+    "**/*.d.ts" // Include all JavaScript files
   ],
   "exclude": [
     "node_modules" // Exclude node_modules to avoid unnecessary checking
