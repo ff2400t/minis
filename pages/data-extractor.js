@@ -96,7 +96,7 @@ export const BUILT_IN_PARSERS = [
       /Year (?<Year>[\d-]+)\s+Period\s+(?<Period>.*)\s+GSTIN\s+of\s+the\s+supplier\s+(?<GSTIN>\w+)\s+2\(a\)\.\s+Legal\s+name\s+of\s+the\s+registered\s+person\s+(?<Name>.*)\s+2\(b\).*Date of ARN (?<ARN_Date>[\d\/]+)/,
     // another attempt to fix the above
     table:
-      /\([a-e]\s?\) (?<Particular>[A-Z].*?) (?<TaxableValue>-?\d+\.\d\d|-)\s+(?<IGST>\-?d+\.\d\d|-)\s+(?<CGST>-?\d+\.\d\d|-)\s+(?<SGST>-?\d+\.\d\d|-)\s+(?<Cess>-?\d+\.\d\d|-)\s+/g,
+      /\([a-e]\s?\) (?<Particular>[A-Z].*?) (?<TaxableValue>-?\d+\.\d\d|-)\s+(?<IGST>-?\d+\.\d\d|-)\s+(?<CGST>-?\d+\.\d\d|-)\s+(?<SGST>-?\d+\.\d\d|-)\s+(?<Cess>-?\d+\.\d\d|-)\s+/g,
     /** @type {ParseFunc}*/
     func: (text, metadataRegex, tableRegex) => {
       if (metadataRegex === undefined || tableRegex === undefined) {
