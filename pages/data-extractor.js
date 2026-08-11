@@ -132,9 +132,16 @@ export const BUILT_IN_PARSERS = [
   },
   {
     name: "TDS",
-    matches: ["INCOME TAX DEPARTMENT", "Challan Receipt"],
+    matches: ["INCOME TAX DEPARTMENT", "Challan Receipt", "Nature of Payment"],
     metadata:
       /Name : (?<Name>.*?)\s+Ass.* Nature of Payment : (?<SectionNo>\w+)\s+Amount \(in\s+Rs\.\) : ₹ (?<Amount>\d[\d,.]*).*(?<DepositDate>\d\d\-\s?\w{3}-\d{4})/,
+    table: undefined,
+  },
+    {
+    name: "TDS-1",
+    matches: ["INCOME TAX DEPARTMENT", "Challan Receipt"],
+    metadata:
+      /Name : (?<Name>.*?)\s+Ass.* Amount \(in\s+Rs\.\) : ₹ (?<Amount>\d[\d,.]*).*(?<DepositDate>\d\d\-\s?\w{3}-\d{4})/,
     table: undefined,
   },
   {
